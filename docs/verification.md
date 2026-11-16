@@ -11,11 +11,13 @@
 
 Comenzile exacte și rezultatul ultimei rulări se află în `verification-results.json` din distribuția de proiect. Numerele nu includ teste de browser care nu au fost executate.
 
-## Limită a mediului de lucru
+## Verificat în browser pe găzduirea HTTPS
 
-Serverul local a pornit, însă conexiunile de verificare la loopback au fost respinse cu `EACCES`, iar legătura cu previzualizarea în browser nu a putut deschide o filă controlabilă. Prin urmare, această sesiune nu confirmă aspectul randat, funcționarea interactivă în browser, comportamentul IndexedDB/Worker în browsere reale, instalarea PWA, modul avion sau consumul pe telefoane modeste.
+La 16 noiembrie 2026, toate cele 7 verificări de la https://andregit7.github.io/radio/checks.html au trecut în browserul integrat. Ele verifică tranzacțiile IndexedDB, înlocuirea eșuată, restaurarea JSON fără dublare, arhiva în Worker, catalogul și reperele. Baza de test este temporară și separată de datele de studiu. Rezultatele și identificatorii buildurilor sunt în `browser-checks.json`.
 
-Există un test de integrare în `dist/checks.html`, executabil pe dispozitivul dezvoltatorului. El verifică tranzacția cu eroare injectată, restaurarea fără dublare, arhiva în Worker, selecția explicită și reperele. Folosește o bază temporară și nu citește progresul real.
+Pachetul original de 80 de cazuri a fost importat în ambele aplicații. Au fost deschise primul caz, imaginea de 944 × 1100 pixeli, observația legată de reper, configurarea recapitulării și editorul Studio. Study afișează cache-ul aplicației drept pregătit offline. Acest indicator nu înlocuiește testul de pornire în mod avion.
+
+Previzualizarea locală a fost blocată de conexiunea la loopback; verificarea interactivă s-a făcut pe adresele HTTPS publicate. Instalarea pe Windows, Android, iOS și macOS, modul avion și consumul pe telefoane modeste rămân de verificat.
 
 ## Listă manuală înainte de distribuția către colegi
 
