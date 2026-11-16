@@ -1,5 +1,7 @@
 # Radia · Study și Pack Studio
 
+[Deschide Study](https://andregit7.github.io/radio/) · [Deschide Pack Studio](https://andregit7.github.io/radio/studio/) · [Cod sursă](https://github.com/Andregit7/radio)
+
 Două aplicații web statice, fără conturi, backend, API-uri AI, fonturi externe sau dependențe JavaScript de la terți la rulare. Codul sursă este chiar codul servit browserului.
 
 **Study** este pentru studenți: import de pachete, atlas, explicații structurate, repere legate de text, catalog de diagnostice cu căutare, grile, simulări, recapitulare și backup.
@@ -51,9 +53,9 @@ node tools/check.mjs
 
 Testele Node verifică filtrarea românească, selecția și notarea prin identificatori, planificarea recapitulării, schimbarea cheilor, validarea datelor și importul/exportul ZIP. Arhivele de test includ traversare de directoare, nume duplicate, fișiere active, suprapuneri, dimensiuni excesive și CRC incorect. Dacă pachetul original nu este prezent, testul separat al celor 80 de cazuri este marcat „skipped”.
 
-Pentru teste de integrare în browser, pornește Study și deschide `http://127.0.0.1:4173/checks.html`. Aceste teste folosesc o bază IndexedDB temporară, separată de datele de studiu. Verifică tranzacțiile, restaurarea fără dublare, workerul ZIP, catalogul și geometria reperelor. Verificările sunt excluse din distribuția publică.
+Pentru teste de integrare în browser, pornește Study și deschide `http://127.0.0.1:4173/checks.html`. Aceste teste folosesc o bază IndexedDB temporară, separată de datele de studiu. Verifică tranzacțiile, restaurarea fără dublare, workerul ZIP, catalogul și geometria reperelor. Testele nu intră în cache-ul aplicației. O copie pentru dezvoltatori este disponibilă la https://andregit7.github.io/radio/checks.html; distribuțiile statice generate rămân fără aceste fișiere auxiliare.
 
-**Starea verificării acestei versiuni:** testele Node și verificările statice au trecut. Conexiunea de previzualizare din mediul de lucru nu a fost disponibilă; verificările interactive în browser, instalarea pe cele patru platforme, pornirea în mod avion și măsurătorile pe un telefon modest rămân de efectuat. Această limită nu trebuie confundată cu testare reușită pe dispozitive.
+**Starea verificării acestei versiuni:** 26 de teste Node, 176 de verificări statice și 7 verificări de integrare în browser au trecut. Pachetul de 80 de cazuri a fost importat în Study și în Studio, iar primul caz și legătura observație–imagine au fost deschise. Instalarea pe cele patru platforme, pornirea în mod avion și măsurătorile pe un telefon modest rămân de efectuat. Dovezile sunt în `docs/browser-checks.json`.
 
 Lista de verificare manuală este în `docs/verification.md`.
 
