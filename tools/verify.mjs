@@ -7,10 +7,18 @@ const run=spawnSync(process.execPath,['--test','--test-reporter=tap',...tests],{
 const check=spawnSync(process.execPath,[path.join(root,'tools/check.mjs')],{cwd:root,encoding:'utf8'});
 await mkdir(path.join(root,'test-results'),{recursive:true});await writeFile(path.join(root,'test-results/node-tests.tap'),run.stdout+run.stderr);
 const metric=name=>Number(run.stdout.match(new RegExp(`# ${name} (\\d+)`))?.[1] || 0);
+let browserIntegration={executed:false,reason:'Run checks.html in a browser and record the observed results in docs/browser-checks.json.'};
+try {
+  const evidence=JSON.parse(await readFile(path.join(root,'docs/browser-checks.json'),'utf8'));
+  const study=JSON.parse(await readFile(path.join(root,'dist/release.json'),'utf8'));
+  const studio=JSON.parse(await readFile(path.join(root,'studio/release.json'),'utf8'));
+  browserIntegration=evidence.testedBuilds?.study===study.buildId && evidence.testedBuilds?.studio===studio.buildId
+    ?evidence:{executed:false,reason:'App files changed after the recorded browser checks; repeat them for these builds.'};
+} catch {}
 const report={version:JSON.parse(await readFile(path.join(root,'package.json'),'utf8')).version,generatedAt:new Date().toISOString(),
   nodeTests:{exitCode:run.status,tests:metric('tests'),passed:metric('pass'),failed:metric('fail'),skipped:metric('skipped')},
   staticChecks:{exitCode:check.status,result:check.stdout.trim()},
-  browserIntegration:{executed:false,reason:'Local preview was blocked: loopback EACCES and unavailable in-app browser connection.'},
+  browserIntegration,
   deviceInstallation:{executed:false,platforms:['Windows','Android','iOS','macOS']},
   coursePack:{cases:80,diagnoses:60,sourceDerivedMCQs:21,draftAnnotations:1}};
 await writeFile(path.join(root,'verification-results.json'),JSON.stringify(report,null,2)+'\n');

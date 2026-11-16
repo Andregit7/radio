@@ -6,7 +6,7 @@ from pathlib import Path
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
-EXCLUDED = {'.git', 'node_modules', 'starter-pack', 'releases', 'test-results'}
+EXCLUDED = {'.git', 'node_modules', 'starter-pack', 'releases', 'test-results', '__pycache__'}
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
@@ -46,6 +46,10 @@ def main():
         archive.writestr('SOURCE-CHECKSUMS.json', json.dumps(report, ensure_ascii=False, indent=2) + '\n')
         archive.writestr('START-HERE.md', '''# Radia v0.1.0
 
+Study: https://andregit7.github.io/radio/
+Pack Studio: https://andregit7.github.io/radio/studio/
+Cod sursă: https://github.com/Andregit7/radio
+
 Codul și instrucțiunile sunt în `radia/README.md`.
 
 1. Pentru dezvoltare locală: deschide `radia/start-study.cmd` pe Windows sau rulează `node tools/serve.mjs` din directorul `radia`.
@@ -55,7 +59,7 @@ Codul și instrucțiunile sunt în `radia/README.md`.
 
 `public-study-site/` și `public-studio-site/` sunt distribuții statice separate pentru găzduire HTTPS/GitHub Pages. Nu conțin materialele de curs.
 
-Testele de logică și arhive au trecut. Verificarea interactivă, instalarea pe dispozitive și modul avion nu au putut fi executate în mediul de lucru. Vezi `radia/docs/verification.md` și `radia/verification-results.json`.
+Au trecut 26 de teste Node, 176 de verificări statice și 7 verificări de integrare în browser. Pachetul de 80 de cazuri a fost importat în ambele aplicații. Instalarea pe dispozitive, modul avion și performanța pe un telefon modest rămân de verificat. Vezi `radia/docs/verification.md` și `radia/verification-results.json`.
 
 Nu publica întregul ZIP privat ca repository public: conține separat pachetul de curs. Codul aplicației poate fi publicat independent.
 ''')
