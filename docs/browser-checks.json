@@ -1,0 +1,38 @@
+{
+  "executed": true,
+  "recordedAt": "2026-11-16T18:50:20.141018+00:00",
+  "environment": "ChatGPT in-app browser",
+  "url": "https://andregit7.github.io/radio/checks.html",
+  "passed": 7,
+  "failed": 0,
+  "testedBuilds": {
+    "study": "1bc188780016",
+    "studio": "d0d2ac49d5ff"
+  },
+  "checks": [
+    "IndexedDB pack and image transaction",
+    "Failed replacement preserves installed pack",
+    "Repeated JSON restore does not duplicate attempts",
+    "ZIP export and import in module Worker",
+    "Catalogue filtering and explicit selection",
+    "Normalized image annotations and hidden exam hints",
+    "Replaced pack asset cleanup"
+  ],
+  "observedSmokeChecks": {
+    "emptyStudyLibrary": true,
+    "studyImportedCases": 80,
+    "readerImageLoaded": {
+      "width": 944,
+      "height": 1100
+    },
+    "linkedObservationClicked": true,
+    "practiceSetupOpened": true,
+    "studioImportedCases": 80,
+    "offlineShellReadyIndicator": true
+  },
+  "notExecuted": [
+    "PWA installation on Windows, Android, iOS and macOS",
+    "Airplane mode relaunch",
+    "Low-end phone performance benchmark"
+  ]
+}
