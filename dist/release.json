@@ -1,0 +1,108 @@
+{
+  "app": "radia-study",
+  "version": "0.1.0",
+  "buildId": "1bc188780016",
+  "files": [
+    {
+      "path": ".nojekyll",
+      "bytes": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "icons/apple-touch-icon.png",
+      "bytes": 995,
+      "sha256": "8f3cf2cad5bcc776c12d54deb2a485d422bece70dc4f54e86605919e5174c64f"
+    },
+    {
+      "path": "icons/icon-192.png",
+      "bytes": 1060,
+      "sha256": "21aca2108bff2a003ef577d35b1b3006f4fc5959df4720242099412cc1f15598"
+    },
+    {
+      "path": "icons/icon-512.png",
+      "bytes": 2803,
+      "sha256": "b1fe23be63057fcee8473aad7d099c98381b1c18d79265143f713526fbc478bc"
+    },
+    {
+      "path": "icons/icon.svg",
+      "bytes": 333,
+      "sha256": "daf4b936b422ec474898c4847022ef9c25d89222f6b565ccad6c1aa70d81f139"
+    },
+    {
+      "path": "icons/maskable-512.png",
+      "bytes": 2803,
+      "sha256": "b1fe23be63057fcee8473aad7d099c98381b1c18d79265143f713526fbc478bc"
+    },
+    {
+      "path": "index.html",
+      "bytes": 1574,
+      "sha256": "37ceb0a8b5d6d84a8da5042b28b131e1cce31144ef5fc1bb1daf6cb25b4b1077"
+    },
+    {
+      "path": "js/app.js",
+      "bytes": 52959,
+      "sha256": "8cc15a3436c3d0a526be1b62b9b4c5edcf179d9beddf1cfb1f50dc05b35c8be9"
+    },
+    {
+      "path": "js/archive-worker.js",
+      "bytes": 598,
+      "sha256": "0ea47fcf18a13ea1b9779c0afcc13143fb4716c1822ef0e344fd30edc4533d4a"
+    },
+    {
+      "path": "js/archive.js",
+      "bytes": 1048,
+      "sha256": "cece9152bdef54ca5fe12116fe1af00ffb701b9572bb280b76695fbcdd669966"
+    },
+    {
+      "path": "js/catalogue.js",
+      "bytes": 3491,
+      "sha256": "935f3dc62750c8bdfff16cd901b7b277f89fd240f7a1a573b841f66cbb004ae0"
+    },
+    {
+      "path": "js/core.js",
+      "bytes": 5691,
+      "sha256": "7efdc5d2080fdbdbf9a7294bd097291e60803fe42fd911ab2d1c8726cc92ad03"
+    },
+    {
+      "path": "js/dom.js",
+      "bytes": 3672,
+      "sha256": "a6c991e535d845e06de4f032828d20c4b89c5922016bbde7bc4361e912a84b41"
+    },
+    {
+      "path": "js/schema.js",
+      "bytes": 13760,
+      "sha256": "7af84ef9335d399034ac2da2316fe69954570d93e2ac23a2e6d90e95a417568b"
+    },
+    {
+      "path": "js/storage.js",
+      "bytes": 7636,
+      "sha256": "5a5e9e8e38836572b3243e059f385caa2f27fa395fbef8d010b6ec61f8c0250a"
+    },
+    {
+      "path": "js/viewer.js",
+      "bytes": 6305,
+      "sha256": "391dcb1b17d7b8eb6781f77ef2dcdfe8ecc385b2542a61746497d84f1a7a6fa0"
+    },
+    {
+      "path": "js/zip.js",
+      "bytes": 7863,
+      "sha256": "051910100be708ce569ac46f55292abc20469a6d9fe5b8b9ec581203a3ca74db"
+    },
+    {
+      "path": "manifest.webmanifest",
+      "bytes": 614,
+      "sha256": "834737fe779adfa4d5b6442d9516df197f599cefa096850e532e2fbfa510e6cc"
+    },
+    {
+      "path": "styles.css",
+      "bytes": 29355,
+      "sha256": "0c65538bf3eb4ed0152569708bb33080b3c42b8b88af21025b78cfc32230725b"
+    },
+    {
+      "path": "sw.js",
+      "bytes": 1728,
+      "sha256": "1bbff05f6a906a29dc3cea68a93218af898eea8676674f81a4be6b8644381948"
+    }
+  ],
+  "totalBytes": 144288
+}
