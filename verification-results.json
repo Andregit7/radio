@@ -1,0 +1,34 @@
+{
+  "version": "0.1.0",
+  "generatedAt": "2026-11-16T18:22:17.695Z",
+  "nodeTests": {
+    "exitCode": 0,
+    "tests": 26,
+    "passed": 26,
+    "failed": 0,
+    "skipped": 0
+  },
+  "staticChecks": {
+    "exitCode": 0,
+    "result": "176 static, syntax, cache, local-asset and shared-module checks passed."
+  },
+  "browserIntegration": {
+    "executed": false,
+    "reason": "Local preview unavailable: in-app browser reported ERR_CONNECTION_TIMED_OUT for the running loopback server."
+  },
+  "deviceInstallation": {
+    "executed": false,
+    "platforms": [
+      "Windows",
+      "Android",
+      "iOS",
+      "macOS"
+    ]
+  },
+  "coursePack": {
+    "cases": 80,
+    "diagnoses": 60,
+    "sourceDerivedMCQs": 21,
+    "draftAnnotations": 1
+  }
+}

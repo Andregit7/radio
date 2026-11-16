@@ -1,0 +1,15 @@
+node_modules/
+__pycache__/
+*.pyc
+starter-pack/
+dist/packs/
+dist/starter.json
+releases/
+test-results/
+.DS_Store
+Thumbs.db
+
+# Private, course-specific authoring utilities
+tools/build_starter_pack.py
+tools/starter-annotations.json
+tools/preview-assets.mjs
