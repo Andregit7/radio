@@ -1,0 +1,5 @@
+{
+  "id":"./","name":"Radia Studio · Pachete de studiu","short_name":"Radia Studio","lang":"ro",
+  "start_url":"./","scope":"./","display":"standalone","background_color":"#f7f8f5","theme_color":"#155f59",
+  "icons":[{"src":"./icons/icon-192.png","sizes":"192x192","type":"image/png"},{"src":"./icons/icon-512.png","sizes":"512x512","type":"image/png"}]
+}
