@@ -1,4 +1,4 @@
-const VERSION='0.1.0-d0d2ac49d5ff',PREFIX=`radia-studio:${self.registration.scope}:`,CACHE=PREFIX+VERSION;
+const VERSION='0.2.0-55dce97f9f14',PREFIX=`radia-studio:${self.registration.scope}:`,CACHE=PREFIX+VERSION;
 const FILES=['./','./index.html','./base.css','./studio.css','./studio.js','./manifest.webmanifest','./release.json','./icons/icon.svg','./icons/icon-192.png','./icons/icon-512.png','./icons/apple-touch-icon.png','./lib/core.js','./lib/schema.js','./lib/zip.js','./lib/archive.js','./lib/archive-worker.js','./lib/dom.js'];
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(FILES.map(path=>new Request(new URL(path,self.registration.scope),{cache:'reload'}))))));
 self.addEventListener('activate',event=>event.waitUntil((async()=>{for(const name of await caches.keys())if(name.startsWith(PREFIX) && name!==CACHE)await caches.delete(name);await self.clients.claim();})()));

@@ -34,7 +34,7 @@ export function validateAnnotation(row, imageIds, itemIds) {
 }
 
 export function validatePack(raw) {
-  requireThat(object(raw) && raw.format === 'radiology-study-pack' && raw.version === 1, 'Acest format de pachet nu este compatibil cu Radia v1.');
+  requireThat(object(raw) && raw.format === 'radiology-study-pack' && raw.version === 1, 'Acest format de pachet nu este compatibil cu RadioEasy v1.');
   requireThat(id(raw.id) && text(raw.title, 200) && raw.title.trim() && text(raw.revision, 60) && raw.revision.trim(), 'Identificarea pachetului este incompletă.');
   const curriculum = raw.curriculum;
   requireThat(object(curriculum) && id(curriculum.id) && text(curriculum.title, 200) && list(curriculum.chapters, 50) && curriculum.chapters.length, 'Curriculum invalid.');

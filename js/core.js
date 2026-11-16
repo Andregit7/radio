@@ -1,4 +1,4 @@
-export const APP_VERSION = '0.1.0';
+export const APP_VERSION = '0.2.0';
 export const DAY = 86_400_000;
 export const SECTION_LABELS = Object.freeze({
   examination: 'Tipul examinării', projection: 'Incidență', findings: 'Semiologie',
@@ -39,6 +39,15 @@ export function shuffled(values, random = Math.random) {
 
 export const progressKey = (packId, questionId, kind = 'catalogue') => `${packId}|${questionId}|${kind}`;
 export function questionSignature(question) {
+  // The catalogue/MCQ output stays byte-identical so v0.1.0 progress survives.
+  if(question.kind==='interpretation')
+    return JSON.stringify(['interpretation',question.sectionId,question.prompt,[...question.itemIds].sort()]);
+  if(question.kind==='regions')
+    return JSON.stringify(['regions',question.sectionId,question.prompt,
+      [...question.regions].sort((a,b)=>a.annotationId.localeCompare(b.annotationId)).map(row=>[row.annotationId,row.itemId])]);
+  if(question.kind==='matching')
+    return JSON.stringify(['matching',question.sectionId,question.prompt,
+      [...question.pairs].sort((a,b)=>a.regionId.localeCompare(b.regionId)).map(row=>[row.regionId,row.itemId])]);
   return JSON.stringify([question.kind,question.sectionId,question.prompt,[...question.correctOptionIds].sort(),
     (question.options || []).map(row=>[row.id,row.label]).sort((a,b)=>a[0].localeCompare(b[0]))]);
 }

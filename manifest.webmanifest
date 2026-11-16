@@ -1,7 +1,7 @@
 {
   "id": "./",
-  "name": "Radia · Radiologie",
-  "short_name": "Radia",
+  "name": "RadioEasy · Radiologie",
+  "short_name": "RadioEasy",
   "lang": "ro",
   "description": "Atlas și exerciții de radiologie, disponibile offline.",
   "start_url": "./",

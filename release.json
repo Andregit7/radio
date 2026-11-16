@@ -1,7 +1,7 @@
 {
-  "app": "radia-study",
-  "version": "0.1.0",
-  "buildId": "1bc188780016",
+  "app": "radioeasy-study",
+  "version": "0.2.0",
+  "buildId": "065d3d4e5d5e",
   "files": [
     {
       "path": ".nojekyll",
@@ -35,13 +35,13 @@
     },
     {
       "path": "index.html",
-      "bytes": 1574,
-      "sha256": "37ceb0a8b5d6d84a8da5042b28b131e1cce31144ef5fc1bb1daf6cb25b4b1077"
+      "bytes": 1556,
+      "sha256": "236b2c2ec469ec0203c43654abe0531312e526d543c58f99598a915c1548c367"
     },
     {
       "path": "js/app.js",
-      "bytes": 52959,
-      "sha256": "8cc15a3436c3d0a526be1b62b9b4c5edcf179d9beddf1cfb1f50dc05b35c8be9"
+      "bytes": 69906,
+      "sha256": "d3d1c983d04e2e756c02b9c64c0dc0c291ca066f3815d42985a8c1417fbfc429"
     },
     {
       "path": "js/archive-worker.js",
@@ -60,8 +60,8 @@
     },
     {
       "path": "js/core.js",
-      "bytes": 5691,
-      "sha256": "7efdc5d2080fdbdbf9a7294bd097291e60803fe42fd911ab2d1c8726cc92ad03"
+      "bytes": 6377,
+      "sha256": "7c90a2d0f6ce8f2722e8cfa56a55e18576929b47620a245b831a80dbcbbb498d"
     },
     {
       "path": "js/dom.js",
@@ -69,19 +69,24 @@
       "sha256": "a6c991e535d845e06de4f032828d20c4b89c5922016bbde7bc4361e912a84b41"
     },
     {
+      "path": "js/exercises.js",
+      "bytes": 8161,
+      "sha256": "0220e9d9dbb61f05c5306b526bf67caf3e45b91b5f3aa66f16cc649b3fdcdf20"
+    },
+    {
       "path": "js/schema.js",
-      "bytes": 13760,
-      "sha256": "7af84ef9335d399034ac2da2316fe69954570d93e2ac23a2e6d90e95a417568b"
+      "bytes": 13764,
+      "sha256": "c27514f760b24f197b84e90b08b60cab52ab4e2c156ef40032c3dbc097072f9b"
     },
     {
       "path": "js/storage.js",
-      "bytes": 7636,
-      "sha256": "5a5e9e8e38836572b3243e059f385caa2f27fa395fbef8d010b6ec61f8c0250a"
+      "bytes": 8572,
+      "sha256": "fc6e89ba1937b39e485d2a57e7562ec7db8730247c30a92dd0e601e839ebda5b"
     },
     {
       "path": "js/viewer.js",
-      "bytes": 6305,
-      "sha256": "391dcb1b17d7b8eb6781f77ef2dcdfe8ecc385b2542a61746497d84f1a7a6fa0"
+      "bytes": 6870,
+      "sha256": "0974917298b0a3218e13010c192aad78155cbb86a2024684857bc11f6e398c9a"
     },
     {
       "path": "js/zip.js",
@@ -90,19 +95,19 @@
     },
     {
       "path": "manifest.webmanifest",
-      "bytes": 614,
-      "sha256": "834737fe779adfa4d5b6442d9516df197f599cefa096850e532e2fbfa510e6cc"
+      "bytes": 622,
+      "sha256": "3b92f2b45e196edef449be3f96779c400f851c67127ec631d17fcd26c6d8332d"
     },
     {
       "path": "styles.css",
-      "bytes": 29355,
-      "sha256": "0c65538bf3eb4ed0152569708bb33080b3c42b8b88af21025b78cfc32230725b"
+      "bytes": 34759,
+      "sha256": "6150ef60754f1bf50165d5e69eb6398e722ce8a96bd8394897886ed9c09d3b68"
     },
     {
       "path": "sw.js",
-      "bytes": 1728,
-      "sha256": "1bbff05f6a906a29dc3cea68a93218af898eea8676674f81a4be6b8644381948"
+      "bytes": 1748,
+      "sha256": "cbd7e07c005a4377595fb8cff21f4b2be9658d5fe5bdbffca3e320c6bd52ca33"
     }
   ],
-  "totalBytes": 144288
+  "totalBytes": 177001
 }

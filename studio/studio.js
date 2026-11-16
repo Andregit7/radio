@@ -37,7 +37,7 @@ async function openDraft(id){if(draft)await saveNow();const record=await req(db.
 
 function render(){
   if(imageURL){URL.revokeObjectURL(imageURL);imageURL=null;}
-  const head=el('header',{class:'studio-header'},el('div',{class:'studio-brand'},el('img',{src:'./icons/icon.svg',alt:''}),'radia',el('small',{},'PACK STUDIO')),
+  const head=el('header',{class:'studio-header'},el('div',{class:'studio-brand'},el('img',{src:'./icons/icon.svg',alt:''}),'RadioEasy',el('small',{},'PACK STUDIO')),
     el('div',{class:'studio-header-actions'},el('span',{class:'save-status',id:'save-status'},draft?'Salvat local':'Offline după prima încărcare'),
       button([icon('plus',15),'Pachet nou'],act(newPack),'button secondary'),button([icon('upload',15),'Deschide ZIP'],()=>document.getElementById('open-pack').click(),'button secondary'),
       draft?button([icon('download',15),'Validează & exportă'],act(exportDraft)):null));
