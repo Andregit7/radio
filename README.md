@@ -1,4 +1,4 @@
-# Radia · Study și Pack Studio
+# RadioEasy · Study și Pack Studio
 
 [Deschide Study](https://andregit7.github.io/radio/) · [Deschide Pack Studio](https://andregit7.github.io/radio/studio/) · [Cod sursă](https://github.com/Andregit7/radio)
 
