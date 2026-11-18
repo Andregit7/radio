@@ -128,8 +128,7 @@ not to your feature. Do not commit it with unrelated work.
   **untracked** and covered by `.gitignore`. They stay on disk; regenerate them with
   `npm run release` / `npm run verify`.
 - `dist/js/exercises.js` is tracked, so a clean clone can build a working release.
-- `app/.git` still has **no commits**: branch `main`, index populated, no history.
-  Until there is a first commit, `git log` cannot answer "what changed", and nothing
-  can be diffed, reverted, or reviewed. Make the first commit deliberately.
+- `app/.git` has a root commit on branch `main`; use `git log`, `git diff` and
+  `git show` for future changes. Keep generated artifacts out of later commits.
 - `dist/sw.js` and `studio/sw.js` are tracked, but `release` rewrites their `VERSION`
   line in place. That diff belongs to a release — do not bundle it with a feature.
