@@ -49,7 +49,9 @@ function render(){
   const work=el('main',{class:'studio-workspace'},el('nav',{class:'studio-tabs','aria-label':'Secțiuni Studio'},...[["case","Caz & repere"],["catalogue","Diagnostice"],["curriculum","Programă"],["questions","Grile"]].map(([id,label])=>button(label,()=>{tab=id;render();},`chip ${tab===id?'active':''}`))),
     undoSnapshot?button('Anulează ultima editare',act(async()=>{const old=undoSnapshot;undoSnapshot=null;draft.pack=old.pack;draft.bank=old.bank;changed();await saveNow();render();}),'button ghost'):null);
   if(tab==='case')renderCaseEditor(work);else if(tab==='catalogue')renderCatalogue(work);else if(tab==='curriculum')renderCurriculum(work);else renderQuestions(work);
+  const previousList=root.querySelector('.studio-case-list'),scrollTop=previousList?.scrollTop || 0,scrollLeft=previousList?.scrollLeft || 0;
   root.replaceChildren(head,el('div',{class:'studio-layout'},side,work));
+  const nextList=root.querySelector('.studio-case-list');if(nextList){nextList.scrollTop=scrollTop;nextList.scrollLeft=scrollLeft;}
 }
 
 function renderCaseEditor(work){

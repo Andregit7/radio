@@ -509,7 +509,6 @@ function openExplanation(record,session,index){
   const body=el('div',{class:'explanation-body'},
     el('div',{class:'explanation-figure'},image),
     fullscreenButton(image),
-    el('p',{class:'field-help'},'Rezultatele rămân deschise; închide fereastra pentru a te întoarce la listă.'),
     el('div',{class:'diagnosis-line'},el('span',{},'Diagnostic pozitiv'),el('strong',{},labels.join('; ') || 'Neprecizat în sursă')),
     el('div',{class:'learner-answer'},el('span',{},'Răspunsul tău'),learnerAnswerBlock(record,q,answer)),
     reference,
