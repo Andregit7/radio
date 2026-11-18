@@ -40,8 +40,10 @@ This version is intended for use in a single active window per application. Simu
 
 ## Offline and updates
 
-The Service Worker stores the explicit list of application files atomically. Imported material is in IndexedDB, separate from the cache. The distribution uses a cache identifier computed from content, so an incomplete version does not replace the active cache.
+The Service Worker stores the explicit list of application files atomically. Imported material is in IndexedDB, separate from the cache. The distribution uses a cache identifier computed from content, so an incomplete version does not replace the active cache. Both workers honor an explicit `ACTIVATE_UPDATE` message and call `skipWaiting()`; the package version alone is never the update signal.
 
-Study asks explicitly to activate an update and does not activate it from its own unfinished session. It does not delete IndexedDB on activation. It clears only its own caches, with the prefix of its own origin/paths. Studio waits for the old windows to close for the natural activation of an update.
+The update check compares the published `release.json` build hash with the active shell-cache build hash. A difference forces a fresh worker registration with that build hash, bypassing stale HTTP/CDN copies of `sw.js`. If the new worker installs, it waits and is activated explicitly. If installation or activation fails, the application unregisters the worker and reloads from the network; IndexedDB is untouched. Settings exposes the active and published build IDs plus a manual forced-reload repair action.
+
+Study asks explicitly to activate an update and does not activate it from its own unfinished session. It does not delete IndexedDB on activation. It clears only its own caches, with the prefix of its own origin/paths. Studio saves the local draft before activation and uses the same recovery path.
 
 The initial start and the import of a pack received online require the files to be already downloaded. Afterwards, studying, tests, editing and export rely on local data. The browser and the user can delete storage; external backups are required.
