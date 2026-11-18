@@ -1,0 +1,9 @@
+﻿# Source-checkout leftovers; never publish
+dist/
+docs/
+tests/
+tools/
+node_modules/
+starter-pack/
+releases/
+test-results/
