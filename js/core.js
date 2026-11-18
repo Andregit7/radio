@@ -40,6 +40,10 @@ export function shuffled(values, random = Math.random) {
 export const progressKey = (packId, questionId, kind = 'catalogue') => `${packId}|${questionId}|${kind}`;
 export function questionSignature(question) {
   // The catalogue/MCQ output stays byte-identical so v0.1.0 progress survives.
+  if(question.kind==='structured')
+    return question.signature || JSON.stringify(['structured',question.caseId,question.steps]);
+  if(question.kind==='written')
+    return JSON.stringify(['written',question.caseId,question.sectionId,question.prompt,question.rubric]);
   if(question.kind==='interpretation')
     return JSON.stringify(['interpretation',question.sectionId,question.prompt,[...question.itemIds].sort()]);
   if(question.kind==='regions')
@@ -95,16 +99,18 @@ export function availableQuestions(pack, bank = null, { kind = 'mixed', chapterI
   const allowed = new Set(chapterIds);
   const cases = new Map(pack.cases.map(item => [item.id, item]));
   const selectedCases = pack.cases.filter(item => !allowed.size || allowed.has(item.chapterId));
-  const catalogue = kind === 'mcq' ? [] : selectedCases.filter(item => item.diagnosisIds.length).map(item => ({
+  const catalogue = kind === 'mcq' || kind === 'written' ? [] : selectedCases.filter(item => item.diagnosisIds.length).map(item => ({
     id: `diagnosis:${item.id}`, caseId: item.id, chapterId: item.chapterId, sectionId: 'diagnosis',
     kind: 'catalogue', prompt: 'Care este diagnosticul pozitiv?', correctOptionIds: item.diagnosisIds,
     feedback: item.sections.find(section => section.id === 'diagnosis')?.items.map(row => row.text).join('\n') || '',
   }));
-  const mcqs = kind === 'catalogue' ? [] : (bank?.items || []).filter(item => {
+  const authored = (bank?.items || []).filter(item => {
     const source = cases.get(item.caseId);
     return source && item.reviewStatus !== 'draft' && (!allowed.size || allowed.has(source.chapterId));
   }).map(item => ({ ...item, chapterId: cases.get(item.caseId).chapterId }));
-  return [...catalogue, ...mcqs.filter(q=>kind!=='mixed' || q.sectionId!=='diagnosis' || !catalogue.some(c=>c.caseId===q.caseId))];
+  const mcqs = kind === 'catalogue' || kind === 'written' ? [] : authored.filter(item => (item.kind || 'mcq') === 'mcq');
+  const written = kind === 'catalogue' || kind === 'mcq' ? [] : authored.filter(item => item.kind === 'written');
+  return [...catalogue, ...mcqs.filter(q=>kind!=='mixed' || q.sectionId!=='diagnosis' || !catalogue.some(c=>c.caseId===q.caseId)), ...written];
 }
 
 export function bytesLabel(bytes = 0) {

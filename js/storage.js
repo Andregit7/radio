@@ -67,7 +67,11 @@ export async function removePack(record) {
   keys.onsuccess=()=>keys.result.forEach(key=>assets.delete(key));await done;
 }
 
-const LEARNING_FIELDS=['attempts','correct','streak','lapses','intervalDays','dueAt','lastAt','lastCorrect','signature','sectionId','chapterId','caseId'];
+const LEARNING_FIELDS=['attempts','correct','streak','lapses','intervalDays','dueAt','lastAt','lastCorrect','signature','sectionId','chapterId','caseId','identified','total','selfAssessed'];
+
+export function learningVersion(progress={},selfAssessments={}){
+  return [...Object.keys(progress),...Object.keys(selfAssessments)].some(key=>/\|(structured|written)$/.test(key))?2:1;
+}
 
 function validateRecords(raw,pattern,extra=[]){
   const records=raw || {};
@@ -85,12 +89,17 @@ function validateRecords(raw,pattern,extra=[]){
 }
 
 export function validateLearning(raw) {
-  requireThat(raw && raw.format==='radiology-learning-backup' && raw.version===1,'Backup de progres incompatibil.');
+  requireThat(raw && raw.format==='radiology-learning-backup' && (raw.version===1 || raw.version===2),'Backup de progres incompatibil.');
   requireThat(Number.isFinite(raw.createdAt) && Array.isArray(raw.packs) && raw.packs.length<=100,'Metadate de backup invalide.');
-  const progress=validateRecords(raw.progress,/^[a-zA-Z0-9._:-]+\|[a-zA-Z0-9._:-]+\|(catalogue|mcq|matching)$/);
-  const selfAssessments=validateRecords(raw.selfAssessments,/^[a-zA-Z0-9._:-]+\|[a-zA-Z0-9._:-]+\|(interpretation|regions)$/,['identified','total','selfAssessed']);
+  if(raw.version===1)requireThat(learningVersion(raw.progress,raw.selfAssessments)===1,'Backupul versiunea 1 conține rezultate structurate.');
+  const progress=validateRecords(raw.progress,/^[a-zA-Z0-9._:-]+\|[a-zA-Z0-9._:-]+\|(catalogue|mcq|matching|structured)$/);
+  const selfAssessments=validateRecords(raw.selfAssessments,/^[a-zA-Z0-9._:-]+\|[a-zA-Z0-9._:-]+\|(interpretation|regions|written)$/);
+  for(const [key,value] of Object.entries(progress)){
+    if(!key.endsWith('|structured'))continue;
+    requireThat(Number.isInteger(value.total) && value.total>0 && value.total<=1000 && Number.isInteger(value.identified) && value.identified>=0 && value.identified<=value.total && value.selfAssessed===false,'Rezultat structurat invalid.');
+  }
   for(const value of Object.values(selfAssessments)){
-    requireThat(value.selfAssessed===true && Number.isInteger(value.total) && Number.isInteger(value.identified) && value.identified>=0 && value.identified<=value.total && value.total<=1000,'Autoevaluare invalidă.');
+    requireThat(value.selfAssessed===true && Number.isInteger(value.total) && value.total>0 && Number.isInteger(value.identified) && value.identified>=0 && value.identified<=value.total && value.total<=1000,'Autoevaluare invalidă.');
   }
   function keys(rows){requireThat(Array.isArray(rows) && rows.length<=20000 && rows.every(v=>typeof v==='string' && /^[a-zA-Z0-9._:-]+\|[a-zA-Z0-9._:-]+$/.test(v) && v.length<260),'Lista de marcaje este invalidă.');return [...new Set(rows)];}
   requireThat(raw.packs.every(row=>row && typeof row.id==='string' && /^[a-zA-Z0-9._:-]{1,120}$/.test(row.id) && typeof row.revision==='string' && row.revision.length<100),'Referințe de pachet invalide.');
@@ -98,9 +107,10 @@ export function validateLearning(raw) {
 }
 
 export async function learningSnapshot(records) {
-  return {format:'radiology-learning-backup',version:1,createdAt:Date.now(),
+  const progress=await getMeta('progress',{}),selfAssessments=await getMeta('selfAssessments',{});
+  return {format:'radiology-learning-backup',version:learningVersion(progress,selfAssessments),createdAt:Date.now(),
     packs:records.map(row=>({id:row.id,revision:row.pack.revision})),
-    progress:await getMeta('progress',{}),selfAssessments:await getMeta('selfAssessments',{}),
+    progress,selfAssessments,
     bookmarks:await getMeta('bookmarks',[]),visited:await getMeta('visited',[])};
 }
 

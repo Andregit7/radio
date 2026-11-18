@@ -7,6 +7,7 @@ import {scheduleReview,questionSignature,progressKey} from '../js/core.js';
 import {interpretationExercise,regionsExercise,matchingExercise,gradeMatching,selfAssessmentItems} from '../js/exercises.js';
 const output=document.getElementById('results'),run=document.getElementById('run'),fixture=document.getElementById('fixture');
 const assert=(condition,message)=>{if(!condition)throw new Error(message);};
+const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
 const encode=value=>new TextEncoder().encode(JSON.stringify(value));
 run.addEventListener('click',async()=>{
   run.disabled=true;output.textContent='';let db,name;let passed=0;
@@ -41,7 +42,7 @@ run.addEventListener('click',async()=>{
       const c={id:'px',title:'Caz interpretare',chapterId:'respiratory',diagnosisIds:['endo'],source:{page:1},images:[{id:'primary',path:'images/test.png',width:8,height:8}],
         sections:[{id:'examination',items:[{id:'e1',text:'Rx torace'}]},{id:'findings',items:[{id:'f1',text:'Opacitate'},{id:'f2',text:'Distrucție'},{id:'f3',text:'Retracție'}]},{id:'diagnosis',items:[{id:'d1',text:'endobronșic - alias'}]},{id:'differentials',items:[]}],
         annotations:[{id:'a1',imageId:'primary',itemId:'f1',shape:'ellipse',cx:.4,cy:.5,rx:.1,ry:.2,reviewStatus:'reviewed'},{id:'a2',imageId:'primary',itemId:'f2',shape:'ellipse',cx:.5,cy:.5,rx:.1,ry:.2,reviewStatus:'reviewed'},{id:'a3',imageId:'primary',itemId:'f3',shape:'ellipse',cx:.6,cy:.5,rx:.1,ry:.2,reviewStatus:'reviewed'},{id:'a4',imageId:'primary',itemId:'f1',shape:'ellipse',cx:.7,cy:.5,rx:.1,ry:.2,reviewStatus:'draft'}]};
-      const ex=interpretationExercise(c);assert(ex,'Exercițiul de interpretare lipsește');assert.deepEqual(ex.sections.map(s=>s.id),['examination','findings','diagnosis'],'Secțiuni goale evaluate');
+      const ex=interpretationExercise(c);assert(ex,'Exercițiul de interpretare lipsește');assert(same(ex.sections.map(s=>s.id),['examination','findings','diagnosis']),'Secțiuni goale evaluate');
       const items=selfAssessmentItems({pack:{cases:[c],diagnoses:[{id:'endo',label:'Cancer endobronșic',aliases:['alias']}]}},ex);
       assert(items.some(i=>i.id==='diagnosis:endo'&&i.text==='Cancer endobronșic'),'Diagnostic canonic lipsă');assert(!items.some(i=>i.text.includes('alias')),'Alias expus');
       const regions=regionsExercise(c);assert(regions?.regions.length===3,'Repere verificate lipsă');

@@ -1,12 +1,15 @@
 import { SECTION_LABELS, availableQuestions, shuffled, scheduleReview } from './core.js';
+import { structuredExercise } from './structured.js';
 
 export const EXERCISE_LABELS = Object.freeze({
   interpretation: 'Interpretare completă',
+  structured: 'Interpretare structurată',
   regions: 'Regiuni numerotate',
   matching: 'Potrivire',
   short: 'Întrebări scurte',
   catalogue: 'Alegere din listă',
   mcq: 'Întrebare cu variante',
+  written: 'Răspuns scris',
 });
 
 export const SECTION_PROMPTS = Object.freeze({
@@ -101,7 +104,8 @@ export function availableExercises(pack, bank = null, { chapterIds = [], random 
   const cases = pack.cases.filter(item => !allowed.size || allowed.has(item.chapterId));
   const build = builder => cases.map(builder).filter(Boolean);
   return {
-    interpretation: build(interpretationExercise),
+    interpretation: build(item => item.structured ? null : interpretationExercise(item)),
+    structured: build(item => structuredExercise(pack, item)),
     regions: build(regionsExercise),
     matching: build(item => matchingExercise(item, random)),
     short: availableQuestions(pack, bank, { kind: 'mixed', chapterIds }),

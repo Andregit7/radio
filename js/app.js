@@ -10,6 +10,7 @@ import { catalogueSelector } from './catalogue.js';
 import { EXERCISE_LABELS, SECTION_PROMPTS, SECTION_ORDER, availableExercises, gradeMatching, matchingScore,
   recordSelfAssessment, sessionAnswer, advanceSession, finishSessionEarly, receivedAnswers, selfAssessmentItems,
   canonicalDiagnosisLabels } from './exercises.js';
+import { gradeStructured, structuredRecord, describeObservation, stepLabel, optionLabel as structuredOptionLabel } from './structured.js';
 
 const state={packs:[],activeId:null,progress:{},selfAssessments:{},bookmarks:[],visited:[],session:null,starter:null,offlineReady:false,registration:null,prompt:null,route:'library',page:0,chapter:'all',query:'',onlyBookmarks:false,updateChecking:false};
 let cleanup=[],renderToken=0,activeExport=false,installing=false;
@@ -29,7 +30,8 @@ function coverageLabel(item){return item.completeness==='diagnosis-only'?'Doar d
 
 function imageThumb(record,item,className='',onCleanup=registerCleanup){
   const img=el('img',{alt:`Radiografie: ${item.title}`,class:className,loading:'lazy'});let disposed=false,url;
-  assetBlob(record,item.images[0].path).then(blob=>{if(!disposed && blob){url=URL.createObjectURL(blob);img.src=url;}}).catch(()=>{});
+  const primary=item.images.find(row=>row.role!=='comparison') || item.images[0];
+  assetBlob(record,primary.path).then(blob=>{if(!disposed && blob){url=URL.createObjectURL(blob);img.src=url;}}).catch(()=>{});
   onCleanup(()=>{disposed=true;if(url)URL.revokeObjectURL(url);});return img;
 }
 
@@ -81,7 +83,7 @@ function renderLibrary(main){
       state.starter?el('div',{class:'starter-footnote'},`${state.starter.cases} de cazuri din notițele tale`):null));
     main.append(el('section',{class:'panel privacy-panel'},el('h3',{},'Materialele rămân pe acest dispozitiv.'),el('p',{},'Aplicația citește fișierul ales local și nu îl trimite către un server.')));return;
   }
-  const pack=record.pack,questions=[...availableQuestions(pack,record.bank,{kind:'catalogue'}),...availableQuestions(pack,record.bank,{kind:'mcq'}),...availableExercises(pack,record.bank,{chapterIds:[]}).matching],learned=pack.cases.filter(item=>state.visited.includes(visitKey(record,item))).length;
+  const pack=record.pack,pools=availableExercises(pack,record.bank,{chapterIds:[]}),questions=[...availableQuestions(pack,record.bank,{kind:'catalogue'}),...availableQuestions(pack,record.bank,{kind:'mcq'}),...pools.matching,...pools.structured],learned=pack.cases.filter(item=>state.visited.includes(visitKey(record,item))).length;
   const valid=questions.map(q=>matchingProgress(state.progress[progressKey(record.id,q.id,q.kind)],q)).filter(Boolean);
   const attempts=valid.reduce((n,r)=>n+r.attempts,0),correct=valid.reduce((n,r)=>n+r.correct,0);
   const autoDue=valid.filter(r=>r.dueAt<=Date.now()).length;
@@ -126,11 +128,13 @@ async function renderReader(main,id){
   const record=active();if(!record){main.append(noPack());return;}const pack=record.pack,item=pack.cases.find(row=>row.id===id);
   if(!item){main.append(el('div',{class:'empty-state'},el('h2',{},'Cazul nu este în acest pachet.'),link('Înapoi la cazuri','#cases','button')));return;}
   const key=visitKey(record,item);
+  const comparisons=(item.comparisons||[]).map(row=>{const target=pack.cases.find(caseRow=>caseRow.id===row.caseId),imageRow=target?.images.find(image=>image.id===row.imageId);return target&&imageRow?{label:row.label,path:imageRow.path}:null;}).filter(Boolean);
   if(!state.visited.includes(key)){state.visited.push(key);setMeta('visited',state.visited).catch(error=>toast(friendlyError(error),true));}
   const bookmark=button(icon('bookmark',17),act(async()=>{const exists=state.bookmarks.includes(key);state.bookmarks=exists?state.bookmarks.filter(v=>v!==key):[...state.bookmarks,key];await setMeta('bookmarks',state.bookmarks);bookmark.classList.toggle('active',!exists);bookmark.setAttribute('aria-pressed',String(!exists));toast(exists?'Caz eliminat din salvate.':'Caz salvat.');}),`icon-button ${state.bookmarks.includes(key)?'active':''}`,{'aria-label':'Salvează cazul','aria-pressed':String(state.bookmarks.includes(key))});
   main.append(el('header',{class:'reader-header'},link([icon('back',14),'Toate cazurile'],'#cases','button ghost'),el('div',{class:'section-head'},el('h1',{},item.title),el('div',{class:'button-row'},bookmark,button([icon('exam',15),'Exersează cazul'],act(()=>openCasePractice(record,item)),'button secondary'))),el('div',{class:'reader-meta'},badge(chapterLabel(pack,item.chapterId),'green'),item.completeness!=='full'?badge(coverageLabel(item),'orange'):null,item.source.page?el('span',{},`Notițe, pagina ${item.source.page}`):null)));
   const rows=new Map(),bodies=new Map();
-  const viewer=imageViewer(record,item,{onSelect:itemId=>{const row=rows.get(itemId);if(row){const body=row.parentElement;body.hidden=false;const toggle=bodies.get(body);toggle?.setAttribute('aria-expanded','true');for(const r of rows.values())r.classList.toggle('active',r===row);row.scrollIntoView({behavior:'smooth',block:'nearest'});}}});registerCleanup(()=>viewer.destroy());
+  const viewer=imageViewer(record,item,{comparisons,onSelect:itemId=>{const row=rows.get(itemId);if(row){const body=row.parentElement;body.hidden=false;const toggle=bodies.get(body);toggle?.setAttribute('aria-expanded','true');for(const r of rows.values())r.classList.toggle('active',r===row);row.scrollIntoView({behavior:'smooth',block:'nearest'});}}});registerCleanup(()=>viewer.destroy());
+  const observationNotes=new Map((item.structured?.observations||[]).filter(row=>row.note).map(row=>[row.itemId,row.note]));
   const notes=el('section',{class:'interpretation','aria-label':'Interpretarea radiografiei'});
   if(item.annotations.some(a=>a.reviewStatus!=='reviewed'))notes.append(el('div',{class:'annotation-note'},icon('info',14),'Marcaje orientative, în curs de verificare.'));
   for(const [index,sectionId] of Object.keys(SECTION_LABELS).entries()){
@@ -140,16 +144,44 @@ async function renderReader(main,id){
     else for(const point of section.items){const linked=item.annotations.some(a=>a.itemId===point.id),row=el('div',{class:`finding ${linked?'linked':''}`,tabindex:linked?'0':null,role:linked?'button':null},point.text);
       if(linked){const select=()=>{viewer.selectItem(point.id);for(const r of rows.values())r.classList.toggle('active',r===row);};row.addEventListener('click',select);row.addEventListener('keydown',event=>{if(['Enter',' '].includes(event.key)){event.preventDefault();select();}});}
       body.append(row);rows.set(point.id,row);
+      if(observationNotes.has(point.id))body.append(el('p',{class:'study-note'},icon('info',13),observationNotes.get(point.id)));
     }
+    if(item.structured?.sectionNotes?.[sectionId])body.append(el('p',{class:'study-note'},icon('info',13),item.structured.sectionNotes[sectionId]));
     notes.append(el('section',{class:'notes-section'},toggle,body));
   }
   notes.append(el('details',{class:'source-disclosure'},el('summary',{},'Vezi transcrierea integrală'),el('div',{class:'source-text'},item.referenceText)));
   main.append(el('div',{class:'reader-grid'},viewer.node,notes));
+  const differentialLinks=(item.sections.find(section=>section.id==='differentials')?.items||[]).filter(row=>row.targetCaseId);
+  if(differentialLinks.length){
+    const panel=el('section',{class:'differential-panel'},el('div',{class:'section-head'},el('h2',{},'Diagnostice diferențiale')),el('p',{class:'field-help'},'Deschide un caz comparativ într-o fereastră, fără să părăsești cazul curent.'));
+    for(const row of differentialLinks){
+      const target=pack.cases.find(caseRow=>caseRow.id===row.targetCaseId);if(!target)continue;
+      panel.append(el('div',{class:'differential-row'},el('div',{},el('strong',{},row.text),el('small',{},`${target.title} · ${chapterLabel(pack,target.chapterId)}`)),button([icon('eye',15),'Compară'],()=>openCasePreview(record,target),'button secondary')));
+    }
+    main.append(panel);
+  }
   const index=pack.cases.indexOf(item);
   main.append(el('div',{class:'reader-pager'},index>0?link([icon('back',15),'Cazul anterior'],`#case/${pack.cases[index-1].id}`,'button secondary'):el('span'),index<pack.cases.length-1?link(['Cazul următor',icon('arrow',15)],`#case/${pack.cases[index+1].id}`,'button'):link('Toate cazurile','#cases','button')));
 }
 
+function openCasePreview(record,target){
+  let disposed=false,url;
+  const image=el('img',{class:'explanation-image',alt:`Radiografie: ${target.title}`});
+  const picture=target.images.find(row=>row.role!=='comparison') || target.images[0];
+  assetBlob(record,picture.path).then(blob=>{if(!disposed && blob){url=URL.createObjectURL(blob);image.src=url;}}).catch(()=>{});
+  const body=el('div',{class:'case-preview'},
+    el('div',{class:'case-preview-head'},image,badge(chapterLabel(record.pack,target.chapterId),'green')),
+    el('p',{class:'case-preview-note'},'Previzualizare comparativă. Cazul principal rămâne deschis; închide fereastra pentru a reveni.'),
+    el('div',{class:'diagnosis-line'},el('span',{},'Diagnostic pozitiv'),el('strong',{},canonicalDiagnosisLabels(record,target.id).join('; ') || 'Neprecizat în sursă')),
+    ...SECTION_ORDER.map(sectionId=>{const section=target.sections.find(row=>row.id===sectionId);return el('section',{class:'explanation-section'},el('h3',{},SECTION_LABELS[sectionId]),section?.items.length?el('ul',{},...section.items.map(item=>el('li',{},item.text))):el('p',{class:'missing'},'Nu este precizat în notițele sursă.'));}));
+  const dialog=modal(target.title,body,[button('Înapoi la caz',()=>dialog.close(),'button secondary')]);
+  dialog.classList.add('explanation-modal');
+  const cleanup=()=>{disposed=true;if(url)URL.revokeObjectURL(url);dialog.classList.remove('explanation-modal');dialog.removeEventListener('close',cleanup);};
+  dialog.addEventListener('close',cleanup);
+}
+
 const METHOD_COPY=Object.freeze({
+  structured:{label:'Interpretare structurată',description:'Alegi observațiile și proprietățile lor din banca capitolului, apoi diagnosticul. Se corectează automat.'},
   interpretation:{label:'Interpretare completă',description:'Scrii ce observi în fiecare secțiune. Fără marcaje pe imagine. La final compari cu notițele.'},
   regions:{label:'Regiuni numerotate',description:'Regiunile sunt numerotate pe imagine. Scrii ce reprezintă fiecare.'},
   matching:{label:'Potrivire',description:'Asociezi descrierile din notițe cu regiunile numerotate. Se corectează automat.'},
@@ -158,7 +190,7 @@ const METHOD_COPY=Object.freeze({
 
 function methodCounts(record,chapterIds){
   const pools=availableExercises(record.pack,record.bank,{chapterIds});
-  return {interpretation:pools.interpretation.length,regions:pools.regions.length,matching:pools.matching.length,short:pools.short.length};
+  return {structured:pools.structured.length,interpretation:pools.interpretation.length,regions:pools.regions.length,matching:pools.matching.length,short:pools.short.length};
 }
 
 function renderPractice(main,mode){
@@ -172,12 +204,11 @@ function renderPractice(main,mode){
     const other=session.mode==='exam'?'simulare':'recapitulare';
     main.append(el('div',{class:'resume-banner'},el('span',{},`Ai o ${other} începută. Răspunsurile sunt păstrate.`),
       button('Continuă sesiunea',act(async()=>{state.activeId=session.packId;const target=session.mode==='exam'?'exam':'practice';if(location.hash===`#${target}`)await render();else location.hash=target;}),'button secondary'),
-      button('Încheie',()=>confirmFinishSession(session),'button ghost')));
+      button('Încheie',()=>confirmFinishSession(),'button ghost')));
   }
   const pack=record.pack;
-  let method='interpretation';
   const capability=methodCounts(record,[]);
-  if(!capability.interpretation && capability.short)method='short';
+  let method=capability.structured?'structured':capability.interpretation?'interpretation':capability.short?'short':'interpretation';
   const scopeSelect=pack.curriculum.scopes.length>1?el('select',{class:'select','aria-label':'Ce parte din materie'},...pack.curriculum.scopes.map(scope=>el('option',{value:scope.id},scope.label))):null;
   const chapterSelect=el('select',{class:'select','aria-label':'Capitole'});
   const count=el('input',{class:'number-input',type:'number',min:'1',max:'100',value:method==='short'?'10':'5',inputmode:'numeric','aria-label':'Număr de exerciții'});
@@ -195,10 +226,10 @@ function renderPractice(main,mode){
   function chapterIds(){return chapterSelect.value==='all'?scopeChapters():[chapterSelect.value];}
   function drawMethods(counts){
     methodBox.replaceChildren(el('legend',{class:'field-label'},'Ce vrei să exersezi?'));
-    const order=['interpretation','regions','matching','short'];
+    const order=['structured','interpretation','regions','matching','short'];
     for(const id of order){
       const enabled=counts[id]>0,guided=id==='regions'||id==='matching';
-      const reason=!enabled?(guided?(capability[id]?'Nu există cazuri verificate în capitolul ales.':'Disponibil după verificarea marcajelor de pe imagine.'):'Nu există în selecția curentă.'):`${counts[id]} ${id==='short'?'întrebări disponibile':'cazuri disponibile'}`;
+      const reason=!enabled?(guided?(capability[id]?'Nu există cazuri verificate în capitolul ales.':'Disponibil după verificarea marcajelor de pe imagine.'):id==='structured'?'Disponibil după completarea observațiilor structurate.':'Nu există în selecția curentă.'):`${counts[id]} ${id==='short'?'întrebări disponibile':'cazuri disponibile'}`;
       const card=el('label',{class:`method-card ${method===id?'active':''} ${enabled?'':'disabled'}`},
         el('input',{type:'radio',name:'method',value:id,checked:method===id,disabled:!enabled,onchange:()=>{method=id;count.value=String(Math.min(id==='short'?10:5,counts[id]||1));updateAvailability();}}),
         el('span',{class:'method-copy'},el('strong',{},METHOD_COPY[id].label),el('span',{},METHOD_COPY[id].description),el('span',{class:'method-count'},reason)));
@@ -208,7 +239,7 @@ function renderPractice(main,mode){
   function updateChapters(){const allowed=scopeChapters();chapterSelect.replaceChildren(el('option',{value:'all'},'Toate capitolele'),...pack.curriculum.chapters.filter(chapter=>allowed.includes(chapter.id)).map(chapter=>el('option',{value:chapter.id},chapter.label)));updateAvailability();}
   function updateAvailability(){
     const counts=methodCounts(record,chapterIds());
-    if(!counts[method])method=['interpretation','regions','matching','short'].find(key=>counts[key]) || 'interpretation';
+    if(!counts[method])method=['structured','interpretation','regions','matching','short'].find(key=>counts[key]) || 'interpretation';
     drawMethods(counts);
     countLabel.textContent=method==='short'?'Număr de întrebări':'Număr de cazuri';
     const max=Math.min(100,counts[method] || 0);count.max=String(Math.max(1,max));if(Number(count.value)>max)count.value=String(max || 1);
@@ -245,6 +276,7 @@ async function beginSession(record,questions,mode,chapterIds,method){
 async function openCasePractice(record,item){
   const pools=availableExercises(record.pack,record.bank,{chapterIds:[item.chapterId]});
   const options=[];
+  const structured=pools.structured.find(q=>q.caseId===item.id);if(structured)options.push(['structured',structured]);
   const interpretation=pools.interpretation.find(q=>q.caseId===item.id);if(interpretation)options.push(['interpretation',interpretation]);
   const regions=pools.regions.find(q=>q.caseId===item.id);if(regions)options.push(['regions',regions]);
   const matching=pools.matching.find(q=>q.caseId===item.id);if(matching)options.push(['matching',matching]);
@@ -280,6 +312,8 @@ function selfCheckPanel(record,q,answer,onChange){
 
 function answerSummary(record,q,answer){
   if(!answer || answer.skipped)return 'Sărit';
+  if(q.kind==='structured'){const grade=gradeStructured(q,answer);return `${grade.hit} din ${grade.total} etape corecte`;}
+  if(q.kind==='written')return answer.text?`Răspuns scris · ${answer.text.split(/\s+/).filter(Boolean).length} cuvinte`:'Răspuns scris';
   if(q.kind==='catalogue')return `Ai ales: ${(answer.selectedIds||[]).map(id=>optionLabel(record,q,id)).join('; ')}`;
   if(q.kind==='mcq')return `Ai ales: ${(answer.selectedIds||[]).map(id=>optionLabel(record,q,id)).join('; ')}`;
   if(q.kind==='matching'){const score=matchingScore(answer.mapping||{},q.correctMapping);return `Potriviri corecte: ${score.hit} din ${score.total}`;}
@@ -318,6 +352,8 @@ function commitSession(nextSession,nextProgress=null,nextAssessments=null){
 function renderQuestion(main,record,session){
   const q=session.questions[session.index],source=record.pack.cases.find(item=>item.id===q.caseId);
   if(!source || !q){main.append(noPack());return;}
+  if(q.kind==='structured'){renderStructuredQuestion(main,record,session);return;}
+  if(q.kind==='written'){renderWrittenQuestion(main,record,session);return;}
   const review=session.mode==='review',stored=session.answers[session.index];
   let currentAnswer=stored || null,checksDraft={...(stored?.selfChecks || {})},busy=false;
   const fieldNodes=new Map();
@@ -450,13 +486,193 @@ function renderQuestion(main,record,session){
   main.append(el('div',{class:'quiz-grid'},viewer.node,panel));
 }
 
+function quizTop(main,record,session){
+  main.append(el('div',{class:'quiz-top'},button([icon('back',14),'Pauză'],()=>{location.hash='library';},'button ghost'),bar(pct(session.index,session.questions.length)),el('span',{class:'quiz-counter'},`${session.index+1} / ${session.questions.length} · ${session.mode==='exam'?'Simulare':'Recapitulare'}`),button('Încheie',()=>confirmFinishSession(),'button ghost')));
+}
+
+function structuredProgress(record,q,grade){
+  const key=progressKey(record.id,q.id,'structured'),previous=matchingProgress(state.progress[key],q);
+  return {...state.progress,[key]:{...structuredRecord(previous,grade),signature:questionSignature(q),sectionId:q.sectionId,chapterId:q.chapterId,caseId:q.caseId}};
+}
+
+function structuredChoiceInput(step,sectionAnswer,onChange){
+  const root=el('div',{class:step.multiple?'mcq-options':'mcq-options'});
+  for(const [index,option] of step.options.entries()){
+    const selected=(sectionAnswer.choiceIds||[]).includes(option.id);
+    const field=el('input',{type:step.multiple?'checkbox':'radio',name:`structured-${step.id}`,value:option.id,checked:selected});
+    const row=el('label',{class:`mcq-option ${selected?'selected':''}`},field,el('span',{class:'option-letter'},String.fromCharCode(65+index)),el('span',{},option.label));
+    field.addEventListener('change',()=>{
+      const set=new Set(sectionAnswer.choiceIds||[]);
+      if(step.multiple){if(field.checked)set.add(option.id);else set.delete(option.id);}
+      else set.clear(),set.add(option.id);
+      sectionAnswer.choiceIds=[...set];
+      root.querySelectorAll('.mcq-option').forEach(node=>node.classList.toggle('selected',node.querySelector('input').checked));
+      onChange(sectionAnswer.choiceIds.length>0);
+    });
+    root.append(row);
+  }
+  return root;
+}
+
+function structuredFindingsInput(step,sectionAnswer,onChange){
+  const root=el('div',{class:'structured-findings'});
+  sectionAnswer.observations=sectionAnswer.observations||[];
+  const types=step.types||[];
+  function draw(){
+    root.replaceChildren();
+    if(!types.length)root.append(el('p',{class:'field-help'},'Banca capitolului nu are tipuri de observații.'));
+    for(const [index,row] of sectionAnswer.observations.entries()){
+      row.values=row.values||{};
+      const type=types.find(item=>item.id===row.typeId);
+      const select=el('select',{class:'select','aria-label':'Tipul observației'},...types.map(item=>el('option',{value:item.id,selected:item.id===row.typeId},item.label)));
+      select.addEventListener('change',()=>{row.typeId=select.value;row.values={};draw();});
+      const card=el('div',{class:'structured-observation'},el('div',{class:'structured-observation-head'},el('strong',{},`Observația ${index+1}`),select,button(icon('close',13),()=>{sectionAnswer.observations.splice(index,1);draw();onChange(sectionAnswer.observations.length>0);},'icon-button',{'aria-label':'Elimină observația'})));
+      for(const field of (type?.fields||[]).filter(item=>item.scoreable!==false)){
+        const value=row.values?.[field.id];
+        if(field.kind==='measurementMm'){
+          const input=el('input',{type:'number',min:'0',step:'0.1',value:value??'','aria-label':field.label,class:'select'});
+          input.addEventListener('input',()=>{const number=Number(input.value);if(Number.isFinite(number)&&number>0)row.values[field.id]=Math.round(number*10)/10;else delete row.values[field.id];});
+          card.append(el('label',{class:'structured-field'},el('span',{},`${field.label} (mm)`),input));
+        }else if(field.kind==='single'){
+          const control=el('select',{class:'select','aria-label':field.label},el('option',{value:''},'Necompletat'),...field.options.map(option=>el('option',{value:option.id,selected:(value||[])[0]===option.id},option.label)));
+          control.addEventListener('change',()=>{row.values[field.id]=control.value?[control.value]:[];});
+          card.append(el('label',{class:'structured-field'},el('span',{},field.label),control));
+        }else{
+          const checks=el('div',{class:'studio-checks structured-checks'},...field.options.map(option=>{const input=el('input',{type:'checkbox',checked:(value||[]).includes(option.id)});input.addEventListener('change',()=>{const set=new Set(row.values[field.id]||[]);if(input.checked)set.add(option.id);else set.delete(option.id);row.values[field.id]=[...set];});return el('label',{},input,option.label);}));
+          card.append(el('div',{class:'structured-field'},el('span',{},field.label),checks));
+        }
+      }
+      root.append(card);
+    }
+    const add=button([icon('plus',13),'Adaugă observație'],()=>{if(!types[0])return;sectionAnswer.observations.push({typeId:types[0].id,values:{}});draw();onChange(true);},'button ghost');
+    root.append(add);
+  }
+  draw();onChange(sectionAnswer.observations.length>0);
+  return root;
+}
+
+function structuredFeedback(step,result){
+  const detail=el('div',{class:`feedback ${result.correct?'':'wrong'}`},el('h3',{},result.correct?'Etapă corectă':'Răspuns de referință'));
+  if(step.kind==='choice'){
+    detail.append(el('p',{},`Corect: ${result.expected.map(id=>structuredOptionLabel(step,id)).join('; ')}`));
+    if(!result.correct)detail.append(el('p',{},`Răspunsul tău: ${result.selected.map(id=>structuredOptionLabel(step,id)).join('; ')||'—'}`));
+  }else{
+    detail.append(el('p',{},`Observații potrivite: ${result.hit} din ${result.total}.`));
+    detail.append(el('p',{},'Observații de referință:'));
+    for(const row of step.expected)detail.append(el('p',{class:'feedback-row'},'• '+describeObservation(step,row)));
+    if(!result.correct && result.submitted.length){
+      detail.append(el('p',{},'Observațiile tale:'));for(const row of result.submitted)detail.append(el('p',{class:'feedback-row'},'• '+describeObservation(step,row)));
+    }
+  }
+  return detail;
+}
+
+function renderStructuredQuestion(main,record,session){
+  const q=session.questions[session.index],source=record.pack.cases.find(item=>item.id===q.caseId),review=session.mode==='review',stored=session.answers[session.index];
+  if(!source)return;
+  let answer=stored?JSON.parse(JSON.stringify(stored)):{sections:{},revealed:{},step:0};
+  answer.sections=answer.sections||{};answer.revealed=answer.revealed||{};
+  quizTop(main,record,session);
+  const viewer=imageViewer(record,source,{allowAnnotations:false});registerCleanup(()=>viewer.destroy());
+  const panel=el('section',{class:'question-panel structured-panel','aria-label':'Interpretare structurată'},badge(exerciseLabel(q),'green'),el('h2',{},q.prompt));
+  let busy=false;
+  const save=next=>commitSession(sessionAnswer(state.session,next));
+  if(review){
+    const index=Math.min(answer.step||0,q.steps.length-1),step=q.steps[index],sectionAnswer=answer.sections[step.id]||(answer.sections[step.id]=step.kind==='findings'?{observations:[]}:{choiceIds:[]});
+    panel.append(el('div',{class:'structured-progress'},`Etapa ${index+1} din ${q.steps.length} · ${stepLabel(step)}`));
+    const revealed=answer.revealed[step.id];
+    if(revealed){
+      const grade=gradeStructured(q,answer),result=grade.results.find(row=>row.stepId===step.id);
+      panel.append(structuredFeedback(step,result));
+      if(index===q.steps.length-1)panel.append(el('p',{class:'structured-total'},`Rezultat pe caz: ${grade.hit} din ${grade.total} etape corecte.`));
+      const last=index===q.steps.length-1;
+      panel.append(el('div',{class:'question-actions'},el('span',{class:'field-help'},last?'Rezultatul este salvat o singură dată.':'Următoarea etapă pornește de la informația de referință.'),button([last?'Vezi rezultatul':'Continuă',icon('arrow',16)],act(async()=>{
+        if(busy)return;busy=true;
+        if(last){const next=advanceSession(state.session,answer);await commitSession(next);await render();}
+        else{answer.step=index+1;await save(answer);await render();}
+      }))));
+    }else{
+      const submit=button('Trimite etapa',act(async()=>{
+        if(busy)return;busy=true;submit.disabled=true;
+        try{
+          answer.sections[step.id]=sectionAnswer;answer.revealed[step.id]=true;answer.at=Date.now();
+          const grade=gradeStructured(q,answer);
+          let nextProgress=null;
+          if(index===q.steps.length-1 && !answer.recorded){answer.correct=grade.correct;answer.completed=true;answer.recorded=true;nextProgress=structuredProgress(record,q,grade);}
+          await commitSession(sessionAnswer(state.session,answer),nextProgress);
+          await render();
+        }finally{busy=false;}
+      }),'button');
+      const body=el('div',{class:'structured-input'},el('p',{class:'field-help'},['examination','projection','diagnosis','differentials','investigations'].includes(step.sectionId)?'Alege toate variantele corecte.':'Completează observațiile pe care le identifici; poți adăuga mai multe rânduri.'),step.kind==='choice'?structuredChoiceInput(step,sectionAnswer,enabled=>{submit.disabled=!enabled;}):structuredFindingsInput(step,sectionAnswer,enabled=>{submit.disabled=!enabled;}));
+      body.append(el('div',{class:'question-actions'},el('span',{class:'field-help'},'Răspunsul acestei etape se blochează după trimitere.'),button('Sari peste etapa',act(async()=>{
+        answer.sections[step.id]=sectionAnswer;answer.revealed[step.id]=true;
+        if(index===q.steps.length-1){
+          const grade=gradeStructured(q,answer);answer.correct=grade.correct;answer.completed=true;
+          let nextProgress=null;if(!answer.recorded){answer.recorded=true;nextProgress=structuredProgress(record,q,grade);}
+          await commitSession(sessionAnswer(state.session,answer),nextProgress);
+        }else{answer.step=index+1;await save(answer);}
+        await render();
+      }),'button ghost'),submit));
+      panel.append(body);
+    }
+  }else{
+    for(const step of q.steps){
+      const sectionAnswer=answer.sections[step.id]||(answer.sections[step.id]=step.kind==='findings'?{observations:[]}:{choiceIds:[]});
+      panel.append(el('section',{class:'structured-exam-step'},el('h3',{},stepLabel(step)),el('p',{class:'field-help'},step.prompt),step.kind==='choice'?structuredChoiceInput(step,sectionAnswer,()=>{}):structuredFindingsInput(step,sectionAnswer,()=>{})));
+    }
+    panel.append(el('div',{class:'question-actions'},el('span',{class:'field-help'},'Corectarea apare doar la finalul simulării. Poți modifica răspunsurile până atunci.'),button([session.index===session.questions.length-1?'Finalizează simularea':'Confirmă și continuă',icon('arrow',16)],act(async()=>{
+      if(busy)return;busy=true;
+      const grade=gradeStructured(q,answer);answer.correct=grade.correct;answer.completed=true;answer.at=Date.now();
+      const nextProgress=structuredProgress(record,q,grade);
+      await commitSession(advanceSession(state.session,answer),nextProgress);await render();
+    }),'button')));
+  }
+  main.append(el('div',{class:'quiz-grid'},viewer.node,panel));
+}
+
+function saveWrittenAssessment(record,q,answer,checked,advance){
+  let selfAssessments=state.selfAssessments;
+  if(checked && !answer.selfRecorded){const key=progressKey(record.id,q.id,'written'),previous=matchingProgress(state.selfAssessments[key],q);selfAssessments={...state.selfAssessments,[key]:{...recordSelfAssessment(previous,{identified:1,total:1}),signature:questionSignature(q),sectionId:q.sectionId,chapterId:q.chapterId,caseId:q.caseId}};}
+  const nextAnswer={...answer,selfChecked:checked,selfRecorded:Boolean(answer.selfRecorded||checked)};
+  const next=advance?advanceSession(state.session,nextAnswer):sessionAnswer(state.session,nextAnswer);
+  return commitSession(next,selfAssessments!==state.selfAssessments?selfAssessments:null);
+}
+
+function renderWrittenQuestion(main,record,session){
+  const q=session.questions[session.index],source=record.pack.cases.find(item=>item.id===q.caseId),review=session.mode==='review',stored=session.answers[session.index];
+  if(!source)return;
+  quizTop(main,record,session);
+  const viewer=imageViewer(record,source,{allowAnnotations:false});registerCleanup(()=>viewer.destroy());
+  const panel=el('section',{class:'question-panel','aria-label':'Răspuns scris'},badge(exerciseLabel(q),'green'),el('h2',{},q.prompt),el('p',{class:'field-help'},'Răspunsul este autoevaluat cu baremul autorului. Nu intră în precizia automată.'));
+  if(stored){
+    panel.append(el('div',{class:'saved-answer'},stored.text||'—'));
+    if(review || session.finished){
+      panel.append(el('div',{class:'feedback'},el('h3',{},'Baremul autorului'),el('p',{},q.rubric)));
+      const checked=Boolean(stored.selfChecked),input=el('input',{type:'checkbox',checked,disabled:Boolean(stored.selfRecorded)});
+      panel.append(el('label',{class:'self-check-row'},input,el('span',{},stored.selfRecorded?'Autoevaluare salvată.':'Am acoperit punctele din barem.')));
+      if(review)panel.append(el('div',{class:'question-actions'},el('span',{class:'field-help'},`${session.index+1} din ${session.questions.length}`),button([session.index===session.questions.length-1?'Vezi rezultatul':'Continuă',icon('arrow',16)],act(async()=>{await saveWrittenAssessment(record,q,{...stored,selfChecked:input.checked},input.checked,true);await render();}))));
+    }
+  }else{
+    const textarea=el('textarea',{class:'interpretation-input','aria-label':'Răspunsul tău',rows:'6',maxlength:'4000'});
+    const submit=button(review?'Trimite răspunsul':session.index===session.questions.length-1?'Finalizează simularea':'Confirmă și continuă',act(async()=>{
+      if(!textarea.value.trim()){toast('Scrie un răspuns.',true);return;}
+      const answer={text:textarea.value.trim(),at:Date.now()};
+      if(review){await commitSession(sessionAnswer(state.session,answer));await render();}
+      else{await commitSession(advanceSession(state.session,answer));await render();}
+    }),'button',{disabled:true});
+    textarea.addEventListener('input',()=>{submit.disabled=!textarea.value.trim();});
+    panel.append(textarea,el('div',{class:'question-actions'},el('span',{class:'field-help'},'Răspunsul se salvează local.'),submit));
+  }
+  main.append(el('div',{class:'quiz-grid'},viewer.node,panel));
+}
+
 function confirmFinishSession(before=null){
   const session=state.session;if(!session || session.finished)return;
   const answered=receivedAnswers(session).length;
   modal('Închei sesiunea?',el('p',{class:'modal-body'},answered?`Ai parcurs ${answered} exerciții. Răspunsurile confirmate rămân salvate; cele fără răspuns nu contează.`:'Nu ai răspuns la niciun exercițiu. Sesiunea va fi închisă.'),[
     button('Continuă sesiunea',()=>document.getElementById('modal').close(),'button secondary'),
     button(answered?'Încheie și vezi rezultatele':'Închide sesiunea',act(async()=>{
-      document.getElementById('modal').close();if(before)await before();
+      document.getElementById('modal').close();if(typeof before==='function')await before();
       const current=state.session;if(!receivedAnswers(current).length){await setMeta('session',null);state.session=null;await render();toast('Sesiune închisă.');return;}
       const next=finishSessionEarly(current);await setMeta('session',next);state.session=next;
       const target=next.mode==='exam'?'exam':'practice';
@@ -466,6 +682,15 @@ function confirmFinishSession(before=null){
 
 function exerciseStatus(record,q,answer){
   if(!answer || answer.skipped)return {label:'Sărit',kind:''};
+  if(q.kind==='structured'){
+    if(!answer.completed)return {label:'Incomplet',kind:''};
+    const progress=matchingProgress(state.progress[progressKey(record.id,q.id,q.kind)],q);
+    return progress?.attempts?{label:`${progress.identified}/${progress.total} etape`,kind:progress.lastCorrect?'green':'orange'}:{label:'Neînregistrat',kind:'orange'};
+  }
+  if(q.kind==='written'){
+    const progress=matchingProgress(state.selfAssessments[progressKey(record.id,q.id,q.kind)],q);
+    return progress?.attempts?{label:progress.lastCorrect?'Autoevaluat':'De refăcut',kind:progress.lastCorrect?'green':'orange'}:{label:'Neautoevaluat',kind:'orange'};
+  }
   if(q.kind==='interpretation'||q.kind==='regions'){
     const progress=matchingProgress(state.selfAssessments[progressKey(record.id,q.id,q.kind)],q);
     return progress?.attempts?{label:`${progress.identified}/${progress.total} identificate`,kind:progress.lastCorrect?'green':'orange'}:{label:'Neautoevaluat',kind:'orange'};
@@ -475,6 +700,14 @@ function exerciseStatus(record,q,answer){
 
 function learnerAnswerBlock(record,q,answer){
   if(!answer || answer.skipped)return el('p',{},'Exercițiu sărit.');
+  if(q.kind==='structured'){
+    return el('div',{},...q.steps.map(step=>{
+      const row=answer.sections?.[step.id]||{};
+      const text=step.kind==='findings'?(row.observations||[]).map(item=>describeObservation(step,item)).join('; ')||'—':(row.choiceIds||[]).map(id=>structuredOptionLabel(step,id)).join('; ')||'—';
+      return el('div',{class:'learner-section'},el('strong',{},stepLabel(step)),el('p',{},text));
+    }));
+  }
+  if(q.kind==='written')return el('p',{},answer.text||'—');
   if(q.kind==='interpretation'){
     return el('div',{},...q.sections.map(section=>el('div',{class:'learner-section'},el('strong',{},section.label),el('p',{},answer.textAnswers?.[section.id] || '—'))));
   }
@@ -492,6 +725,23 @@ async function saveResultSelfAssessment(record,q,index,checks){
   await commitSession({...state.session,answers},state.progress,nextAssessments);
 }
 
+function structuredExplanation(q,answer){
+  const grade=gradeStructured(q,answer),root=el('div',{class:'structured-feedback'});
+  root.append(el('p',{class:'field-help'},`Rezultat: ${grade.hit} din ${grade.total} etape corecte.`));
+  for(const result of grade.results){
+    const step=q.steps.find(row=>row.id===result.stepId);
+    root.append(el('section',{class:'explanation-section'},el('h3',{},stepLabel(step)),structuredFeedback(step,result)));
+  }
+  return root;
+}
+
+async function saveResultWrittenAssessment(record,q,index,checked){
+  let selfAssessments=state.selfAssessments;
+  if(checked){const key=progressKey(record.id,q.id,'written'),previous=matchingProgress(state.selfAssessments[key],q);selfAssessments={...state.selfAssessments,[key]:{...recordSelfAssessment(previous,{identified:1,total:1}),signature:questionSignature(q),sectionId:q.sectionId,chapterId:q.chapterId,caseId:q.caseId}};}
+  const answers=[...state.session.answers];answers[index]={...answers[index],selfChecked:checked,selfRecorded:Boolean(checked||answers[index]?.selfRecorded)};
+  await commitSession({...state.session,answers},state.progress,selfAssessments!==state.selfAssessments?selfAssessments:null);
+}
+
 function openExplanation(record,session,index){
   const q=session.questions[index],answer=session.answers[index],source=record.pack.cases.find(item=>item.id===q.caseId);
   if(!source)return;
@@ -499,11 +749,13 @@ function openExplanation(record,session,index){
   const image=el('img',{class:'explanation-image',alt:`Radiografie: ${source.title}`});
   image.addEventListener('click',()=>toggleFullscreen(image));
   let disposed=false,url;
-  assetBlob(record,source.images[0].path).then(blob=>{if(!disposed && blob){url=URL.createObjectURL(blob);image.src=url;}}).catch(()=>{});
+  assetBlob(record,source.images.find(row=>row.role!=='comparison')?.path || source.images[0].path).then(blob=>{if(!disposed && blob){url=URL.createObjectURL(blob);image.src=url;}}).catch(()=>{});
   urls.push(()=>{disposed=true;if(url)URL.revokeObjectURL(url);});
-  const labels=canonicalDiagnosisLabels(record,q.caseId),selfKind=q.kind==='interpretation'||q.kind==='regions';
-  let checks={...(answer?.selfChecks || {})};
-  const reference=selfKind
+  const labels=canonicalDiagnosisLabels(record,q.caseId),selfKind=q.kind==='interpretation'||q.kind==='regions',writtenKind=q.kind==='written';
+  let checks={...(answer?.selfChecks || {})},writtenChecked=Boolean(answer?.selfChecked);
+  const reference=q.kind==='structured'?structuredExplanation(q,answer)
+    :writtenKind?el('div',{class:'feedback'},el('h3',{},'Baremul autorului'),el('p',{},q.rubric),el('label',{class:'self-check-row'},el('input',{type:'checkbox',checked:writtenChecked,disabled:Boolean(answer?.selfRecorded),onchange:event=>{writtenChecked=event.target.checked;}}),el('span',{},answer?.selfRecorded?'Autoevaluare salvată.':'Am acoperit punctele din barem.')))
+    :selfKind
     ? selfCheckPanel(record,q,{...answer,selfChecks:checks},(id,on,sectionId)=>{const set=new Set(checks[sectionId]||[]);if(on)set.add(id);else set.delete(id);checks[sectionId]=[...set];})
     : q.kind==='matching'?matchingFeedback(record,q,answer):answerFeedback(record,q,answer);
   const body=el('div',{class:'explanation-body'},
@@ -517,7 +769,8 @@ function openExplanation(record,session,index){
       return el('section',{class:'explanation-section'},el('h3',{},SECTION_LABELS[sectionId]),section?.items.length?el('ul',{},...section.items.map(item=>el('li',{},item.text))):el('p',{class:'missing'},'Nu este precizat în notițele sursă.'));
     }))));
   const actions=[];
-  if(selfKind && answer && !answer.skipped)actions.push(button('Salvează autoevaluarea',act(async()=>{await saveResultSelfAssessment(record,q,index,checks);dialog.close();await render();toast('Autoevaluare salvată.');}),'button'));
+  if(writtenKind && answer && !answer.skipped && !answer.selfRecorded)actions.push(button('Salvează autoevaluarea',act(async()=>{await saveResultWrittenAssessment(record,q,index,writtenChecked);dialog.close();await render();toast(writtenChecked?'Autoevaluare salvată.':'Răspunsul rămâne neautoevaluat.');}),'button'));
+  else if(selfKind && answer && !answer.skipped)actions.push(button('Salvează autoevaluarea',act(async()=>{await saveResultSelfAssessment(record,q,index,checks);dialog.close();await render();toast('Autoevaluare salvată.');}),'button'));
   actions.push(button('Înapoi la rezultate',()=>dialog.close(),'button secondary'));
   const dialog=modal(`${source.title} · ${exerciseLabel(q)}`,body,actions);
   dialog.classList.add('explanation-modal');
@@ -527,12 +780,12 @@ function openExplanation(record,session,index){
 
 function renderResults(main,record,session){
   const rows=session.questions.map((q,index)=>({q,answer:session.answers[index],index})).filter(row=>row.answer);
-  const auto=rows.filter(row=>['catalogue','mcq','matching'].includes(row.q.kind) && !row.answer.skipped);
-  const written=rows.filter(row=>['interpretation','regions'].includes(row.q.kind) && !row.answer.skipped);
+  const auto=rows.filter(row=>['catalogue','mcq','matching','structured'].includes(row.q.kind) && !row.answer.skipped && (row.q.kind!=='structured' || row.answer.completed));
+  const written=rows.filter(row=>['interpretation','regions','written'].includes(row.q.kind) && !row.answer.skipped);
   const autoCorrect=auto.filter(row=>row.answer.correct).length;
   const summary=el('div',{class:'results-summary'});
-  if(auto.length)summary.append(el('div',{class:'summary-card'},el('strong',{},`${autoCorrect} din ${auto.length}`),el('span',{},'răspunsuri cu corectare automată')));
-  if(written.length)summary.append(el('div',{class:'summary-card'},el('strong',{},`${written.length}`),el('span',{},'interpretări scrise')));
+  if(auto.length)summary.append(el('div',{class:'summary-card'},el('strong',{},`${autoCorrect} din ${auto.length}`),el('span',{},'exerciții cu corectare automată')));
+  if(written.length)summary.append(el('div',{class:'summary-card'},el('strong',{},`${written.length}`),el('span',{},'răspunsuri autoevaluate')));
   if(!auto.length && !written.length)summary.append(el('div',{class:'summary-card'},el('strong',{},'0'),el('span',{},'exerciții încheiate')));
   main.append(heading(session.finishedEarly?'Sesiune încheiată devreme':'Rezultate',session.finishedEarly?'Doar exercițiile la care ai răspuns sunt numărate.':'Răspunsurile sunt salvate. Poți revedea fiecare explicație fără să părăsești pagina.'),summary);
   const list=el('div',{class:'result-list'});
@@ -549,7 +802,7 @@ function renderResults(main,record,session){
 
 function renderProgress(main){
   const record=active();if(!record){main.append(noPack());return;}const pack=record.pack,pools=availableExercises(pack,record.bank,{chapterIds:[]});
-  const autoQuestions=[...pools.short,...pools.matching],written=[...pools.interpretation,...pools.regions];
+  const autoQuestions=[...pools.short.filter(q=>q.kind!=='written'),...pools.matching,...pools.structured],written=[...pools.interpretation,...pools.regions,...pools.short.filter(q=>q.kind==='written')];
   const autoData=autoQuestions.map(q=>({q,record:matchingProgress(state.progress[progressKey(record.id,q.id,q.kind)],q)})).filter(row=>row.record);
   const selfData=written.map(q=>({q,record:matchingProgress(state.selfAssessments[progressKey(record.id,q.id,q.kind)],q)})).filter(row=>row.record);
   const attempts=autoData.reduce((n,row)=>n+row.record.attempts,0),correct=autoData.reduce((n,row)=>n+row.record.correct,0);

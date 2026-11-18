@@ -10,8 +10,17 @@ const list = (value, max) => Array.isArray(value) && value.length <= max;
 const unique = rows => new Set(rows.map(row => row.id)).size === rows.length;
 const strings = (rows, max = 100) => list(rows, max) && rows.every(value => text(value, 400));
 const range = value => Number.isFinite(value) && value >= 0 && value <= 1;
+const oneOf = (value, values) => values.includes(value);
 export const safePath = value => typeof value === 'string' && value.length <= 220 &&
   /^[a-zA-Z0-9_./-]+$/.test(value) && !value.startsWith('/') && !value.includes('..') && !value.includes('//') && !value.endsWith('/');
+
+const SECTION_IDS = ['examination', 'projection', 'findings', 'diagnosis', 'differentials', 'investigations'];
+const CHOICE_SECTIONS = ['examination', 'projection', 'differentials', 'investigations'];
+const SHAPES = ['ellipse', 'rect', 'polygon', 'arrow'];
+const V2_SHAPES = [...SHAPES, 'polyline'];
+const PATTERNS = ['none', 'diagonal', 'dots', 'vertical', 'horizontal'];
+const CLOSED_SHAPES = new Set(['ellipse', 'rect', 'polygon']);
+const HEX_COLOUR = /^#[0-9a-f]{6}$/i;
 
 export function parseJSON(value, max = LIMITS.json) {
   requireThat(typeof value === 'string' && new TextEncoder().encode(value).length <= max, 'Fișierul JSON depășește limita permisă.');
@@ -20,86 +29,258 @@ export function parseJSON(value, max = LIMITS.json) {
   }); } catch (error) { throw new Error(`JSON invalid: ${error.message}`); }
 }
 
-export function validateAnnotation(row, imageIds, itemIds) {
+function points(row, minimum) {
+  return list(row, 100) && row.length >= minimum &&
+    row.every(point => Array.isArray(point) && point.length === 2 && point.every(range));
+}
+
+function nonCollinear(rows) {
+  if (!rows || rows.length < 3) return false;
+  const [first] = rows;
+  return rows.some((point, index) => {
+    if (index === 0) return false;
+    const second = rows[index - 1];
+    return (second[0] - first[0]) * (point[1] - first[1]) - (second[1] - first[1]) * (point[0] - first[0]) !== 0;
+  });
+}
+
+export function validateAnnotation(row, imageIds, itemIds, version = 1) {
+  const v2 = version === 2;
   requireThat(object(row) && id(row.id) && imageIds.has(row.imageId) && itemIds.has(row.itemId), 'Adnotare cu referințe invalide.');
-  requireThat(['ellipse', 'rect', 'polygon', 'arrow'].includes(row.shape), 'Formă de adnotare nesuportată.');
+  requireThat((v2 ? V2_SHAPES : SHAPES).includes(row.shape), 'Formă de adnotare nesuportată.');
   if (row.shape === 'ellipse') requireThat([row.cx, row.cy, row.rx, row.ry].every(range) && row.rx > 0 && row.ry > 0, 'Elipsă invalidă.');
   if (row.shape === 'rect') requireThat([row.x, row.y, row.width, row.height].every(range) && row.width > 0 && row.height > 0, 'Dreptunghi invalid.');
   if (row.shape === 'arrow') requireThat([row.x1, row.y1, row.x2, row.y2].every(range), 'Săgeată invalidă.');
-  if (row.shape === 'polygon') requireThat(list(row.points, 100) && row.points.length >= 3 && row.points.every(p => Array.isArray(p) && p.length === 2 && p.every(range)), 'Poligon invalid.');
+  if (row.shape === 'polygon') requireThat(points(row.points, 3) && nonCollinear(row.points), 'Poligon invalid.');
+  if (row.shape === 'polyline') requireThat(v2 && points(row.points, 2) && new Set(row.points.map(point => point.join(':'))).size >= 2, 'Contur liber invalid.');
+  let style;
+  if (row.style !== undefined) {
+    requireThat(v2, 'Stilurile de adnotare necesită pachetul versiunea 2.');
+    requireThat(object(row.style) && (row.style.color === undefined || (typeof row.style.color === 'string' && HEX_COLOUR.test(row.style.color))) &&
+      (row.style.pattern === undefined || PATTERNS.includes(row.style.pattern)), 'Stil de adnotare invalid.');
+    const pattern = row.style.pattern || 'none';
+    requireThat(CLOSED_SHAPES.has(row.shape) || pattern === 'none', 'Modelul de umplere este permis doar formelor închise.');
+    style = { pattern, ...(row.style.color ? { color: row.style.color.toLowerCase() } : {}) };
+  }
   return { id: row.id, imageId: row.imageId, itemId: row.itemId, shape: row.shape,
     ...Object.fromEntries(['cx','cy','rx','ry','x','y','width','height','x1','y1','x2','y2'].filter(k => k in row).map(k => [k, row[k]])),
-    ...(row.points ? { points: row.points.map(p => [...p]) } : {}),
+    ...(row.points ? { points: row.points.map(p => [...p]) } : {}), ...(style ? { style } : {}),
     label: text(row.label, 80) ? row.label : '', reviewStatus: row.reviewStatus === 'reviewed' ? 'reviewed' : 'draft' };
 }
 
+function validateBankSection(chapterId, sectionId, raw) {
+  if (sectionId === 'findings') {
+    requireThat(object(raw) && list(raw.types, 40) && unique(raw.types), `Tipurile de observații pentru ${chapterId} sunt invalide.`);
+    const types = raw.types.map(type => {
+      requireThat(object(type) && id(type.id) && text(type.label, 400) && type.label.trim() && list(type.fields, 24) && unique(type.fields), 'Tip de observație invalid.');
+      const fields = type.fields.map(field => {
+        requireThat(object(field) && id(field.id) && text(field.label, 400) && field.label.trim() &&
+          oneOf(field.kind, ['single', 'multiple', 'measurementMm']), 'Câmp de observație invalid.');
+        if (field.kind === 'measurementMm') {
+          requireThat(field.options === undefined, 'Un câmp numeric nu are variante.');
+          return { id: field.id, label: field.label, kind: field.kind };
+        }
+        requireThat(list(field.options, 64) && field.options.length && unique(field.options) &&
+          field.options.every(option => object(option) && id(option.id) && text(option.label, 400) && option.label.trim()), 'Variantele câmpului sunt invalide.');
+        return { id: field.id, label: field.label, kind: field.kind, options: field.options.map(option => ({ id: option.id, label: option.label })) };
+      });
+      return { id: type.id, label: type.label, fields };
+    });
+    return { types };
+  }
+  requireThat(object(raw) && list(raw.options, 64) && raw.options.length && unique(raw.options) &&
+    raw.options.every(option => object(option) && id(option.id) && text(option.label, 400) && option.label.trim()), `Variantele pentru ${sectionId} sunt invalide.`);
+  return { options: raw.options.map(option => ({ id: option.id, label: option.label })) };
+}
+
+function bankIndex(bank) {
+  const index = new Map();
+  for (const sectionId of CHOICE_SECTIONS) {
+    const rows = bank.sections[sectionId]?.options || [];
+    index.set(sectionId, new Map(rows.map(row => [row.id, row])));
+  }
+  const types = new Map();
+  for (const type of bank.sections.findings?.types || []) {
+    types.set(type.id, { ...type, fieldsById: new Map(type.fields.map(field => [field.id, field])) });
+  }
+  return { choices: index, types };
+}
+
 export function validatePack(raw) {
-  requireThat(object(raw) && raw.format === 'radiology-study-pack' && raw.version === 1, 'Acest format de pachet nu este compatibil cu RadioEasy v1.');
+  requireThat(object(raw) && raw.format === 'radiology-study-pack' && (raw.version === 1 || raw.version === 2), 'Acest format de pachet nu este compatibil cu RadioEasy.');
+  const version = raw.version, v2 = version === 2;
   requireThat(id(raw.id) && text(raw.title, 200) && raw.title.trim() && text(raw.revision, 60) && raw.revision.trim(), 'Identificarea pachetului este incompletă.');
   const curriculum = raw.curriculum;
   requireThat(object(curriculum) && id(curriculum.id) && text(curriculum.title, 200) && list(curriculum.chapters, 50) && curriculum.chapters.length, 'Curriculum invalid.');
   requireThat(curriculum.chapters.every(c => object(c) && id(c.id) && text(c.label, 120)) && unique(curriculum.chapters), 'Capitole invalide sau duplicate.');
   const chapterIds = new Set(curriculum.chapters.map(row => row.id));
+  if (!v2) requireThat(curriculum.chapterBanks === undefined, 'Băncile de răspunsuri necesită pachetul versiunea 2.');
+  const rawBanks = curriculum.chapterBanks || [];
+  requireThat(list(rawBanks, 50) && rawBanks.every(bank => object(bank) && id(bank.chapterId)) && new Set(rawBanks.map(bank => bank.chapterId)).size === rawBanks.length, 'Băncile pe capitole sunt invalide.');
+  const chapterBanks = rawBanks.map(bank => {
+    requireThat(object(bank) && chapterIds.has(bank.chapterId) && object(bank.sections), 'Bancă de răspunsuri cu referințe invalide.');
+    const sections = {};
+    for (const sectionId of [...CHOICE_SECTIONS, 'findings']) {
+      const value = bank.sections[sectionId];
+      if (value === undefined) continue;
+      sections[sectionId] = validateBankSection(bank.chapterId, sectionId, value);
+    }
+    requireThat(Object.keys(sections).length, 'Banca de răspunsuri este goală.');
+    return { chapterId: bank.chapterId, sections };
+  });
+  const banks = new Map(chapterBanks.map(bank => [bank.chapterId, { ...bank, index: bankIndex(bank) }]));
   const scopes = curriculum.scopes || [{ id: 'all', label: 'Toată materia', chapterIds: [...chapterIds] }];
   requireThat(list(scopes, 30) && unique(scopes) && scopes.every(row => id(row.id) && text(row.label, 160) && list(row.chapterIds, 50) && row.chapterIds.length && row.chapterIds.every(v => chapterIds.has(v))), 'Domenii de examen invalide.');
   requireThat(list(raw.diagnoses, LIMITS.diagnoses) && unique(raw.diagnoses), 'Catalog de diagnostice invalid.');
   requireThat(raw.diagnoses.every(row => object(row) && id(row.id) && text(row.label, 400) && row.label.trim() &&
     list(row.chapterIds, 50) && row.chapterIds.length && row.chapterIds.every(v => chapterIds.has(v)) && strings(row.aliases || [])), 'Diagnostic invalid în catalog.');
-  const diagnosisIds = new Set(raw.diagnoses.map(row => row.id));
+  const diagnoses = new Map(raw.diagnoses.map(row => [row.id, row]));
   requireThat(list(raw.cases, LIMITS.cases) && raw.cases.length && unique(raw.cases), 'Lista de cazuri este goală sau invalidă.');
   const assets = new Map();
   const cases = raw.cases.map(item => {
-    requireThat(object(item) && id(item.id) && chapterIds.has(item.chapterId) && text(item.title, 200) && list(item.diagnosisIds, 20) && item.diagnosisIds.every(v => diagnosisIds.has(v)), 'Caz cu identificare sau diagnostic invalid.');
+    requireThat(object(item) && id(item.id) && chapterIds.has(item.chapterId) && text(item.title, 200) && list(item.diagnosisIds, 20) && item.diagnosisIds.every(v => diagnoses.has(v)), 'Caz cu identificare sau diagnostic invalid.');
     requireThat(list(item.images, 8) && item.images.length && unique(item.images), 'Imaginile cazului sunt invalide.');
     const images = item.images.map(image => {
       requireThat(object(image) && id(image.id) && safePath(image.path) && /^images\/.+\.(png|jpe?g)$/i.test(image.path), 'Sunt acceptate numai imagini PNG/JPEG în directorul images/.');
       requireThat(Number.isInteger(image.width) && Number.isInteger(image.height) && image.width > 0 && image.height > 0 && image.width * image.height <= LIMITS.pixels, 'Dimensiuni de imagine invalide.');
       requireThat(!image.sha256 || /^[a-f0-9]{64}$/i.test(image.sha256), 'Sumă de control invalidă.');
+      if (image.role !== undefined) requireThat(v2, 'Rolurile imaginilor necesită pachetul versiunea 2.');
+      requireThat(image.role === undefined || oneOf(image.role, ['primary', 'comparison']), 'Rol de imagine invalid.');
       if (assets.has(image.path)) requireThat(assets.get(image.path).width === image.width && assets.get(image.path).height === image.height && assets.get(image.path).sha256 === image.sha256, 'Imagine reutilizată cu metadate contradictorii.');
-      const clean = { id: image.id, path: image.path, width: image.width, height: image.height, ...(image.sha256 ? {sha256:image.sha256.toLowerCase()} : {}) };
+      const clean = { id: image.id, path: image.path, width: image.width, height: image.height, ...(v2 ? { role: image.role || 'primary' } : {}), ...(image.sha256 ? {sha256:image.sha256.toLowerCase()} : {}) };
       assets.set(image.path, clean); return clean;
     });
+    if (v2) requireThat(images.some(image => image.role === 'primary'), 'Fiecare caz are nevoie de cel puțin o imagine principală.');
     requireThat(list(item.sections, 6) && unique(item.sections), 'Secțiunile cazului sunt invalide.');
     const sections = item.sections.map(section => {
-      requireThat(['examination','projection','findings','diagnosis','differentials','investigations'].includes(section.id) && text(section.label, 120) && list(section.items, 100) && unique(section.items), 'Secțiune nesuportată.');
+      requireThat(SECTION_IDS.includes(section.id) && text(section.label, 120) && list(section.items, 100) && unique(section.items), 'Secțiune nesuportată.');
       requireThat(section.items.every(row => object(row) && id(row.id) && text(row.text)), 'Text sau identificator invalid.');
-      return { id: section.id, label: section.label, items: section.items.map(row => ({ id: row.id, text: row.text })), status: section.items.length ? 'present' : 'missing' };
+      return { id: section.id, label: section.label, items: section.items.map(row => {
+        const clean = { id: row.id, text: row.text };
+        if (section.id === 'differentials' && row.targetCaseId !== undefined) {
+          requireThat(v2 && id(row.targetCaseId), 'Diagnosticul diferențial are o țintă invalidă.');
+          clean.targetCaseId = row.targetCaseId;
+        }
+        return clean;
+      }), status: section.items.length ? 'present' : 'missing' };
     });
     const itemIds = new Set(sections.flatMap(row => row.items.map(point => point.id)));
     requireThat(itemIds.size === sections.reduce((n, section) => n + section.items.length, 0), 'Identificatori de observații duplicați.');
     requireThat(list(item.annotations || [], 1000), 'Prea multe adnotări.');
-    const annotations = (item.annotations || []).map(row => validateAnnotation(row, new Set(images.map(image => image.id)), itemIds));
+    const imageIds = new Set(images.map(image => image.id));
+    const annotations = (item.annotations || []).map(row => validateAnnotation(row, imageIds, itemIds, version));
     requireThat(unique(annotations), 'Identificatori de adnotări duplicați.');
+    if (!v2) requireThat(item.comparisons === undefined && item.structured === undefined, 'Comparațiile și observațiile structurate necesită pachetul versiunea 2.');
+    const comparisons = (item.comparisons || []);
+    requireThat(list(comparisons, 8) && unique(comparisons), 'Comparațiile cazului sunt invalide.');
+    const cleanComparisons = comparisons.map(row => {
+      requireThat(object(row) && id(row.caseId) && id(row.imageId) && text(row.label, 120) && row.label.trim(), 'Referință de comparație invalidă.');
+      return { id: row.id, label: row.label, caseId: row.caseId, imageId: row.imageId };
+    });
+    const findings = sections.find(section => section.id === 'findings');
+    const findingsIds = new Set(findings?.items.map(row => row.id) || []);
+    let structured = null;
+    if (item.structured !== undefined) {
+      requireThat(object(item.structured), 'Observațiile structurate sunt invalide.');
+      const status = oneOf(item.structured.status, ['draft', 'source-derived', 'reviewed']) ? item.structured.status : 'draft';
+      const bank = banks.get(item.chapterId);
+      const choices = {};
+      for (const sectionId of CHOICE_SECTIONS) {
+        const values = item.structured.choices?.[sectionId] || [];
+        requireThat(list(values, 64) && values.every(value => typeof value === 'string') && new Set(values).size === values.length, `Selecțiile pentru ${sectionId} sunt invalide.`);
+        if (!bank && values.length) requireThat(false, 'Cazul folosește o bancă care nu există pentru capitolul lui.');
+        if (bank) requireThat(values.every(value => bank.index.choices.get(sectionId)?.has(value)), `Selecție fără variantă în banca de ${sectionId}.`);
+        choices[sectionId] = [...values];
+      }
+      const observations = item.structured.observations || [];
+      requireThat(list(observations, 100) && unique(observations.map(row => ({ id: row?.itemId }))), 'Observațiile structurate sunt invalide sau duplicate.');
+      const cleanObservations = observations.map(row => {
+        requireThat(object(row) && findingsIds.has(row.itemId) && id(row.typeId), 'Observație fără text sau tip valid.');
+        const type = bank?.index.types.get(row.typeId);
+        requireThat(type, 'Tipul observației nu există în banca capitolului.');
+        requireThat(object(row.values), 'Valorile observației sunt invalide.');
+        const values = {};
+        for (const [fieldId, value] of Object.entries(row.values)) {
+          const field = type.fieldsById.get(fieldId);
+          requireThat(field, 'Câmp de observație necunoscut.');
+          if (field.kind === 'measurementMm') {
+            requireThat(Number.isFinite(value) && value > 0 && value <= 2000, 'Măsurarea este invalidă.');
+            values[fieldId] = Math.round(value * 10) / 10;
+          } else {
+            requireThat(list(value, 64) && value.length && new Set(value).size === value.length && value.every(optionId => field.options.some(option => option.id === optionId)), 'Selecțiile câmpului sunt invalide.');
+            if (field.kind === 'single') requireThat(value.length === 1, 'Câmpul admite o singură variantă.');
+            values[fieldId] = [...value];
+          }
+        }
+        requireThat(text(row.note || '', 20000), 'Nota observației este prea lungă.');
+        const fieldNotes = {};
+        for (const [fieldId, note] of Object.entries(row.fieldNotes || {})) {
+          requireThat(type.fieldsById.has(fieldId) && text(note, 4000), 'Nota câmpului este invalidă.');
+          fieldNotes[fieldId] = note;
+        }
+        return { itemId: row.itemId, typeId: row.typeId, values, ...(row.note ? { note: row.note } : {}), ...(Object.keys(fieldNotes).length ? { fieldNotes } : {}) };
+      });
+      const sectionNotes = {};
+      for (const [sectionId, note] of Object.entries(item.structured.sectionNotes || {})) {
+        requireThat(SECTION_IDS.includes(sectionId) && text(note, 20000), 'Nota de secțiune este invalidă.');
+        sectionNotes[sectionId] = note;
+      }
+      structured = { status, choices, observations: cleanObservations, ...(Object.keys(sectionNotes).length ? { sectionNotes } : {}) };
+    }
+    if (structured) requireThat(item.diagnosisIds.every(diagnosisId => diagnoses.get(diagnosisId).chapterIds.includes(item.chapterId)), 'Diagnosticul pozitiv nu aparține capitolului observațiilor structurate.');
     return { id:item.id, title:item.title, chapterId:item.chapterId, diagnosisIds:[...item.diagnosisIds], images, sections, annotations,
+      ...(v2 || cleanComparisons.length ? { comparisons: cleanComparisons } : {}),
+      ...(structured ? { structured } : {}),
       referenceText: text(item.referenceText, 30000) ? item.referenceText : '',
       source: { document: text(item.source?.document, 200) ? item.source.document : '', page: Number.isInteger(item.source?.page) && item.source.page > 0 ? item.source.page : null },
       completeness: ['full','partial','diagnosis-only'].includes(item.completeness) ? item.completeness : 'partial' };
   });
-  const clean = { format:raw.format,version:1,id:raw.id,revision:raw.revision,title:raw.title,
+  const caseImages = new Map(cases.map(item => [item.id, new Map(item.images.map(image => [image.id, image]))]));
+  for (const item of cases) {
+    for (const row of item.comparisons || []) {
+      requireThat(caseImages.has(row.caseId), 'Comparația trimite către un caz inexistent.');
+      requireThat(caseImages.get(row.caseId).has(row.imageId), 'Comparația trimite către o imagine inexistentă.');
+    }
+    const differentials = item.sections.find(section => section.id === 'differentials');
+    for (const row of differentials?.items || []) if (row.targetCaseId) {
+      requireThat(row.targetCaseId !== item.id && caseImages.has(row.targetCaseId), 'Diagnosticul diferențial trimite către un caz invalid.');
+    }
+  }
+  const clean = { format:raw.format,version,id:raw.id,revision:raw.revision,title:raw.title,
     description:text(raw.description, 3000) ? raw.description : '',language:text(raw.language, 20) ? raw.language : 'ro',
     source: {document:text(raw.source?.document, 200) ? raw.source.document : '',note:text(raw.source?.note, 3000) ? raw.source.note : ''},
-    curriculum: {id:curriculum.id,title:curriculum.title,edition:text(curriculum.edition, 100) ? curriculum.edition : '',chapters:curriculum.chapters.map(c => ({id:c.id,label:c.label})),scopes:scopes.map(s => ({id:s.id,label:s.label,chapterIds:[...s.chapterIds]}))},
+    curriculum: {id:curriculum.id,title:curriculum.title,edition:text(curriculum.edition, 100) ? curriculum.edition : '',chapters:curriculum.chapters.map(c => ({id:c.id,label:c.label})),
+      ...(chapterBanks.length ? { chapterBanks: chapterBanks.map(bank => ({ chapterId: bank.chapterId, sections: bank.sections })) } : {}),
+      scopes:scopes.map(s => ({id:s.id,label:s.label,chapterIds:[...s.chapterIds]}))},
     diagnoses:raw.diagnoses.map(d => ({id:d.id,label:d.label,chapterIds:[...d.chapterIds],aliases:[...(d.aliases || [])]})),cases };
   return {pack:clean,assets};
 }
 
 export function validateQuestions(raw, pack) {
   if (raw == null) return null;
-  requireThat(object(raw) && raw.format === 'radiology-question-bank' && raw.version === 1 && raw.packId === pack.id && raw.revision === pack.revision, 'Banca de întrebări nu corespunde versiunii pachetului.');
+  requireThat(object(raw) && raw.format === 'radiology-question-bank' && (raw.version === 1 || raw.version === 2) && raw.packId === pack.id && raw.revision === pack.revision, 'Banca de întrebări nu corespunde versiunii pachetului.');
+  requireThat(raw.version === 1 || pack.version === 2, 'Întrebările scrise necesită un pachet versiunea 2.');
   requireThat(list(raw.items, LIMITS.questions) && unique(raw.items), 'Bancă de întrebări invalidă.');
   const cases = new Set(pack.cases.map(row => row.id));
   const items = raw.items.map(row => {
-    requireThat(object(row) && id(row.id) && cases.has(row.caseId) && row.kind === 'mcq' && text(row.prompt, 2000) && row.prompt.trim(), 'Întrebare invalidă.');
+    requireThat(object(row) && id(row.id) && cases.has(row.caseId) && text(row.prompt, 2000) && row.prompt.trim(), 'Întrebare invalidă.');
+    requireThat(SECTION_IDS.includes(row.sectionId), 'Secțiune de întrebare invalidă.');
+    const reviewStatus = ['reviewed','source-derived','draft'].includes(row.reviewStatus) ? row.reviewStatus : 'draft';
+    if (row.kind === 'written') {
+      requireThat(raw.version === 2 && text(row.rubric, 10000) && row.rubric.trim(), 'Întrebarea scrisă are nevoie de un barem autor.');
+      requireThat(row.options === undefined && row.correctOptionIds === undefined, 'Întrebarea scrisă nu are variante.');
+      return { id:row.id,caseId:row.caseId,kind:'written',sectionId:row.sectionId,prompt:row.prompt,rubric:row.rubric,reviewStatus };
+    }
+    requireThat(row.kind === 'mcq' && text(row.feedback || '', 10000), 'Întrebare invalidă.');
     requireThat(list(row.options, 8) && row.options.length >= 2 && unique(row.options) && row.options.every(o => id(o.id) && text(o.label, 1500) && o.label.trim() && text(o.feedback || '', 4000)), 'Opțiuni invalide sau necompletate.');
     requireThat(new Set(row.options.map(o=>o.label.trim().toLocaleLowerCase('ro'))).size===row.options.length, 'Opțiuni de răspuns duplicate.');
     const options = new Set(row.options.map(o => o.id));
     requireThat(list(row.correctOptionIds, 8) && row.correctOptionIds.length > 0 && row.correctOptionIds.every(v => options.has(v)) && new Set(row.correctOptionIds).size === row.correctOptionIds.length, 'Cheie de răspuns invalidă.');
-    requireThat(['examination','projection','findings','diagnosis','differentials','investigations'].includes(row.sectionId) && text(row.feedback || '', 10000), 'Secțiune sau explicație invalidă.');
     return { id:row.id,caseId:row.caseId,kind:'mcq',sectionId:row.sectionId,prompt:row.prompt,
       correctOptionIds:[...row.correctOptionIds],options:row.options.map(o=>({id:o.id,label:o.label,feedback:o.feedback || ''})),
-      feedback:row.feedback || '',reviewStatus:['reviewed','source-derived','draft'].includes(row.reviewStatus) ? row.reviewStatus : 'draft' };
+      feedback:row.feedback || '',reviewStatus };
   });
-  return {format:raw.format,version:1,packId:pack.id,revision:pack.revision,items};
+  return {format:raw.format,version:raw.version,packId:pack.id,revision:pack.revision,items};
 }
 
 export function imageDimensions(data) {
