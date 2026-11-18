@@ -13,7 +13,7 @@ import { EXERCISE_LABELS, SECTION_PROMPTS, SECTION_ORDER, availableExercises, gr
 import { gradeStructured, structuredRecord, describeObservation, stepLabel, optionLabel as structuredOptionLabel } from './structured.js';
 
 const state={packs:[],activeId:null,progress:{},selfAssessments:{},bookmarks:[],visited:[],session:null,starter:null,offlineReady:false,registration:null,prompt:null,route:'library',page:0,chapter:'all',query:'',onlyBookmarks:false,updateChecking:false};
-let cleanup=[],renderToken=0,activeExport=false,installing=false;
+let cleanup=[],renderToken=0,activeExport=false,installing=false,swReloading=false;
 const act=fn=>async event=>{try{return await fn(event);}catch(error){toast(friendlyError(error),true);}};
 const active=()=>state.packs.find(row=>row.id===state.activeId) || state.packs[0];
 const visitKey=(record,item)=>`${record.id}|${item.id}`;
@@ -834,16 +834,25 @@ function renderProgress(main){
 
 async function renderSettings(main,token){
   main.append(heading('Date & instalare','Copie de siguranță, instalare și materiale.'));
-  const lastExport=await getMeta('lastExportAt',0);if(token!==renderToken)return;
+  const lastExport=await getMeta('lastExportAt',0);
+  const [currentBuild,latest]=await Promise.all([activeBuildId(),latestRelease()]);
+  if(token!==renderToken)return;
   const backup=el('section',{class:'settings-card'},el('h2',{},icon('download',19),'Copie de siguranță'),el('p',{},'Salvează progresul într-un fișier. Pentru imagini și explicații, folosește copia completă.'),
     el('div',{class:'detail-row'},el('span',{},'Ultima copie'),el('strong',{},dateLabel(lastExport))),
+    el('div',{class:'detail-row'},el('span',{},'Build activ'),el('strong',{},currentBuild||'Se inițializează')),
+    el('div',{class:'detail-row'},el('span',{},'Ultimul build publicat'),el('strong',{},latest?.buildId||'Nu poate fi verificat')),
     el('div',{class:'button-row'},button([icon('download',15),'Salvează progresul'],act(exportProgress)),button('Salvează tot, cu imagini',act(exportFull),'button secondary',{disabled:!state.packs.length})),
     el('div',{class:'button-row'},button([icon('upload',15),'Restaurează dintr-o copie'],()=>document.getElementById('backup-input').click(),'button ghost')),
     el('p',{class:'field-help'},'Fișierul de progres nu include imaginile. Copia completă le include.'));
   const install=el('section',{class:'settings-card'},el('h2',{},icon('plus',19),'Instalează RadioEasy'),el('p',{},'Deschide linkul direct în browser, apoi adaugă aplicația. Importă materialele din aplicația instalată pentru a păstra studiul în același loc.'),
     el('div',{class:'detail-row'},el('span',{},'Funcționează fără internet'),el('strong',{},state.offlineReady?'Da':'Nu încă')),
     button([icon('refresh',15),el('span',{'aria-live':'polite'},updateCheckLabel())],act(()=>checkForUpdates()),'button secondary update-check',{disabled:state.updateChecking}),
-    el('p',{class:'field-help'},'Verifică dacă există o versiune nouă și o aplică fără să șteargă materialele sau progresul.'),
+    button('Reîncarcă forțat',act(async()=>{
+      if(state.session && !state.session.finished){toast('Încheie sesiunea înainte de repararea actualizării.',true);return;}
+      if(!navigator.onLine){toast('Conectează-te la internet înainte de reparare.',true);return;}
+      await forceRefresh();
+    }),'button ghost',{title:'Resetează workerul și reîncarcă din rețea; materialele și progresul rămân salvate'}),
+    el('p',{class:'field-help'},'Verifică buildul publicat față de buildul activ și îl aplică fără să șteargă materialele sau progresul. Reîncărcarea forțată este rezerva pentru un worker blocat.'),
     state.prompt?button('Instalează aplicația',act(async()=>{await state.prompt.prompt();state.prompt=null;await render();})):null,
     el('ol',{class:'install-steps'},el('li',{},'iPhone / iPad: Safari → Partajează → Adaugă pe ecranul principal.'),el('li',{},'Android: Chrome → meniu → Instalează / Adaugă pe ecranul principal.'),el('li',{},'Windows: Chrome sau Edge → pictograma de instalare din bara de adrese.'),el('li',{},'macOS: Safari → Fișier → Adaugă în Dock; sau instalare din Chrome/Edge.')),
     el('details',{class:'help-details'},el('summary',{},'Ai deschis linkul din Discord sau altă aplicație?'),el('p',{},'Deschide meniul linkului și alege Safari sau Chrome. Dacă opțiunea lipsește, copiază linkul și lipește-l în browser.')));
@@ -972,27 +981,86 @@ function refreshUpdateControls(){
   }
 }
 
-function activateUpdate(){
-  if(state.session && !state.session.finished){toast('Încheie sesiunea înainte de actualizare. Răspunsurile tale sunt salvate.');return false;}
-  const waiting=state.registration?.waiting;
-  if(!waiting)return false;
-  let reloaded=false;
-  const reload=()=>{if(reloaded)return;reloaded=true;location.reload();};
-  navigator.serviceWorker.addEventListener('controllerchange',reload,{once:true});
-  waiting.postMessage({type:'ACTIVATE_UPDATE'});
-  setTimeout(reload,4000);
-  return true;
+async function activeBuildId(){
+  try{
+    const scope=state.registration?.scope || new URL('./',location.href).href;
+    const prefix=`radia-shell:${scope}`;
+    const key=(await caches.keys()).find(name=>name.startsWith(prefix));
+    if(key)return key.slice(prefix.length).match(/-([0-9a-f]{12})$/)?.[1] || null;
+    const response=await caches.match(new URL('./release.json',document.baseURI).href);
+    return response ? (await response.json()).buildId || null : null;
+  }catch{return null;}
 }
 
-function waitForWaitingWorker(registration,deadline){
+async function latestRelease(){
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),8000);
+  try{
+    const response=await fetch(new URL(`./release.json?ts=${Date.now()}`,document.baseURI),{cache:'no-store',signal:controller.signal});
+    if(!response.ok)return null;
+    const data=await response.json();
+    return typeof data.buildId==='string' ? data : null;
+  }catch{return null;}finally{clearTimeout(timer);}
+}
+
+function waitForInstalledWorker(registration,timeout=15000){
   return new Promise(resolve=>{
-    const poll=()=>{
-      if(registration.waiting)return resolve(true);
-      if(Date.now()>deadline)return resolve(false);
-      setTimeout(poll,250);
+    if(!registration)return resolve('failed');
+    const deadline=Date.now()+timeout;
+    let watched=null,finished=false;
+    const finish=status=>{if(finished)return;finished=true;clearInterval(timer);resolve(status);};
+    const check=()=>{
+      if(registration.waiting)return finish('waiting');
+      const installing=registration.installing;
+      if(installing && installing!==watched){
+        watched=installing;
+        installing.addEventListener('statechange',()=>{
+          if(installing.state==='redundant')finish('failed');
+          else if(registration.waiting)finish('waiting');
+        });
+      }
+      if(watched?.state==='redundant')return finish('failed');
+      if(Date.now()>deadline)return finish('timeout');
     };
-    poll();
+    const timer=setInterval(check,200);check();
   });
+}
+
+function reloadForUpdate(){
+  if(swReloading)return;
+  swReloading=true;location.reload();
+}
+
+async function forceRefresh(){
+  try{const registration=await navigator.serviceWorker.getRegistration();await registration?.unregister();}catch{}
+  reloadForUpdate();
+}
+
+async function registerBuild(buildId){
+  try{
+    const registration=await navigator.serviceWorker.register(new URL(`./sw.js?build=${encodeURIComponent(buildId)}`,document.baseURI).href,{scope:'./',updateViaCache:'none'});
+    state.registration=registration;return registration;
+  }catch{return null;}
+}
+
+async function activateUpdate(){
+  if(state.session && !state.session.finished){toast('Încheie sesiunea înainte de actualizare. Răspunsurile tale sunt salvate.');return false;}
+  let waiting=state.registration?.waiting;
+  if(!waiting){
+    const status=await waitForInstalledWorker(state.registration,4000);
+    if(status==='waiting')waiting=state.registration.waiting;
+  }
+  if(!waiting)return false;
+  const activated=new Promise(resolve=>{
+    const timer=setTimeout(()=>resolve(false),5000);
+    navigator.serviceWorker.addEventListener('controllerchange',()=>{clearTimeout(timer);resolve(true);},{once:true});
+  });
+  waiting.postMessage({type:'ACTIVATE_UPDATE'});
+  if(await activated){reloadForUpdate();return true;}
+  if(navigator.onLine){
+    toast('Actualizarea nu s-a activat; workerul este resetat și pagina se reîncarcă.',true);
+    await forceRefresh();
+  }else toast('Actualizarea nu s-a activat. Reconectează-te la internet și încearcă din nou.',true);
+  return false;
 }
 
 async function checkForUpdates(){
@@ -1003,13 +1071,29 @@ async function checkForUpdates(){
   }
   state.updateChecking=true;refreshUpdateControls();
   try{
-    await state.registration.update();
-    const ready=await waitForWaitingWorker(state.registration,Date.now()+15000);
+    const [latest,current]=await Promise.all([latestRelease(),activeBuildId()]);
+    let status=state.registration.waiting?'waiting':'none';
+    if(status!=='waiting'){
+      await state.registration.update();
+      status=await waitForInstalledWorker(state.registration,15000);
+    }
+    if(status!=='waiting' && latest?.buildId && current && latest.buildId!==current){
+      const registration=await registerBuild(latest.buildId);
+      if(registration)status=await waitForInstalledWorker(registration,10000);
+    }
     state.updateChecking=false;refreshUpdateControls();
-    if(ready){
+    if(status==='waiting'){
       if(state.session && !state.session.finished){toast('Versiunea nouă se aplică după ce închei sesiunea.');await render();}
-      else{toast('Se aplică versiunea nouă…');activateUpdate();}
-    }else toast('Ai deja cea mai recentă versiune.');
+      else{toast('Se aplică versiunea nouă…');await activateUpdate();}
+      return;
+    }
+    if(latest?.buildId && current && latest.buildId!==current){
+      toast('Există o versiune nouă, dar workerul nu s-a activat. Reîncarc forțat.',true);
+      if(navigator.onLine)await forceRefresh();
+      else toast('Reconectează-te la internet și încearcă din nou.',true);
+      return;
+    }
+    toast('Ai deja cea mai recentă versiune.');
   }catch{
     state.updateChecking=false;refreshUpdateControls();
     toast('Nu am putut verifica actualizările. Verifică conexiunea și încearcă din nou.',true);
@@ -1018,6 +1102,8 @@ async function checkForUpdates(){
 
 function setupOffline(){
   if(!('serviceWorker' in navigator) || !isSecureContext)return;
+  const hadController=Boolean(navigator.serviceWorker.controller);
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{if(hadController && (!state.session || state.session.finished))reloadForUpdate();});
   navigator.serviceWorker.register('./sw.js',{scope:'./',updateViaCache:'none'}).then(registration=>{
     state.registration=registration;
     registration.addEventListener('updatefound',()=>{const incoming=registration.installing;incoming?.addEventListener('statechange',()=>{if(incoming.state==='installed' && navigator.serviceWorker.controller){if(!state.session || state.session.finished)render().catch(()=>{});}});});

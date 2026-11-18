@@ -6,7 +6,7 @@ import {annotationRenderer,MARK_PALETTE,autoColour} from './lib/annotation-view.
 
 let db,drafts=[],draft=null,caseId=null,tab='case',imageURL=null,drawItemId=null,saveTimer,saveGeneration=0,undoSnapshot=null;
 let activeImageId=null,drawTool='ellipse',drawPattern='none',drawColor='auto',closedFreehand=true,activeAnnotationId=null,pendingUpload='case',selectedChapters={};
-let registration=null,updateChecking=false;
+let registration=null,updateChecking=false,swReloading=false;
 const uid=prefix=>prefix+'-'+crypto.randomUUID();
 const act=fn=>async event=>{try{await fn(event);}catch(error){toast(error.message || 'Operația nu a putut fi finalizată.',true);}};
 const currentCase=()=>draft?.pack.cases.find(item=>item.id===caseId);
@@ -48,37 +48,106 @@ function refreshUpdateControls(){
     if(label)label.textContent=updateCheckLabel();
   }
 }
-async function activateUpdate(){
-  const waiting=registration?.waiting;
-  if(!waiting)return false;
-  let reloaded=false;
-  const reload=()=>{if(reloaded)return;reloaded=true;location.reload();};
-  navigator.serviceWorker.addEventListener('controllerchange',reload,{once:true});
-  try{await saveNow();}catch{toast('Proiectul nu a putut fi salvat. Verifică spațiul liber și încearcă din nou.',true);return false;}
-  waiting.postMessage({type:'ACTIVATE_UPDATE'});
-  setTimeout(reload,4000);
-  return true;
+async function activeBuildId(){
+  try{
+    const scope=registration?.scope || new URL('./',location.href).href;
+    const prefix=`radia-studio:${scope}`;
+    const key=(await caches.keys()).find(name=>name.startsWith(prefix));
+    if(key)return key.slice(prefix.length).match(/-([0-9a-f]{12})$/)?.[1] || null;
+    const response=await caches.match(new URL('./release.json',document.baseURI).href);
+    return response ? (await response.json()).buildId || null : null;
+  }catch{return null;}
 }
-function waitForWaitingWorker(deadline){
+async function latestRelease(){
+  const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),8000);
+  try{
+    const response=await fetch(new URL(`./release.json?ts=${Date.now()}`,document.baseURI),{cache:'no-store',signal:controller.signal});
+    if(!response.ok)return null;
+    const data=await response.json();
+    return typeof data.buildId==='string' ? data : null;
+  }catch{return null;}finally{clearTimeout(timer);}
+}
+function waitForInstalledWorker(target,timeout=15000){
   return new Promise(resolve=>{
-    const poll=()=>{
-      if(registration?.waiting)return resolve(true);
-      if(Date.now()>deadline)return resolve(false);
-      setTimeout(poll,250);
+    if(!target)return resolve('failed');
+    const deadline=Date.now()+timeout;
+    let watched=null,finished=false;
+    const finish=status=>{if(finished)return;finished=true;clearInterval(timer);resolve(status);};
+    const check=()=>{
+      if(target.waiting)return finish('waiting');
+      const installing=target.installing;
+      if(installing && installing!==watched){
+        watched=installing;
+        installing.addEventListener('statechange',()=>{
+          if(installing.state==='redundant')finish('failed');
+          else if(target.waiting)finish('waiting');
+        });
+      }
+      if(watched?.state==='redundant')return finish('failed');
+      if(Date.now()>deadline)return finish('timeout');
     };
-    poll();
+    const timer=setInterval(check,200);check();
   });
+}
+function reloadForUpdate(){
+  if(swReloading)return;
+  swReloading=true;location.reload();
+}
+async function forceRefresh(){
+  try{await saveNow();}catch{toast('Proiectul nu a putut fi salvat. Verifică spațiul liber și încearcă din nou.',true);return false;}
+  try{const current=await navigator.serviceWorker.getRegistration();await current?.unregister();}catch{}
+  reloadForUpdate();return true;
+}
+async function registerBuild(buildId){
+  try{
+    const worker=await navigator.serviceWorker.register(new URL(`./sw.js?build=${encodeURIComponent(buildId)}`,document.baseURI).href,{scope:'./',updateViaCache:'none'});
+    registration=worker;return worker;
+  }catch{return null;}
+}
+async function activateUpdate(){
+  let waiting=registration?.waiting;
+  if(!waiting){
+    const status=await waitForInstalledWorker(registration,4000);
+    if(status==='waiting')waiting=registration.waiting;
+  }
+  if(!waiting)return false;
+  try{await saveNow();}catch{toast('Proiectul nu a putut fi salvat. Verifică spațiul liber și încearcă din nou.',true);return false;}
+  const activated=new Promise(resolve=>{
+    const timer=setTimeout(()=>resolve(false),5000);
+    navigator.serviceWorker.addEventListener('controllerchange',()=>{clearTimeout(timer);resolve(true);},{once:true});
+  });
+  waiting.postMessage({type:'ACTIVATE_UPDATE'});
+  if(await activated){reloadForUpdate();return true;}
+  if(navigator.onLine){
+    toast('Actualizarea nu s-a activat; workerul este resetat și pagina se reîncarcă.',true);
+    await forceRefresh();
+  }else toast('Actualizarea nu s-a activat. Reconectează-te la internet și încearcă din nou.',true);
+  return false;
 }
 async function checkForUpdates(){
   if(updateChecking)return;
   if(!registration){toast('Actualizarea automată nu este disponibilă în acest browser. Reîncarcă pagina.',true);return;}
   updateChecking=true;refreshUpdateControls();
   try{
-    await registration.update();
-    const ready=await waitForWaitingWorker(Date.now()+15000);
+    const [latest,current]=await Promise.all([latestRelease(),activeBuildId()]);
+    let status=registration.waiting?'waiting':'none';
+    if(status!=='waiting'){
+      await registration.update();
+      status=await waitForInstalledWorker(registration,15000);
+    }
+    if(status!=='waiting' && latest?.buildId && current && latest.buildId!==current){
+      const worker=await registerBuild(latest.buildId);
+      if(worker)status=await waitForInstalledWorker(worker,10000);
+    }
     updateChecking=false;refreshUpdateControls();
-    if(ready){toast('Se aplică versiunea nouă…');await activateUpdate();}
-    else toast('Ai deja cea mai recentă versiune.');
+    if(status==='waiting'){toast('Se aplică versiunea nouă…');await activateUpdate();return;}
+    if(latest?.buildId && current && latest.buildId!==current){
+      toast('Există o versiune nouă, dar workerul nu s-a activat. Reîncarc forțat.',true);
+      if(navigator.onLine)await forceRefresh();
+      else toast('Reconectează-te la internet și încearcă din nou.',true);
+      return;
+    }
+    toast('Ai deja cea mai recentă versiune.');
   }catch{
     updateChecking=false;refreshUpdateControls();
     toast('Nu am putut verifica actualizările. Verifică conexiunea și încearcă din nou.',true);
@@ -570,6 +639,8 @@ async function boot(){
   const saved=records.find(row=>row.id===id);if(saved){draft={pack:saved.pack,bank:saved.bank,files:new Map(saved.files.map(f=>[f.path,f.blob]))};caseId=draft.pack.cases[0]?.id || null;activeImageId=null;}
   render();
   if('serviceWorker' in navigator && isSecureContext){
+    const hadController=Boolean(navigator.serviceWorker.controller);
+    navigator.serviceWorker.addEventListener('controllerchange',()=>{if(hadController)reloadForUpdate();});
     navigator.serviceWorker.register('./sw.js',{scope:'./',updateViaCache:'none'}).then(worker=>{
       registration=worker;
       worker.addEventListener('updatefound',()=>{const incoming=worker.installing;incoming?.addEventListener('statechange',()=>{if(incoming.state==='installed' && navigator.serviceWorker.controller){refreshUpdateControls();if(!draft)render();}});});

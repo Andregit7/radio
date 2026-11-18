@@ -1,5 +1,6 @@
-const VERSION='0.2.0-987bf2c9086a',PREFIX=`radia-studio:${self.registration.scope}:`,CACHE=PREFIX+VERSION;
+const VERSION='0.2.0-e9ad8c5fc785',PREFIX=`radia-studio:${self.registration.scope}:`,CACHE=PREFIX+VERSION;
 const FILES=['./','./index.html','./base.css','./studio.css','./studio.js','./manifest.webmanifest','./release.json','./icons/icon.svg','./icons/icon-192.png','./icons/icon-512.png','./icons/apple-touch-icon.png','./lib/core.js','./lib/schema.js','./lib/zip.js','./lib/archive.js','./lib/archive-worker.js','./lib/dom.js','./lib/annotation-view.js'];
 self.addEventListener('install',event=>event.waitUntil(caches.open(CACHE).then(cache=>cache.addAll(FILES.map(path=>new Request(new URL(path,self.registration.scope),{cache:'reload'}))))));
 self.addEventListener('activate',event=>event.waitUntil((async()=>{for(const name of await caches.keys())if(name.startsWith(PREFIX) && name!==CACHE)await caches.delete(name);await self.clients.claim();})()));
+self.addEventListener('message',event=>{if(event.data?.type==='ACTIVATE_UPDATE')self.skipWaiting();});
 self.addEventListener('fetch',event=>{const request=event.request,url=new URL(request.url),home=new URL('./',self.registration.scope),index=new URL('./index.html',self.registration.scope);if(request.method!=='GET' || url.origin!==self.location.origin)return;event.respondWith(caches.open(CACHE).then(async cache=>(await cache.match(request)) || (request.mode==='navigate' && (url.pathname===home.pathname || url.pathname===index.pathname)?await cache.match(index):null) || fetch(request)));});
