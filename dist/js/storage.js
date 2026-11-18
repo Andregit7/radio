@@ -33,6 +33,12 @@ export async function setMetas(values) {
 export async function listPacks() {
   const db=await openDatabase();return requestResult(db.transaction('packs').objectStore('packs').getAll());
 }
+const CLEARED_LEARNING_KEYS=['progress','selfAssessments','visited','session'];
+export async function clearLearning() {
+  const db=await openDatabase(),tx=db.transaction('meta','readwrite'),done=transactionDone(tx);
+  for(const key of CLEARED_LEARNING_KEYS)tx.objectStore('meta').delete(key);
+  await done;
+}
 export async function assetBlob(record,path) {
   const db=await openDatabase();return (await requestResult(db.transaction('assets').objectStore('assets').get(`${record.token}/${path}`)))?.blob;
 }

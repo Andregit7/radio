@@ -24,24 +24,24 @@ This directory is **source**, not build output. It is served directly.
 |---|---|---|---|
 | `core.js` | pure learning logic, no DOM | `APP_VERSION`, `DAY`, `SECTION_LABELS`, `normalise`, `matches`, `searchCatalogue`, `shuffled`, `progressKey`, `questionSignature`, `matchingProgress`, `gradeAnswer`, `scheduleReview`, `chooseQuestions`, `availableQuestions`, `bytesLabel`, `dateLabel` | none |
 | `schema.js` | pack/archive contract + validators | `LIMITS`, `requireThat`, `safePath`, `parseJSON`, `validateAnnotation`, `validatePack`, `validateQuestions`, `imageDimensions`, `validateFiles` | none |
-| `storage.js` | IndexedDB `radia-study-v1` | `DB_NAME`, `openDatabase`, `getMeta`, `setMeta`, `setMetas`, `listPacks`, `assetBlob`, `packAssets`, `installPacks`, `removePack`, `learningVersion`, `validateLearning`, `learningSnapshot`, `mergeLearning`, `restoreLearningFile` | `schema.js` |
+| `storage.js` | IndexedDB `radia-study-v1` | `DB_NAME`, `openDatabase`, `getMeta`, `setMeta`, `setMetas`, `listPacks`, `clearLearning`, `assetBlob`, `packAssets`, `installPacks`, `removePack`, `learningVersion`, `validateLearning`, `learningSnapshot`, `mergeLearning`, `restoreLearningFile` | `schema.js` |
 | `zip.js` | ZIP read/write over `DecompressionStream` | `crc32`, `inspectZip`, `readZip`, `writeZip` | `schema.js` |
 | `archive.js` | runs ZIP work in a Worker | `archiveJob(action, payload, onProgress, signal)` — 120 s timeout, AbortSignal | `archive-worker.js` |
 | `archive-worker.js` | worker entry | none (`self.onmessage`) | `zip.js` |
 | `dom.js` | DOM kit | `el`, `button`, `link`, `badge`, `icon`, `toast`, `modal` | none |
 | `annotation-view.js` | shared SVG marks: palette, automatic color, shape, pattern and arrow rendering | `MARK_PALETTE`, `autoColour`, `markColour`, `annotationRenderer` | none |
-| `viewer.js` | image viewer, primary tabs, mark toggle and comparison layers | `imageViewer(record, caseData, opts) → {node, selectItem, destroy}` | `dom.js`, `storage.js`, `annotation-view.js` |
+| `viewer.js` | image viewer: fit/fill stage, zoom, drag panning, primary tabs, mark toggle and comparison layers | `imageViewer(record, caseData, opts) → {node, selectItem, destroy}`; `opts.mode` is `'fit'` (default) or `'fill'`, `opts.onModeChange` reports a switch | `dom.js`, `storage.js`, `annotation-view.js` |
 | `catalogue.js` | chapter/case selector UI | `catalogueSelector(pack, opts)` | `dom.js`, `core.js` |
 | `exercises.js` | exercise derivation + grading | `EXERCISE_LABELS`, `SECTION_PROMPTS`, `SECTION_ORDER`, `presentSections`, `interpretationExercise`, `regionsExercise`, `matchingExercise`, `availableExercises`, `gradeMatching`, `matchingScore`, `answerSelfChecks`, `selfAssessmentCount`, `selfAssessmentItems`, `recordSelfAssessment`, `sessionAnswer`, `advanceSession`, `finishSessionEarly`, `receivedAnswers`, `exerciseSubject`, `canonicalDiagnosisLabels` | `core.js`, `structured.js` |
 | `structured.js` | chapter-bank exercise derivation, one-to-one observation matching, structured progress | `STRUCTURED_ORDER`, `structuredExercise`, `stepLabel`, `gradeStructured`, `structuredRecord`, `optionLabel`, `describeObservation` | `core.js` |
-| `app.js` | Study SPA: router (`#library`, `#cases`, `#case/:id`, `#practice`, `#exam`, `#progress`, `#settings`), reader layers, differential previews, guided/exam structured rendering and persistence | none | everything above |
+| `app.js` | Study SPA: router (`#library`, `#cases`, `#case/:id`, `#practice`, `#exam`, `#progress`, `#settings`), reader layers, differential previews, guided/exam structured rendering and persistence, result tiles headed by case and section label with the chosen and correct answers, the persisted `viewerMode` preference, and the learning reset through `clearLearning` | none | everything above |
 | `checks/browser.js` | 8 browser integration checks | none | `storage`, `schema`, `archive`, `viewer`, `catalogue`, `core`, `exercises` |
 
 ## `studio`
 
 | File | Purpose |
 |---|---|
-| `studio.js` | Pack Studio SPA: IndexedDB `radia-studio-v1` (`drafts`, `meta`), debounced `saveNow` (450 ms), tabs case/banks/catalogue/curriculum/questions, ellipse/rect/arrow/freehand drawing, automatic or manual colors and fills, image comparison layers, linked differentials, structured case forms and written questions; `exportDraft` sanitizes → `validatePack` → `validateQuestions` → `validateFiles` |
+| `studio.js` | Pack Studio SPA: IndexedDB `radia-studio-v1` (`drafts`, `meta`), debounced `saveNow` (450 ms), tabs case/banks/catalogue/curriculum/questions, ellipse/rect/arrow/freehand drawing, automatic or manual colors and fills, image comparison layers, linked differentials, structured case forms and written questions; two independently scrolling case-editor panes whose offsets, and the case list's, survive the full-tree re-render; `exportDraft` sanitizes → `validatePack` → `validateQuestions` → `validateFiles` |
 | `studio/lib/*` | **GENERATED** copies of `dist/js/{core,schema,zip,archive,archive-worker,dom,annotation-view}.js` — never edit |
 | `studio/base.css` | **GENERATED** copy of `dist/styles.css` — never edit |
 

@@ -28,6 +28,8 @@ This is desktop-browser evidence, not a substitute for the manual matrix below. 
 | Course pack import | 80 cases, 4 chapters; images and notes open |
 | First case, linked observation | Selecting the text highlights the ellipse and vice versa |
 | Zoom and orientation change | The annotation stays on the same region |
+| Viewer Fit/Fill | `Fit` shows the whole film with dark letterbox bars; `Fill` covers the stage and crops the overflowing side; the choice survives a reload and applies to every viewer |
+| Viewer drag panning | A zoomed or cropped image follows the pointer with a grab cursor; marks stay clickable; `Reset` returns to 1x and the top-left corner |
 | Diagnosis-only case | Missing sections are explicitly marked |
 | p054 | Can be studied, with no automatic diagnosis question |
 | Method selector | Five methods explained; annotation-based methods stay disabled until the annotations are verified |
@@ -45,8 +47,11 @@ This is desktop-browser evidence, not a substitute for the manual matrix below. 
 | MCQs | Shuffling the options does not change the key; a double click does not duplicate the attempt |
 | Simulare | A single click confirms and advances; no explanation before the end |
 | Rezultate (results) | Image, diagnosis and full explanation open over the results; closing returns to the list |
+| Rezultate, answers | Tiles are headed by case and section; a wrong answer also shows `Răspuns corect` (Correct answer); the color accent carries the state; a skipped tile reads `Sărit` (Skipped) |
 | Early finish | Confirmed answers are kept; unanswered ones are not counted |
 | Pauză (pause)/reload | The session continues without losing confirmed answers |
+| Resetează progresul (reset progress), cancel | The modal closes and the counters, bookmarks and installed packs are unchanged |
+| Resetează progresul, confirm | Answers, self-assessments, visited cases and the paused session are cleared; bookmarks and installed packs stay; a reload keeps that state |
 | Export/import JSON twice | The counters are not doubled; self-assessments and bookmarks are kept |
 | Full backup on a new origin | Packs, bookmarks, automatic progress and self-assessments are restored |
 | Cancelled or failed import | The existing pack stays usable |
@@ -56,6 +61,8 @@ This is desktop-browser evidence, not a substitute for the manual matrix below. 
 | Network | No material, answer or progress uploaded to a server |
 | Studio, create/edit/export | The resulting pack can be imported into Study |
 | Studio, editing a case | The affected questions return to the draft state |
+| Studio, case editor on desktop | Tabs and case title stay fixed; the image column and the notes column scroll independently and keep their offsets after an edit re-renders the tree |
+| Studio, narrow window | Below the single-column breakpoint the page scrolls as a whole, without nested scrollbars |
 | Studio, banks | Chapter-specific variants survive rename/reorder; deleting a used variant is blocked |
 | Studio, drawing | Ellipse, rectangle, arrow, open freehand and closed freehand all export and re-import; fills only on closed shapes |
 | Studio, colors | Each new mark gets a distinct automatic color; manual color and reset-to-automatic work per mark |

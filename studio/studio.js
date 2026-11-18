@@ -193,9 +193,17 @@ function render(){
   const work=el('main',{class:'studio-workspace'},el('nav',{class:'studio-tabs','aria-label':'Secțiuni Studio'},...[["case","Caz & repere"],["banks","Bănci de răspunsuri"],["catalogue","Diagnostice"],["curriculum","Programă"],["questions","Grile"]].map(([id,label])=>button(label,()=>{tab=id;render();},`chip ${tab===id?'active':''}`))),
     undoSnapshot?button('Anulează ultima editare',act(async()=>{const old=undoSnapshot;undoSnapshot=null;draft.pack=old.pack;draft.bank=old.bank;draft.files=old.files;changed();await saveNow();render();}),'button ghost'):null);
   if(tab==='case')renderCaseEditor(work);else if(tab==='banks')renderBanks(work);else if(tab==='catalogue')renderCatalogue(work);else if(tab==='curriculum')renderCurriculum(work);else renderQuestions(work);
-  const previousList=root.querySelector('.studio-case-list'),scrollTop=previousList?.scrollTop || 0,scrollLeft=previousList?.scrollLeft || 0;
+  const scrollState=selector=>{const node=root.querySelector(selector);return node?[node.scrollTop,node.scrollLeft]:null;};
+  const savedScroll=[['.studio-case-list',scrollState('.studio-case-list')],['.studio-image-column',scrollState('.studio-image-column')],['.studio-notes-column',scrollState('.studio-notes-column')]];
   root.replaceChildren(head,el('div',{class:'studio-layout'},side,work));
-  const nextList=root.querySelector('.studio-case-list');if(nextList){nextList.scrollTop=scrollTop;nextList.scrollLeft=scrollLeft;}
+  for(const [selector,position] of savedScroll){
+    const node=position && root.querySelector(selector);if(!node)continue;
+    node.scrollTop=position[0];node.scrollLeft=position[1];
+    // The image pane only reaches its full height once the new blob <img> is decoded, so re-apply the
+    // saved offset after each image load unless the reader already scrolled away from the restored one.
+    const restored=node.scrollTop;
+    if(position[0]>restored)for(const image of node.querySelectorAll('img'))image.addEventListener('load',()=>{if(node.scrollTop===restored)node.scrollTop=position[0];},{once:true});
+  }
 }
 
 function renderCaseEditor(work){
@@ -333,7 +341,7 @@ function renderCaseEditor(work){
   comparisonSection.append(el('button',{type:'button',class:'button ghost',onclick:()=>{pendingUpload='comparison';document.getElementById('add-case-image').click();}},'+ Încarcă o imagine de comparație'));
   imageColumn.append(comparisonSection);
 
-  const notes=el('div',{});
+  const notes=el('div',{class:'studio-notes-column'});
   notes.append(el('section',{class:'studio-form-section'},field('Numele cazului',item.title,value=>changeCase(c=>c.title=value,false)),
     selectField('Capitol',draft.pack.curriculum.chapters,item.chapterId,value=>changeCase(c=>c.chapterId=value)),
     selectField('Diagnosticul pozitiv',[{id:'',label:'Nu este precizat / alege un diagnostic'},...draft.pack.diagnoses.map(d=>({id:d.id,label:d.label}))],item.diagnosisIds[0] || '',value=>{

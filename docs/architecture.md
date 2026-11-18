@@ -6,6 +6,10 @@ Study and Pack Studio are two static applications, each with its own manifest, S
 
 Study does not offer pack creation or editing. Annotations shipped in the pack are displayed via SVG generated from validated geometry. Studio draws ellipses, rectangles, arrows, open freehand strokes and closed freehand polygons on any case image, with automatic or manual colors and closed-shape fill patterns. Study renders the same validated shapes; completed v1 packs keep their legacy gold marks. A case can add primary images, comparison-only images and named comparison layers; references are validated inside the same pack.
 
+The Study viewer keeps a single image stage and a single SVG annotation box. `Fit` shows the whole film inside the stage, with dark letterbox bars; `Fill` covers the stage and lets the overflowing side be cropped. Zoom multiplies the base scale of whichever mode is active, dragging moves an image that overflows the stage, and the annotation box always matches the rendered image, so a mark stays on the same region in both modes, at every zoom level and after any resize. The viewer receives the mode as an option, reports a switch back to the application, and disposes of its resize observer and pointer listeners.
+
+The Studio case editor is a fixed-height shell on desktop: tabs and the case title stay in place while the image column and the notes column each scroll on their own. A full-tree re-render restores both offsets and the case list's, and the image pane reapplies its offset once the new image has decoded, unless the author has already scrolled away. Below the single-column breakpoint the page scrolls as a whole again, without nested panes.
+
 ## Contracts
 
 Course data, questions and algorithms are separate:
@@ -28,6 +32,8 @@ A spaced-review session prioritises overdue mistakes, then other overdue questio
 
 The exam simulation distributes the exercises across the selected chapters without using the history of mistakes. Explanations and correctness are shown only at the end. The configured number means exercises; for interpretation, cases. Short questions keep the catalogue and the MCQs, without duplicating the diagnosis.
 
+The results list describes what was actually exercised: each tile is headed `${case.title} · ${section label}`, using the section labels of the reader and of the explanation (`Diagnostic pozitiv` (Positive diagnosis), `Incidență` (Projection)), not the exercise kind. An automatically graded tile states the chosen answer and, when it is wrong, the correct one too (`Răspuns corect` (Correct answer)); matching and structured tiles name the correct reference for every missed pair or step; written, interpretation and regions tiles stay neutral and show only the self-assessment. Green, orange and neutral accents carry the state instead of a separate badge, while the status label stays available to screen readers; a skipped tile reads `Sărit` (Skipped), and `Vezi explicația` (See the explanation) still opens the full feedback.
+
 Progress has two separate registers: automatically graded results (`catalogue`, `mcq`, `matching`, `structured`) and self-assessments (`interpretation`, `regions`, `written`). The accuracy percentage uses only the first register. A signature of the prompt, options, sections, pairs or structured keys prevents reuse of the schedule when the exercise changes. The display order of options, labels and chapter-bank ordering do not change the signature; changing the primary film or a keyed finding does. Structured attempts update the schedule once per submitted case, not once per guided step.
 
 ## Persistence and restore
@@ -35,6 +41,8 @@ Progress has two separate registers: automatically graded results (`catalogue`, 
 Images are Blobs in IndexedDB, with internal references, without URLs from the pack. A replacement writes the pack, the bank and the images in a single transaction. Errors cancel the replacement, keeping the previous version. Old images are removed in the same transaction, without touching the data of other packs.
 
 Confirming an answer saves progress and the session in a single transaction. Self-assessment saves `selfAssessments` separately, and the JSON backup keeps both registers. Structured results use `progress` with kind `structured`; written self-checks use `selfAssessments` with kind `written`. Backup v2 is written only when one of those kinds exists, while v1 remains importable. Restore keeps the record with the most recent attempt date and merges bookmarks without duplication. The full backup validates all data before the common transaction.
+
+`meta` also holds device state that a learning backup never includes: `activeId`, `lastExportAt` and the viewer's `viewerMode` (`fit` or `fill`). A mode switch is reported through the viewer option, written by the application once, and passed to every viewer call site. `Resetează progresul` (Reset progress) in `Date & instalare` (Date & installation) asks for confirmation, then deletes only `progress`, `selfAssessments`, `visited` and `session`, in one transaction. Installed packs and their images, bookmarks, `activeId`, `viewerMode` and `lastExportAt` survive the reset; the in-memory state and the settings view are reloaded afterwards, and the deleted learning data can be recovered only from a backup.
 
 This version is intended for use in a single active window per application. Simultaneous progress updates in several tabs have no event-level conflict resolution yet.
 
