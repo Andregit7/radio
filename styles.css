@@ -20,6 +20,7 @@ button.nav-item:hover{background:#e7ede4}
 button.nav-item:disabled{cursor:progress;color:var(--muted)}
 button.nav-item:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
 .update-check svg{flex:none}
+.studio-header .update-check{margin:0}
 .update-check:disabled svg{animation:update-spin 1s linear infinite}
 @keyframes update-spin{to{transform:rotate(360deg)}}
 @media(prefers-reduced-motion:reduce){.update-check:disabled svg{animation:none}}

@@ -4,12 +4,57 @@ import {LIMITS,validatePack,validateQuestions,validateFiles,imageDimensions,requ
 import {archiveJob} from './lib/archive.js';
 
 let db,drafts=[],draft=null,caseId=null,tab='case',imageURL=null,drawItemId=null,saveTimer,saveGeneration=0,undoSnapshot=null;
+let registration=null,updateChecking=false;
 const uid=prefix=>prefix+'-'+crypto.randomUUID();
 const act=fn=>async event=>{try{await fn(event);}catch(error){toast(error.message || 'Operația nu a putut fi finalizată.',true);}};
 const currentCase=()=>draft?.pack.cases.find(item=>item.id===caseId);
 const req=request=>new Promise((resolve,reject)=>{request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);});
 function txDone(tx){return new Promise((resolve,reject)=>{tx.oncomplete=resolve;tx.onabort=()=>reject(tx.error || new Error('Salvarea a eșuat.'));tx.onerror=()=>{};});}
 function status(message){const node=document.getElementById('save-status');if(node)node.textContent=message;}
+function updateCheckLabel(){return updateChecking?'Verific actualizările…':'Verifică actualizări';}
+function refreshUpdateControls(){
+  for(const node of document.querySelectorAll('.update-check')){
+    node.disabled=updateChecking;
+    const label=node.querySelector('span');
+    if(label)label.textContent=updateCheckLabel();
+  }
+}
+async function activateUpdate(){
+  const waiting=registration?.waiting;
+  if(!waiting)return false;
+  let reloaded=false;
+  const reload=()=>{if(reloaded)return;reloaded=true;location.reload();};
+  navigator.serviceWorker.addEventListener('controllerchange',reload,{once:true});
+  try{await saveNow();}catch{toast('Proiectul nu a putut fi salvat. Verifică spațiul liber și încearcă din nou.',true);return false;}
+  waiting.postMessage({type:'ACTIVATE_UPDATE'});
+  setTimeout(reload,4000);
+  return true;
+}
+function waitForWaitingWorker(deadline){
+  return new Promise(resolve=>{
+    const poll=()=>{
+      if(registration?.waiting)return resolve(true);
+      if(Date.now()>deadline)return resolve(false);
+      setTimeout(poll,250);
+    };
+    poll();
+  });
+}
+async function checkForUpdates(){
+  if(updateChecking)return;
+  if(!registration){toast('Actualizarea automată nu este disponibilă în acest browser. Reîncarcă pagina.',true);return;}
+  updateChecking=true;refreshUpdateControls();
+  try{
+    await registration.update();
+    const ready=await waitForWaitingWorker(Date.now()+15000);
+    updateChecking=false;refreshUpdateControls();
+    if(ready){toast('Se aplică versiunea nouă…');await activateUpdate();}
+    else toast('Ai deja cea mai recentă versiune.');
+  }catch{
+    updateChecking=false;refreshUpdateControls();
+    toast('Nu am putut verifica actualizările. Verifică conexiunea și încearcă din nou.',true);
+  }
+}
 function changed(){saveGeneration++;status('Se salvează…');clearTimeout(saveTimer);saveTimer=setTimeout(()=>saveNow().catch(error=>{status('Nesalvat');toast(error.message,true);}),450);}
 function remember(){if(draft)undoSnapshot={pack:structuredClone(draft.pack),bank:structuredClone(draft.bank)};}
 function changeCase(fn,assessmentChanged=true){remember();fn(currentCase());if(assessmentChanged)for(const q of draft.bank.items.filter(q=>q.caseId===caseId))q.reviewStatus='draft';changed();}
@@ -40,7 +85,8 @@ function render(){
   const head=el('header',{class:'studio-header'},el('div',{class:'studio-brand'},el('img',{src:'./icons/icon.svg',alt:''}),'RadioEasy',el('small',{},'PACK STUDIO')),
     el('div',{class:'studio-header-actions'},el('span',{class:'save-status',id:'save-status'},draft?'Salvat local':'Offline după prima încărcare'),
       button([icon('plus',15),'Pachet nou'],act(newPack),'button secondary'),button([icon('upload',15),'Deschide ZIP'],()=>document.getElementById('open-pack').click(),'button secondary'),
-      draft?button([icon('download',15),'Validează & exportă'],act(exportDraft)):null));
+      draft?button([icon('download',15),'Validează & exportă'],act(exportDraft)):null,
+      button([icon('refresh',15),el('span',{'aria-live':'polite'},updateCheckLabel())],act(()=>checkForUpdates()),'button secondary update-check',{disabled:updateChecking,title:'Verifică și aplică o versiune nouă, fără a șterge proiectele salvate'})));
   const root=document.getElementById('studio');
   if(!draft){root.replaceChildren(head,el('main',{class:'studio-empty'},badge('APLICAȚIE PENTRU CONTRIBUTORI','green'),el('h1',{},'Explicații care arată unde să privești.'),el('p',{},'Organizează radiografiile, leagă observațiile de imagine și pregătește exerciții. Totul se lucrează local; colegii primesc un singur pachet ZIP.'),el('div',{class:'button-row'},button('Creează primul pachet',act(newPack)),button('Deschide un pachet existent',()=>document.getElementById('open-pack').click(),'button secondary'))));return;}
   const select=el('select',{class:'select','aria-label':'Proiect de pachet',onchange:act(event=>openDraft(event.target.value))},...drafts.map(row=>el('option',{value:row.id,selected:row.id===draft.pack.id},row.title)));
@@ -210,7 +256,14 @@ async function boot(){
   const request=indexedDB.open('radia-studio-v1',1);request.onupgradeneeded=()=>{request.result.createObjectStore('drafts',{keyPath:'id'});request.result.createObjectStore('meta');};db=await req(request);db.onversionchange=()=>db.close();
   const records=await req(db.transaction('drafts').objectStore('drafts').getAll());drafts=records.map(row=>({id:row.id,title:row.pack.title}));const id=await req(db.transaction('meta').objectStore('meta').get('activeId'));
   const saved=records.find(row=>row.id===id);if(saved){draft={pack:saved.pack,bank:saved.bank,files:new Map(saved.files.map(f=>[f.path,f.blob]))};caseId=draft.pack.cases[0]?.id || null;}
-  render();if('serviceWorker' in navigator && isSecureContext)navigator.serviceWorker.register('./sw.js',{scope:'./',updateViaCache:'none'}).catch(()=>{});
+  render();
+  if('serviceWorker' in navigator && isSecureContext){
+    navigator.serviceWorker.register('./sw.js',{scope:'./',updateViaCache:'none'}).then(worker=>{
+      registration=worker;
+      worker.addEventListener('updatefound',()=>{const incoming=worker.installing;incoming?.addEventListener('statechange',()=>{if(incoming.state==='installed' && navigator.serviceWorker.controller){refreshUpdateControls();if(!draft)render();}});});
+      navigator.serviceWorker.ready.then(()=>worker.update().catch(()=>{})).catch(()=>{});
+    }).catch(()=>{});
+  }
 }
 document.getElementById('open-pack').addEventListener('change',act(async event=>{const file=event.target.files[0];event.target.value='';if(file)await importDraft(file);}));
 document.getElementById('add-image').addEventListener('change',act(async event=>{const file=event.target.files[0];event.target.value='';if(file)await addImage(file);}));

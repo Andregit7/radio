@@ -1,7 +1,7 @@
 {
   "app": "radioeasy-study",
   "version": "0.2.0",
-  "buildId": "6fd8fa912cef",
+  "buildId": "6e96f3bb1ee6",
   "files": [
     {
       "path": ".nojekyll",
@@ -100,14 +100,14 @@
     },
     {
       "path": "styles.css",
-      "bytes": 35312,
-      "sha256": "4485e637e71b78d803ccbe749e6b5279e645a7340ae29a532da853a89e6691e3"
+      "bytes": 35351,
+      "sha256": "76475459c5b03a0c9a58b8c0770f1f76ce4e3b3a67ed6238d361092b28bc3fc9"
     },
     {
       "path": "sw.js",
       "bytes": 1748,
-      "sha256": "c9f2f7af6164011f37e64018feef55efa166dcd1bef399aab724a3b8db107e99"
+      "sha256": "96b3de8b406e896e62c1b050d1a07772498907a50d2f65edfa564239518df30a"
     }
   ],
-  "totalBytes": 179710
+  "totalBytes": 179749
 }
