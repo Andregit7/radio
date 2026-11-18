@@ -1,7 +1,7 @@
 {
   "app": "radioeasy-study",
   "version": "0.2.0",
-  "buildId": "2be70c0632bc",
+  "buildId": "8d9bff6e51d5",
   "files": [
     {
       "path": ".nojekyll",
@@ -45,8 +45,8 @@
     },
     {
       "path": "js/app.js",
-      "bytes": 98225,
-      "sha256": "484ce190daf67a28c0269a44ba76f446d682a617a45623c7dba63611698dca46"
+      "bytes": 102816,
+      "sha256": "76dc5fe87110d1e60dbc3cd24cf7f1fb720d14281e23929fbeab758db5633a91"
     },
     {
       "path": "js/archive-worker.js",
@@ -85,8 +85,8 @@
     },
     {
       "path": "js/storage.js",
-      "bytes": 9378,
-      "sha256": "d1392f064e908c3f3b2d0bc1d11eb9403e822a7b91ca14e5ea8f6fef8b5f2038"
+      "bytes": 9687,
+      "sha256": "28fda981ac9d58d6b80cde5110bf7a5a5796078df05758485d48a2645ac66776"
     },
     {
       "path": "js/structured.js",
@@ -95,8 +95,8 @@
     },
     {
       "path": "js/viewer.js",
-      "bytes": 7619,
-      "sha256": "0228811dff8d93c9e6739733579624033520c50e66edcd6f25f2a85fe8c824a7"
+      "bytes": 11985,
+      "sha256": "7dbeebe2c3e703c717ba8291f7e9f328b8b10e850bdffd41ec6e1cbf917e7727"
     },
     {
       "path": "js/zip.js",
@@ -110,14 +110,14 @@
     },
     {
       "path": "styles.css",
-      "bytes": 38605,
-      "sha256": "654ce8d811bb0f4d10b679eeaaf6dde2859c4bbe59d30b08d807bec032921313"
+      "bytes": 40357,
+      "sha256": "806bf8bb9245952c56a3e3c8da500ac8824562cd602efd2b5f79c6bf0b81d315"
     },
     {
       "path": "sw.js",
       "bytes": 1795,
-      "sha256": "22ce2861c78110b3ce0a8c9636105e2ee9c950820737e78edb8bac4f3d367fe0"
+      "sha256": "53ff6fa77d93afe31846cdd8d5addb0c2396ba0cc9e11f62c900f32dfc72ce1f"
     }
   ],
-  "totalBytes": 238202
+  "totalBytes": 249220
 }
