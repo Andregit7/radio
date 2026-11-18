@@ -23,7 +23,7 @@ def main():
             continue
         if relative.parts[:2] == ('dist', 'packs') or relative.as_posix() == 'dist/starter.json':
             continue
-        entries.append((source, 'radia/' + relative.as_posix()))
+        entries.append((source, 'radioeasy/' + relative.as_posix()))
     for name in ('study-site', 'studio-site'):
         base = ROOT / 'releases' / name
         manifest = json.loads((base / 'release.json').read_text(encoding='utf-8'))
@@ -44,22 +44,23 @@ def main():
             archive.writestr(target, content)
             report.append({'path': target, 'bytes': len(content), 'sha256': hashlib.sha256(content).hexdigest()})
         archive.writestr('SOURCE-CHECKSUMS.json', json.dumps(report, ensure_ascii=False, indent=2) + '\n')
-        archive.writestr('START-HERE.md', '''# Radia v0.1.0
+        version = json.loads((ROOT / 'package.json').read_text(encoding='utf-8'))['version']
+        archive.writestr('START-HERE.md', f'''# RadioEasy v{version}
 
 Study: https://andregit7.github.io/radio/
 Pack Studio: https://andregit7.github.io/radio/studio/
 Cod sursă: https://github.com/Andregit7/radio
 
-Codul și instrucțiunile sunt în `radia/README.md`.
+Codul și instrucțiunile sunt în `radioeasy/README.md`.
 
-1. Pentru dezvoltare locală: deschide `radia/start-study.cmd` pe Windows sau rulează `node tools/serve.mjs` din directorul `radia`.
+1. Pentru dezvoltare locală: deschide `radioeasy/start-study.cmd` pe Windows sau rulează `node tools/serve.mjs` din directorul `radioeasy`.
 2. Study: http://127.0.0.1:4173/
 3. Importă `course-pack/radiografii-explicate.study.zip` din Bibliotecă.
-4. Pentru contribuții: `radia/start-studio.cmd` sau `node tools/serve.mjs --studio`; apoi http://127.0.0.1:4174/.
+4. Pentru contribuții: `radioeasy/start-studio.cmd` sau `node tools/serve.mjs --studio`; apoi http://127.0.0.1:4174/.
 
 `public-study-site/` și `public-studio-site/` sunt distribuții statice separate pentru găzduire HTTPS/GitHub Pages. Nu conțin materialele de curs.
 
-Au trecut 26 de teste Node, 176 de verificări statice și 7 verificări de integrare în browser. Pachetul de 80 de cazuri a fost importat în ambele aplicații. Instalarea pe dispozitive, modul avion și performanța pe un telefon modest rămân de verificat. Vezi `radia/docs/verification.md` și `radia/verification-results.json`.
+Starea verificării nu este înghețată în acest fișier: rulează `npm test`, `npm run check` și `npm run verify` în `radioeasy/`, iar `verification-results.json` conține numerele curente. Metodele cu repere rămân dezactivate până când adnotările sunt verificate în Studio. Instalarea pe dispozitive, modul avion și performanța pe un telefon modest rămân de verificat. Vezi `radioeasy/docs/verification.md`.
 
 Nu publica întregul ZIP privat ca repository public: conține separat pachetul de curs. Codul aplicației poate fi publicat independent.
 ''')

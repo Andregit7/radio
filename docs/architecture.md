@@ -1,43 +1,47 @@
-# Arhitectură v1
+# Architecture
 
-## Aplicații independente
+## Independent applications
 
-Study și Pack Studio sunt două aplicații statice, fiecare cu manifest, Service Worker și bază IndexedDB proprii. Nu există backend sau comunicare între aplicații. Transferul se face printr-un pachet ZIP. Modulele de validare și ZIP sunt comune la nivel de sursă și copiate explicit pentru distribuție; Studio nu încarcă module din originea Study.
+Study and Pack Studio are two static applications, each with its own manifest, Service Worker and IndexedDB database. There is no backend and no communication between applications. Transfer happens through a ZIP pack. The validation and ZIP modules are shared at source level and copied explicitly for distribution; Studio does not load modules from the Study origin.
 
-Study nu oferă creare sau editare de pachete. Reperele livrate în pachet sunt afișate prin SVG generat din geometrie validată. În Studio v0.1 editorul de desen produce elipse și lucrează pe prima imagine a cazului; Study poate afișa și dreptunghiuri, poligoane, săgeți și mai multe imagini din pachete conforme.
+Study does not offer pack creation or editing. Annotations shipped in the pack are displayed via SVG generated from validated geometry. Studio draws ellipses, rectangles, arrows, open freehand strokes and closed freehand polygons on any case image, with automatic or manual colors and closed-shape fill patterns. Study renders the same validated shapes; completed v1 packs keep their legacy gold marks. A case can add primary images, comparison-only images and named comparison layers; references are validated inside the same pack.
 
-## Contracte
+## Contracts
 
-Datele de curs, întrebările și algoritmii sunt separate:
+Course data, questions and algorithms are separate:
 
-- `pack.json`: curriculum, catalog, cazuri, explicații și repere;
-- `questions.json`, opțional: grile cu enunț, opțiuni, cheie și feedback;
-- aplicația: filtrare, prezentare, compunerea sesiunilor, notare, recapitulare.
+- `pack.json`: curriculum, catalogue, cases, explanations, annotations, chapter banks, structured findings and comparison links;
+- `questions.json`, optional: MCQs with fixed options and written questions with an author rubric;
+- the application: filtering, presentation, session composition, grading, spaced review.
 
-Fiecare diagnostic are un ID canonic, denumire completă, aliasuri de căutare și capitole. Cazurile referă aceste ID-uri. Căutarea normalizează diacriticele, majusculele și punctuația, apoi cere potrivirea tuturor cuvintelor. Lista disponibilă depinde numai de programă, căutare și filtrul ales; funcția de căutare nu primește cazul sau răspunsul corect.
+Each diagnosis has a canonical ID, a full label, search aliases and chapters. Cases reference these IDs. Search normalises diacritics, capitals and punctuation, then requires a match on all words. The available list depends only on the curriculum, search and the chosen filter; the search function does not receive the case or the correct answer.
 
-Un răspuns este o selecție explicită de identificatori. Șirul tastat nu este notat și un singur rezultat nu este confirmat automat. Sunt disponibile atât selecția din catalog, cât și grile cu opțiuni fixe. Nu există răspunsuri vocale, text liber notat, LLM sau generare clinică la rulare.
+An automatic answer is an explicit selection of identifiers or a structured observation whose keyed fields are compared by ID. Typed text is not graded and a single result is not confirmed automatically. Catalogue selection, MCQs and structured interpretation are available. Free text in the legacy `Interpretare completă` (Full interpretation) and authored written questions remain self-assessed with a visible rubric; notes never become answer keys. There is no automatic grading of medical prose, no voice answers, no LLM and no clinical generation at runtime.
 
-## Învățare
+## Exercises
 
-O sesiune de recapitulare prioritizează greșelile scadente, celelalte întrebări scadente, materialul nou și apoi întrebările programate în viitor. O greșeală revine după 10 minute; reușitele au intervale de 1, 3, 6, 12… zile, până la 90. Este o euristică transparentă, nu un model de memorie calibrat clinic sau o implementare FSRS.
+Study offers five selectable methods. `Interpretare structurată` (Structured interpretation) uses the chapter banks and the case's source-derived observations, asks one step at a time in guided review, and grades exact ID sets plus one-to-one observation matching. Guide steps reveal their own reference before continuing; exam simulation reveals nothing until final submission. `Interpretare completă` (Full interpretation) derives its fields from the sections present in the pack; missing sections are not graded and are not invented. `Repere numerotate` (Numbered annotations) and `Potrivire` (Matching) use only `reviewed` annotations, with a one-to-one link between region and observation; `draft` annotations stay in the reading view but do not enter exercises. `Potrivire` is the only annotation-based method graded automatically. `Întrebări scurte` (Short questions) keep the catalogue, MCQs and authored written questions.
 
-Simularea distribuie întrebările între capitolele selectate fără a utiliza istoricul greșelilor. Explicațiile și corectitudinea sunt afișate numai la final. Numărul configurat reprezintă întrebări, nu radiografii distincte. Modul mixt evită dublarea aceleiași întrebări de diagnostic prin catalog și grilă.
+## Learning
 
-Progresul este separat pe pachet, întrebare și mod de răspuns. O semnătură a enunțului, opțiunilor și cheii împiedică reutilizarea programării atunci când întrebarea se schimbă. Ordinea afișării opțiunilor nu modifică semnătura.
+A spaced-review session prioritises overdue mistakes, then other overdue questions, then new material, then questions scheduled in the future. A mistake returns after 10 minutes; successes have intervals of 1, 3, 6, 12… days, up to 90. Self-assessments use the same scheduling but are kept separately; an interpretation counts as successful only when the student ticks every element present. It is a transparent heuristic, not a clinically calibrated memory model or an FSRS implementation.
 
-## Persistență și restaurare
+The exam simulation distributes the exercises across the selected chapters without using the history of mistakes. Explanations and correctness are shown only at the end. The configured number means exercises; for interpretation, cases. Short questions keep the catalogue and the MCQs, without duplicating the diagnosis.
 
-Imaginile sunt Blob-uri în IndexedDB, cu referințe interne, fără URL-uri din pachet. O înlocuire scrie pachetul, banca și imaginile într-o singură tranzacție. Erorile anulează înlocuirea, păstrând versiunea precedentă. Imaginile vechi sunt eliminate în aceeași tranzacție, fără a atinge datele altor pachete.
+Progress has two separate registers: automatically graded results (`catalogue`, `mcq`, `matching`, `structured`) and self-assessments (`interpretation`, `regions`, `written`). The accuracy percentage uses only the first register. A signature of the prompt, options, sections, pairs or structured keys prevents reuse of the schedule when the exercise changes. The display order of options, labels and chapter-bank ordering do not change the signature; changing the primary film or a keyed finding does. Structured attempts update the schedule once per submitted case, not once per guided step.
 
-Confirmarea unui răspuns salvează progresul și sesiunea într-o singură tranzacție. Restaurarea progresului păstrează înregistrarea cu data ultimei încercări mai recentă și unește marcajele fără dublare. Backupul complet validează toate datele înaintea tranzacției comune.
+## Persistence and restore
 
-Această versiune este destinată utilizării într-o singură fereastră activă per aplicație. Actualizarea simultană a progresului în mai multe file nu are încă rezolvare de conflicte la nivel de eveniment.
+Images are Blobs in IndexedDB, with internal references, without URLs from the pack. A replacement writes the pack, the bank and the images in a single transaction. Errors cancel the replacement, keeping the previous version. Old images are removed in the same transaction, without touching the data of other packs.
 
-## Offline și actualizări
+Confirming an answer saves progress and the session in a single transaction. Self-assessment saves `selfAssessments` separately, and the JSON backup keeps both registers. Structured results use `progress` with kind `structured`; written self-checks use `selfAssessments` with kind `written`. Backup v2 is written only when one of those kinds exists, while v1 remains importable. Restore keeps the record with the most recent attempt date and merges bookmarks without duplication. The full backup validates all data before the common transaction.
 
-Service Worker salvează atomic lista explicită a fișierelor aplicației. Materialele importate sunt în IndexedDB, separat de cache. Distribuția folosește un identificator de cache calculat din conținut, astfel încât o versiune incompletă nu înlocuiește cache-ul activ.
+This version is intended for use in a single active window per application. Simultaneous progress updates in several tabs have no event-level conflict resolution yet.
 
-Study cere explicit activarea unei actualizări și nu o activează din propria sesiune neterminată. Nu șterge IndexedDB la activare. Curăță numai cache-urile sale, cu prefixul propriei origini/căi. Studio așteaptă închiderea ferestrelor vechi pentru activarea naturală a unei actualizări.
+## Offline and updates
 
-Pornirea inițială și importul unui pachet primit online necesită ca fișierele să fie deja descărcate. Ulterior, studierea, testele, editarea și exportul se bazează pe datele locale. Browserul și utilizatorul pot șterge stocarea; backupurile externe sunt necesare.
+The Service Worker stores the explicit list of application files atomically. Imported material is in IndexedDB, separate from the cache. The distribution uses a cache identifier computed from content, so an incomplete version does not replace the active cache.
+
+Study asks explicitly to activate an update and does not activate it from its own unfinished session. It does not delete IndexedDB on activation. It clears only its own caches, with the prefix of its own origin/paths. Studio waits for the old windows to close for the natural activation of an update.
+
+The initial start and the import of a pack received online require the files to be already downloaded. Afterwards, studying, tests, editing and export rely on local data. The browser and the user can delete storage; external backups are required.

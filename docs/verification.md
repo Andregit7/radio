@@ -1,51 +1,69 @@
-# Verificarea versiunii inițiale
+# Verification
 
-## Verificat automat
+## Verified automatically
 
-- Teste Node: căutare cu diacritice și aliasuri, filtrare pe programă, notare prin ID, selectare multiplă, intervale de recapitulare și selecție de examen.
-- Detectarea schimbării cheii/enunțului fără a depinde de ordinea opțiunilor.
-- Validarea pachetelor, referințelor, imaginilor, hashurilor, coordonatelor și backupurilor.
-- ZIP stored și deflate produse independent cu Python; export/import binar; respingerea arhivelor malițioase și corupte.
-- Pachetul complet: 80 de imagini cu hashuri, 60 de diagnostice și 21 de grile.
-- Verificări statice de sintaxă, importuri locale, CSP, fișiere de cache, manifest și identitatea modulelor comune.
+- Node tests: diacritics and alias search, curriculum filtering, grading by ID, multiple selection, spaced-review intervals and exam selection.
+- Detecting a change of the key/prompt without depending on the order of the options.
+- Eligibility of the full interpretation, missing sections, the canonical diagnosis without alias, `reviewed` annotations, exact matching, self-assessment and session transitions.
+- Structured interpretation: chapter-bank steps, exact choice sets, repeated observation matching, measurement normalization, order-independent signatures, image/key invalidation and one scheduled attempt per case.
+- Authored written questions with their own rubric and self-assessment signature; they stay outside automatic accuracy.
+- Validation of pack v1/v2, mark styles, comparison layers, linked differentials, chapter banks, structured findings, images, hashes, coordinates and learning backups v1/v2.
+- Stored and deflate ZIPs produced independently with Python; binary export/import; rejection of malicious and corrupted archives.
+- The complete pack, including its chapter banks and source-derived structured cases; exact counts are in `starter-pack/build-report.json`.
+- Static checks for syntax, local imports, CSP, cache files, the manifest and shared-module identity.
 
-Comenzile exacte și rezultatul ultimei rulări se află în `verification-results.json` din distribuția de proiect. Numerele nu includ teste de browser care nu au fost executate.
+The exact commands and the result of the last run are in `verification-results.json` in the project distribution.
 
-## Verificat în browser pe găzduirea HTTPS
+## Verified in the browser
 
-La 16 noiembrie 2026, toate cele 7 verificări de la https://andregit7.github.io/radio/checks.html au trecut în browserul integrat. Ele verifică tranzacțiile IndexedDB, înlocuirea eșuată, restaurarea JSON fără dublare, arhiva în Worker, catalogul și reperele. Baza de test este temporară și separată de datele de studiu. Rezultatele și identificatorii buildurilor sunt în `browser-checks.json`.
+The project harness `dist/checks.html` passed in a local headless browser against the build IDs recorded in `docs/browser-checks.json`. The same run also exercised Study import, reader comparison layers, the differential preview, a structured guided step, Studio pack creation, chapter-bank creation, mark drawing, comparison-image upload and written-question creation without console errors.
 
-Pachetul original de 80 de cazuri a fost importat în ambele aplicații. Au fost deschise primul caz, imaginea de 944 × 1100 pixeli, observația legată de reper, configurarea recapitulării și editorul Studio. Study afișează cache-ul aplicației drept pregătit offline. Acest indicator nu înlocuiește testul de pornire în mod avion.
+This is desktop-browser evidence, not a substitute for the manual matrix below. Installation on Windows, Android, iOS and macOS, airplane mode and consumption on modest phones remain to be verified.
 
-Previzualizarea locală a fost blocată de conexiunea la loopback; verificarea interactivă s-a făcut pe adresele HTTPS publicate. Instalarea pe Windows, Android, iOS și macOS, modul avion și consumul pe telefoane modeste rămân de verificat.
+## Manual checklist before distribution to colleagues
 
-## Listă manuală înainte de distribuția către colegi
-
-| Verificare | Rezultatul așteptat |
+| Check | Expected result |
 |---|---|
-| Deschidere proaspătă Study | Bibliotecă goală, fără cont sau cereri de permisiuni |
-| Importul pachetului de curs | 80 de cazuri, 4 capitole; imaginile și notițele se deschid |
-| Primul caz, observația legată | Selectarea textului evidențiază elipsa și invers |
-| Zoom și schimbarea orientării | Reperul rămâne pe aceeași regiune |
-| Caz numai cu diagnostic | Secțiunile lipsă sunt marcate explicit |
-| p054 | Poate fi studiat, fără întrebare automată de diagnostic |
-| Catalog, `cancer`, `endobronsic`, `potcoava` | Filtrare fără diacritice, titlu complet, numai capitole cu potriviri |
-| Un singur rezultat în catalog | Rămâne necesară selecția și confirmarea |
-| Căutare fără text | Capitolele se pot extinde/restrânge; lista rămâne aceeași pentru cazurile din aceeași programă |
-| Grile | Amestecarea opțiunilor nu schimbă cheia; click dublu nu dublează încercarea |
-| Simulare | Nicio explicație sau indicație de corectitudine înainte de final |
-| Pauză/reîncărcare | Sesiunea continuă fără pierderea răspunsurilor confirmate |
-| Export/import JSON de două ori | Contoarele nu se dublează; imaginile nu sunt promise în JSON |
-| Backup complet pe o origine nouă | Se restaurează pachetele, marcajele și progresul |
-| Import anulat sau eșuat | Pachetul existent rămâne utilizabil |
-| ZIP malițios | Mesaj clar, fără înlocuirea datelor existente |
-| Mod avion, închidere și redeschidere | Aplicația și pachetul deja importat rămân disponibile |
-| Actualizare în timpul testului | Nu este activată în sesiunea proprie neterminată |
-| Network | Niciun material, răspuns sau progres încărcat pe server |
-| Studio, creare/editare/export | Pachetul rezultat poate fi importat în Study |
-| Studio, modificarea unui caz | Grilele afectate revin în starea schiță |
-| Studio, închidere/redeschidere | Proiectul salvat local este păstrat |
+| Fresh Study launch | Empty library, no account or permission prompts; RadioEasy brand |
+| Course pack import | 80 cases, 4 chapters; images and notes open |
+| First case, linked observation | Selecting the text highlights the ellipse and vice versa |
+| Zoom and orientation change | The annotation stays on the same region |
+| Diagnosis-only case | Missing sections are explicitly marked |
+| p054 | Can be studied, with no automatic diagnosis question |
+| Method selector | Five methods explained; annotation-based methods stay disabled until the annotations are verified |
+| Interpretare structurată, guided | One step at a time; a submitted step reveals its own reference; later steps do not inherit wrong choices |
+| Interpretare structurată, exam | All steps can be edited; no key, note, mark or comparison layer appears before final submission |
+| User layers | `Repere` hides every mark, including the selected one; comparison layers toggle without losing the base image |
+| Differential quick access | Linked rows open a closeable case preview without changing the route, visit state or reading position |
+| Interpretare completă (legacy text) | Empty fields for the sections present; missing sections are named, not graded |
+| Written question | The author rubric appears only after submission; self-check stays outside automatic accuracy |
+| Self-assessment | After submission the notes and checks appear; the percentage does not mix in the self-assessment |
+| Displayed diagnosis | Only the canonical name, without aliases or the raw paragraph |
+| Catalogue, `cancer`, `endobronsic`, `potcoava` | Filtering without diacritics, full title, only chapters with matches |
+| A single result in the catalogue | Selection and confirmation are still required |
+| Search with no text | Chapters can be expanded/collapsed; the list stays the same for cases in the same curriculum |
+| MCQs | Shuffling the options does not change the key; a double click does not duplicate the attempt |
+| Simulare | A single click confirms and advances; no explanation before the end |
+| Rezultate (results) | Image, diagnosis and full explanation open over the results; closing returns to the list |
+| Early finish | Confirmed answers are kept; unanswered ones are not counted |
+| Pauză (pause)/reload | The session continues without losing confirmed answers |
+| Export/import JSON twice | The counters are not doubled; self-assessments and bookmarks are kept |
+| Full backup on a new origin | Packs, bookmarks, automatic progress and self-assessments are restored |
+| Cancelled or failed import | The existing pack stays usable |
+| Malicious ZIP | Clear message, without replacing existing data |
+| Airplane mode, close and reopen | The application and the already imported pack stay available |
+| Update during the test | Not activated in one's own unfinished session |
+| Network | No material, answer or progress uploaded to a server |
+| Studio, create/edit/export | The resulting pack can be imported into Study |
+| Studio, editing a case | The affected questions return to the draft state |
+| Studio, banks | Chapter-specific variants survive rename/reorder; deleting a used variant is blocked |
+| Studio, drawing | Ellipse, rectangle, arrow, open freehand and closed freehand all export and re-import; fills only on closed shapes |
+| Studio, colors | Each new mark gets a distinct automatic color; manual color and reset-to-automatic work per mark |
+| Studio, comparisons | A local comparison image or a referenced case/image survives export, re-import and Study layer toggling |
+| Studio, differentials | A linked case opens from Study; deleting the target is blocked until the link is removed |
+| Studio, written question | The rubric exports with the bank and is unavailable before submission |
+| Studio, close/reopen | The locally saved project is kept |
 
-Matrice minimă: Windows cu Chrome/Edge, Android cu Chrome pe un telefon modest, iOS cu Safari și aplicația instalată, macOS cu Safari și Chrome. Verifică separat instalarea dintr-un browser extern după deschiderea inițială a linkului în Discord. Pentru testarea pe telefon folosește găzduire HTTPS; serverul local este intenționat limitat la loopback.
+Minimum matrix: Windows with Chrome/Edge, Android with Chrome on a modest phone, iOS with Safari and the application installed, macOS with Safari and Chrome. Check installation from an external browser separately after first opening the link in Discord. For phone testing use HTTPS hosting; the local server is intentionally limited to loopback.
 
-Nu marca distribuția drept validată pe toate platformele înainte de efectuarea acestor verificări.
+Do not mark the release as validated on all platforms before these checks are done.

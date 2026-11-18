@@ -1,37 +1,37 @@
-# Securitate și confidențialitate
+# Security and privacy
 
-## Suprafață verificabilă
+## Verifiable surface
 
-Programul nu folosește servicii AI, conturi, formulare de autentificare, telemetrie, reclame, fonturi externe sau scripturi CDN. Nu are dependențe JavaScript de la terți la rulare. Modulele servite sunt fișiere sursă lizibile, fără minificare sau lanț de build care ascunde logica.
+The program uses no AI services, accounts, sign-in forms, telemetry, ads, external fonts or CDN scripts. It has no third-party JavaScript dependencies at runtime. The modules served are readable source files, with no minification or build chain hiding the logic.
 
-Solicitările aplicației sunt citiri ale fișierelor proprii, ale configurării opționale a pachetului de previzualizare și ale pachetului ales pentru descărcare. Nu există cod de încărcare a imaginilor, răspunsurilor sau progresului pe un server. Verificările native de actualizare ale Service Worker presupun acces la gazdă. Furnizorul de găzduire poate păstra jurnale; GitHub Pages înregistrează IP-uri în scop de securitate.
+The application's requests are reads of its own files, of the optional configuration of the preview pack and of the pack chosen for download. There is no code that uploads images, answers or progress to a server. The Service Worker's native update checks assume access to the host. The hosting provider may retain logs; GitHub Pages records IP addresses for security purposes.
 
-Datele sunt protejate de regulile de origine ale browserului. Aplicația nu pretinde că rezistă unui browser compromis sau unui cod nou malițios publicat ulterior pe aceeași origine. O verificare a repository-ului trebuie corelată cu octeții livrați și cu workerul activ.
+The data is protected by the browser's origin rules. The application does not claim to withstand a compromised browser or new malicious code published later on the same origin. A check of the repository must be correlated with the bytes delivered and with the active Worker.
 
-## Date neîncrezătoare
+## Untrusted data
 
-Importul validează structura ZIP, limitele, căile, duplicatele, metoda de compresie, antetele locale/centrale, suprapunerile, CRC-ul și numărul efectiv de octeți decomprimați. Operațiile ZIP rulează într-un Worker terminabil. Se acceptă numai formate de date și imagini aprobate. Niciun fișier din arhivă nu este extras pe discul utilizatorului sau executat.
+Import validates the ZIP structure, limits, paths, duplicates, compression method, local/central headers, overlaps, CRC and the actual number of decompressed bytes. ZIP operations run in a terminable Worker. Only approved image and data formats are accepted. No file from the archive is extracted to the user's disk or executed.
 
-JSON are limite de mărime și validare explicită. Cheile de prototip sunt respinse. Validatorul reconstruiește obiectele permise. Imaginile sunt verificate după semnătură, dimensiuni și, dacă există, SHA-256. Hashul detectează modificarea conținutului; nu autentifică autorul pachetului.
+JSON has size limits and explicit validation. Prototype keys are rejected. The validator rebuilds the allowed objects. Images are checked by signature, dimensions and, if present, SHA-256. The hash detects a change of content; it does not authenticate the author of the pack.
 
-Textul importat este inserat ca text prin DOM, nu prin `innerHTML`. Geometria reperelor este numerică, normalizată și referă ID-uri existente. SVG/HTML importat, URL-uri externe de imagini și fișiere executabile nu sunt acceptate. CSP interzice scripturi inline, obiecte, formulare și resurse externe.
+Imported text is inserted as text through the DOM, not through `innerHTML`. The geometry of the annotations is numeric, normalised and refers to existing IDs. Imported SVG/HTML, external image URLs and executable files are not accepted. CSP forbids inline scripts, objects, forms and external resources.
 
-Cititorul ZIP are un domeniu intenționat restrâns; decomprimarea propriu-zisă este făcută de browser. Pachetele neconforme trebuie reexportate curat; tolerarea tuturor extensiilor ZIP nu este un obiectiv al v1.
+The ZIP reader has an intentionally narrow scope; the actual decompression is done by the browser. Non-conforming packs must be re-exported cleanly; tolerating every ZIP extension is not a v1 goal.
 
-## Stocare și restaurare
+## Storage and restore
 
-Nu se cere implicit permisiune pentru directoare, cameră, microfon, geolocalizare sau notificări. Selectarea unui fișier oferă aplicației acel fișier; IndexedDB este stocare administrată de browser, nu acces la alte fișiere ale dispozitivului. Cererea de stocare persistentă este opțională și explicită.
+No permission is requested by default for directories, camera, microphone, geolocation or notifications. Selecting a file gives the application that file; IndexedDB is browser-managed storage, not access to other files on the device. The request for persistent storage is optional and explicit.
 
-Înlocuirile de pachete sunt tranzacționale. Importul unui backup complet validează fiecare pachet înainte de a începe scrierea. Restaurările JSON îmbină marcajele și aleg înregistrările de progres mai recente, fără a aduna de două ori aceleași contoare.
+Pack replacements are transactional. Importing a full backup validates every pack before writing begins. JSON restores merge the bookmarks and choose the more recent progress records, without counting the same counters twice.
 
-Fișierele de backup sunt descărcări obișnuite, necriptate de aplicație. Stocarea locală nu este o copie de siguranță. Păstrează copii externe ale pachetelor și progresului; proiectele Studio trebuie exportate regulat.
+Backup files are ordinary downloads, not encrypted by the application. Local storage is not a backup copy. Keep external copies of the packs and of the progress; Studio projects must be exported regularly.
 
-## Audit reproductibil
+## Reproducible audit
 
-1. Rulează testele și `node tools/check.mjs`.
-2. Rulează `node tools/release.mjs`; verifică `release.json` în fiecare distribuție.
-3. Compară SHA-256 pentru fișierele din distribuție cu cele livrate de gazdă, inclusiv Service Worker.
-4. Inspectează Network la import, răspuns, backup și după activarea modului avion.
-5. Verifică aplicațiile pe origini distincte și verifică workerul activ, nu numai sursa de pe server.
+1. Run the tests and `node tools/check.mjs`.
+2. Run `node tools/release.mjs`; check `release.json` in each distribution.
+3. Compare the SHA-256 for the files in the distribution with those delivered by the host, including the Service Worker.
+4. Inspect Network on import, answer, backup and after enabling airplane mode.
+5. Check the applications on distinct origins and check the active Worker, not only the source on the server.
 
-Un audit static sau o opinie AI nu poate garanta absența oricărei vulnerabilități. Versiunea inițială are teste de logică, date și arhive; testarea efectivă în browsere și pe dispozitive este documentată separat în `docs/verification.md`.
+A static audit or an AI opinion cannot guarantee the absence of any vulnerability. The initial version has logic, data and archive tests; actual testing in browsers and on devices is documented separately in `docs/verification.md`.

@@ -20,7 +20,7 @@ for(const [kind,directory] of [['study','dist'],['studio','studio']]){
   const buildId=hash.digest('hex').slice(0,12);
   await writeFile(path.join(base,'sw.js'),worker.replace(/const VERSION='[^']+'/,`const VERSION='${version}-${buildId}'`));
   const records=[];for(const name of names.filter(name=>name!=='release.json')){const bytes=await readFile(path.join(base,name));records.push({path:name,bytes:bytes.length,sha256:createHash('sha256').update(bytes).digest('hex')});}
-  const manifest={app:`radia-${kind}`,version,buildId,files:records,totalBytes:records.reduce((n,row)=>n+row.bytes,0)};
+  const manifest={app:`radioeasy-${kind}`,version,buildId,files:records,totalBytes:records.reduce((n,row)=>n+row.bytes,0)};
   await writeFile(path.join(base,'release.json'),JSON.stringify(manifest,null,2)+'\n');
   const destination=path.join(root,'releases',`${kind}-site`);await mkdir(destination,{recursive:true});
   for(const name of [...names.filter(name=>name!=='release.json'),'release.json']){const target=path.join(destination,name);await mkdir(path.dirname(target),{recursive:true});await copyFile(path.join(base,name),target);}

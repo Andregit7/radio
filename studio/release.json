@@ -1,7 +1,7 @@
 {
-  "app": "radia-studio",
-  "version": "0.1.0",
-  "buildId": "d0d2ac49d5ff",
+  "app": "radioeasy-studio",
+  "version": "0.2.0",
+  "buildId": "987bf2c9086a",
   "files": [
     {
       "path": ".nojekyll",
@@ -10,8 +10,8 @@
     },
     {
       "path": "base.css",
-      "bytes": 29355,
-      "sha256": "0c65538bf3eb4ed0152569708bb33080b3c42b8b88af21025b78cfc32230725b"
+      "bytes": 38605,
+      "sha256": "654ce8d811bb0f4d10b679eeaaf6dde2859c4bbe59d30b08d807bec032921313"
     },
     {
       "path": "icons/apple-touch-icon.png",
@@ -40,8 +40,13 @@
     },
     {
       "path": "index.html",
-      "bytes": 1237,
-      "sha256": "a50bd435b92daa2aeed64382597b1a77dac229bae233c9d5ad692d9b3fc3db21"
+      "bytes": 1326,
+      "sha256": "3149eda88c3ceff232ff7f9bcdc267e9d946ca35323bd2fe1fa58a01e71c29bc"
+    },
+    {
+      "path": "lib/annotation-view.js",
+      "bytes": 6251,
+      "sha256": "05f96b2ffb41273086a69feb65c9d2fe57fbaf289034a81bc2e0706de2b65414"
     },
     {
       "path": "lib/archive-worker.js",
@@ -55,18 +60,18 @@
     },
     {
       "path": "lib/core.js",
-      "bytes": 5691,
-      "sha256": "7efdc5d2080fdbdbf9a7294bd097291e60803fe42fd911ab2d1c8726cc92ad03"
+      "bytes": 6893,
+      "sha256": "416b49bba26cb2b394c8a00c1cd730cd0fd74ca21ee388a0c7a4a2d6d9e58873"
     },
     {
       "path": "lib/dom.js",
-      "bytes": 3672,
-      "sha256": "a6c991e535d845e06de4f032828d20c4b89c5922016bbde7bc4361e912a84b41"
+      "bytes": 3724,
+      "sha256": "ad723eed11d699dbda8bc0db27e5e383f777fb13132ee9ad88165c8eae349e91"
     },
     {
       "path": "lib/schema.js",
-      "bytes": 13760,
-      "sha256": "7af84ef9335d399034ac2da2316fe69954570d93e2ac23a2e6d90e95a417568b"
+      "bytes": 25664,
+      "sha256": "76786d89d9c088fb1dd1faeda5e3dc0c75b98da1529807bcf14dd3408659dbe1"
     },
     {
       "path": "lib/zip.js",
@@ -75,24 +80,24 @@
     },
     {
       "path": "manifest.webmanifest",
-      "bytes": 357,
-      "sha256": "41858aae6eeb17bd9fd86a2ff64927bb09651b6c06aae87027e75e6d4adc0baa"
+      "bytes": 365,
+      "sha256": "0ff7cdcd544173ac358437ef8793c013ff77edd932824ff040c313b909e0f9d6"
     },
     {
       "path": "studio.css",
-      "bytes": 6444,
-      "sha256": "c03eb0ea2668d727fa07ea11df0d3734056626e76845ef348f2afe303244ba03"
+      "bytes": 9194,
+      "sha256": "3b0972ed7f0e3e2d3518ac89f13ab121d8b2ba78132dddf3c28fdfbe4b10b19c"
     },
     {
       "path": "studio.js",
-      "bytes": 27063,
-      "sha256": "91bd74e8250b43ca30e86899613cf1c64dc8e29341f7b2ace914108a11ba2218"
+      "bytes": 62926,
+      "sha256": "54264dd5b83633fea989ad5e0642cbc1de728725a94cb50992c488875d06665c"
     },
     {
       "path": "sw.js",
-      "bytes": 1323,
-      "sha256": "c44c81414fee8ba54ae16977db81aeec890e462bce2e031b6a3d7da927b21033"
+      "bytes": 1350,
+      "sha256": "8718a34daa71f0e535de2fbf927fb01a8cfd21e431f72049f732c78d8c67fa6c"
     }
   ],
-  "totalBytes": 106405
+  "totalBytes": 173801
 }

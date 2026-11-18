@@ -1,95 +1,110 @@
-# RadioEasy · Study și Pack Studio
+# RadioEasy · Study and Pack Studio
 
-[Deschide Study](https://andregit7.github.io/radio/) · [Deschide Pack Studio](https://andregit7.github.io/radio/studio/) · [Cod sursă](https://github.com/Andregit7/radio)
+[Open Study](https://andregit7.github.io/radio/) · [Open Pack Studio](https://andregit7.github.io/radio/studio/) · [Source code](https://github.com/Andregit7/radio)
 
-Două aplicații web statice, fără conturi, backend, API-uri AI, fonturi externe sau dependențe JavaScript de la terți la rulare. Codul sursă este chiar codul servit browserului.
+Two static web apps with no accounts, no backend and no AI services. The source is the code the browser runs.
 
-**Study** este pentru studenți: import de pachete, atlas, explicații structurate, repere legate de text, catalog de diagnostice cu căutare, grile, simulări, recapitulare și backup.
+**Study** is for students: pack import, atlas, chapter-bank structured interpretation, full interpretation across six sections, semiology with verified annotations, matching, short questions, written questions with author rubrics, comparison layers, differential previews, spaced review, exam simulation and backup.
 
-**Pack Studio** este aplicația separată pentru contributori: creare/import de pachete, editare de cazuri și diagnostice, programă, elipse legate de observații, grile și export validat. Study nu descarcă modulele de editare.
+**Pack Studio** is the separate app for contributors: pack creation/import, editing cases and diagnoses, curriculum, chapter answer banks, structured observations and study notes, ellipses/rectangles/arrows/freehand marks with automatic or manual colors and fills, comparison layers, linked differentials, MCQs, written questions and validated export. Study never downloads the editing modules.
 
-## Pornire locală
+The product UI is Romanian. Labels quoted in these docs keep their Romanian spelling, with an English gloss on first use.
 
-Este necesar Node.js 20+ pentru serverul de dezvoltare. Studenții care folosesc aplicația găzduită nu au nevoie de Node.js.
+## Exercises
 
-Din acest director:
+Study has five selectable methods:
+
+- **Structured interpretation** (`Interpretare structurată`) — the student chooses chapter-bank options and repeated observations, then the diagnosis. Guided review reveals one step at a time; exam simulation grades only after final submission. Exact ID sets and one-to-one observation matching are automatic.
+- **Full interpretation** (`Interpretare completă`) — empty fields for each section present in the source. The student's written answer is compared against the notes by ticking; there is no automatic grading of medical text. This legacy method remains for packs/cases without structured data.
+- **Numbered regions** (`Regiuni numerotate`) — regions marked `reviewed` are numbered on the image, and the student writes what each one represents.
+- **Matching** (`Potrivire`) — the student pairs the descriptions from the notes with the numbered regions; the pairing is graded automatically.
+- **Short questions** (`Întrebări scurte`) — the diagnosis catalogue, authored MCQs and authored written questions with a rubric and self-check.
+
+Methods that rely on annotations appear only for cases with `reviewed` annotations. `draft` annotations stay visible while reading but are not used in exercises. Only one-to-one links between a region and an observation are accepted per case. Notes, comparison layers and rubric text never become automatic keys.
+
+## Running locally
+
+Node.js 20+ is required for the development server. Students using the hosted app do not need Node.js.
+
+From this directory:
 
 ```text
 node tools/serve.mjs
 ```
 
-Deschide `http://127.0.0.1:4173/` pentru Study. Pe Windows poți rula `start-study.cmd`.
+Open `http://127.0.0.1:4173/` for Study. On Windows you can run `start-study.cmd`.
 
-În alt terminal:
+In another terminal:
 
 ```text
 node tools/serve.mjs --studio
 ```
 
-Deschide `http://127.0.0.1:4174/` pentru Studio. Pe Windows poți rula `start-studio.cmd`.
+Open `http://127.0.0.1:4174/` for Studio. On Windows you can run `start-studio.cmd`.
 
-Porturile distincte separă originile și stocarea celor două aplicații. Serverele ascultă numai pe interfața locală. Fișierele HTML nu trebuie deschise direct prin `file://`: modulele, IndexedDB și Service Worker necesită o origine web potrivită.
+The distinct ports separate the origins and storage of the two apps. The servers listen only on the local interface. Do not open the HTML files directly over `file://`: modules, IndexedDB and Service Worker need a proper web origin.
 
-## Primul pachet
+## First pack
 
-În distribuția privată este inclus `course-pack/radiografii-explicate.study.zip`. Importă-l din Bibliotecă. Poate fi deschis și în Studio, prin „Deschide ZIP”.
+The private distribution includes `course-pack/radiografii-explicate.study.zip`. Import it from the Library (`Bibliotecă`). It can also be opened in Studio via "Open ZIP" (`Deschide ZIP`).
 
-Pachetul are 80 de cazuri, 60 de diagnostice canonice și 21 de grile derivate din notițe. Cele 80 de imagini sunt fluxurile JPEG exacte din PDF, fără recomprimare suplimentară. ZIP-ul are aproximativ 5,95 MB.
+The pack counts are in `starter-pack/build-report.json`; regenerate them with `python tools/build_starter_pack.py`. The images are the exact JPEG streams from the PDF, with no additional recompression. The pack is version 2: it includes chapter banks, source-derived structured cases and one authored written question.
 
-Un singur reper orientativ, marcat `draft`, demonstrează legătura text–imagine pe primul caz. Celelalte repere trebuie pregătite și verificate în Studio. Grilele `source-derived` nu reprezintă o validare medicală independentă.
+A single orientation annotation, marked `draft`, demonstrates the text–image link on the first case. The annotation methods are implemented but stay disabled until the regions are visually verified in Studio and marked `reviewed`. `source-derived` MCQs, structured keys and written rubrics are not an independent medical validation.
 
-Zece cazuri au numai un diagnostic. Cazul p054 nu are diagnostic pozitiv explicit și rămâne disponibil pentru studiu, fără întrebare automată de diagnostic. Limitele colocviilor nu au fost inventate.
+Some cases have only a diagnosis. Case p054 has no explicit positive diagnosis and remains available for study, without an automatic diagnosis question. Findings without explicit source support remain study notes rather than keys. The colloquium limits were not invented.
 
-Utilitarele de extragere a materialelor de curs sunt păstrate separat de codul public.
+The course-material extraction utilities are kept separate from the public code.
 
-## Verificări
+## Checks
 
 ```text
-node --test tests/*.test.mjs
-node tools/prepare-studio.mjs
-node tools/release.mjs
-node tools/check.mjs
+npm test
+npm run check
+npm run verify
+npm run prepare:studio
+npm run release
 ```
 
-Testele Node verifică filtrarea românească, selecția și notarea prin identificatori, planificarea recapitulării, schimbarea cheilor, validarea datelor și importul/exportul ZIP. Arhivele de test includ traversare de directoare, nume duplicate, fișiere active, suprapuneri, dimensiuni excesive și CRC incorect. Dacă pachetul original nu este prezent, testul separat al celor 80 de cazuri este marcat „skipped”.
+The Node tests cover Romanian filtering, selection and grading by identifier, review scheduling, key changes, data validation, ZIP import/export, section eligibility, `reviewed`-only annotations, exact matching, structured choice/observation grading, written-question signatures, self-assessment and session transitions. The test archives include directory traversal, duplicate names, active files, overlaps, oversized entries and bad CRC. If the original pack is not present, the separate test over the built pack is marked "skipped".
 
-Pentru teste de integrare în browser, pornește Study și deschide `http://127.0.0.1:4173/checks.html`. Aceste teste folosesc o bază IndexedDB temporară, separată de datele de studiu. Verifică tranzacțiile, restaurarea fără dublare, workerul ZIP, catalogul și geometria reperelor. Testele nu intră în cache-ul aplicației. O copie pentru dezvoltatori este disponibilă la https://andregit7.github.io/radio/checks.html; distribuțiile statice generate rămân fără aceste fișiere auxiliare.
+For browser integration tests, start Study and open `http://127.0.0.1:4173/checks.html`. These tests use a temporary IndexedDB database, separate from study data. They cover transactions, restore without duplication, the ZIP worker, the catalogue and annotation geometry. The tests are not cached by the app. A developer copy is available at https://andregit7.github.io/radio/checks.html; generated static releases remain free of these auxiliary files. The last local run and the additional Study/Studio smoke flow are recorded in `docs/browser-checks.json`.
 
-**Starea verificării acestei versiuni:** 26 de teste Node, 176 de verificări statice și 7 verificări de integrare în browser au trecut. Pachetul de 80 de cazuri a fost importat în Study și în Studio, iar primul caz și legătura observație–imagine au fost deschise. Instalarea pe cele patru platforme, pornirea în mod avion și măsurătorile pe un telefon modest rămân de efectuat. Dovezile sunt în `docs/browser-checks.json`.
+**Verification status:** run `npm test`, `npm run check` and `npm run verify` — the last writes the current numbers into `verification-results.json`. Do not quote a count from this file; regenerate it. Browser integration checks must be repeated after any change to the app; current evidence for the released build IDs is kept in `docs/browser-checks.json`. Installation on the four platforms, airplane-mode startup and measurements on a modest phone remain to be done.
 
-Lista de verificare manuală este în `docs/verification.md`.
+The manual checklist is in `docs/verification.md`.
 
-## Distribuție și GitHub Pages
+## Release and GitHub Pages
 
-`node tools/release.mjs` pregătește separat `releases/study-site/` și `releases/studio-site/`. Niciunul nu conține pachetul de curs sau date de utilizator. Fișierele sunt buildless; nu există instalare npm sau servicii externe necesare pentru publicare.
+`npm run release` prepares `releases/study-site/` and `releases/studio-site/` separately. Neither contains the course pack or user data. The files are buildless; no npm install or external services are needed to publish.
 
-Pentru publicare pe GitHub Pages, pune conținutul directorului de distribuție în rădăcina unui repository public sau în directorul `docs/`, apoi configurează Pages pentru acel branch/director. Toate căile sunt relative, inclusiv `start_url`, `scope`, modulele și imaginile aplicației, pentru a funcționa și sub `/<repository>/`.
+To publish on GitHub Pages, put the contents of the release directory at the root of a public repository or in the `docs/` directory, then configure Pages for that branch/directory. All paths are relative, including `start_url`, `scope`, the modules and the app images, so it also works under `/<repository>/`.
 
-Pentru izolarea reală a celor două aplicații, folosește origini diferite. Două repository-uri Pages ale aceluiași proprietar împart de regulă originea `owner.github.io`; două căi nu sunt o barieră de securitate pentru IndexedDB. Poți utiliza proprietari/organizații diferite, fără domenii plătite.
+For real isolation between the two apps, use different origins. Two Pages repositories under the same owner usually share the `owner.github.io` origin; two paths are not a security boundary for IndexedDB. You can use different owners/organizations, with no paid domains.
 
-Păstrează repository-ul aplicației separat de materialele de curs și de backupuri. `.gitignore` exclude pachetul generat și configurația privată de previzualizare. Licența MIT se aplică programului; nu transferă drepturi asupra imaginilor sau notițelor importate.
+Keep the app repository separate from the course material and from backups. `.gitignore` excludes the generated pack and the private preview configuration. The MIT licence applies to the program; it does not transfer rights over the imported images or notes.
 
-## Structură
+## Structure
 
-| Director | Rol |
+| Directory | Role |
 |---|---|
-| `dist/` | Study, gata de servire statică |
-| `studio/` | Pack Studio, aplicație separată |
-| `studio/lib/` | Copii explicite ale modulelor comune, pregătite prin `tools/prepare-studio.mjs` |
-| `tools/` | Servere locale, verificări și pregătirea distribuțiilor |
-| `tests/` | Teste Node și fixture-uri ZIP/PNG independente |
-| `docs/` | Contractul pachetelor, arhitectură, securitate și verificări |
-| `starter-pack/` | Material generat privat; exclus din Git |
-| `releases/` | Distribuții publicabile, generate local |
+| `dist/` | Study, ready to serve statically |
+| `studio/` | Pack Studio, separate app |
+| `studio/lib/` | Explicit copies of the shared modules, prepared by `tools/prepare-studio.mjs` |
+| `tools/` | Local servers, checks and release preparation |
+| `tests/` | Node tests and independent ZIP/PNG fixtures |
+| `docs/` | Pack contract, architecture, security and verification |
+| `starter-pack/` | Generated private material; excluded from Git |
+| `releases/` | Publishable releases, generated locally |
 
-## Date și limite
+## Data and limits
 
-Study folosește IndexedDB pentru pachete și imagini, iar Cache Storage pentru fișierele aplicației. Studio folosește o bază distinctă pentru proiecte. Exporturile sunt descărcări obișnuite; importurile citesc doar fișierele alese. Nu se solicită implicit acces persistent la directoare, cameră, microfon, notificări sau geolocalizare.
+Study uses IndexedDB for packs and images, and Cache Storage for the app files. Studio uses a separate database for projects. Exports are ordinary downloads; imports read only the files chosen. Persistent access to directories, camera, microphone, notifications or geolocation is not requested by default.
 
-Backupul JSON include progresul și marcajele, fără imagini. Backupul complet ZIP include pachetele și progresul. Sesiunile neterminate sunt salvate local, dar nu sunt incluse în exporturile de backup. Data afișată este momentul pornirii exportului; aplicația nu poate confirma că sistemul de operare a păstrat efectiv descărcarea.
+The JSON backup includes automatic progress, self-assessments and bookmarks, without images. The full ZIP backup includes the packs and all progress data. Unfinished sessions are saved locally but are not included in backup exports. The displayed date is the moment the export started; the app cannot confirm that the operating system actually kept the download.
 
-Pachetele ZIP standard acceptă metodele stored și deflate; decomprimarea deflate folosește `DecompressionStream('deflate-raw')`. Pe browsere fără acest format, pachetele stored funcționează în continuare dacă celelalte API-uri sunt disponibile. Exporturile aplicației folosesc stored, deoarece imaginile sunt deja comprimate.
+Standard ZIP packs accept the stored and deflate methods; deflate decompression uses `DecompressionStream('deflate-raw')`. On browsers without that format, stored packs still work if the other APIs are available. The app's exports use stored, because the images are already compressed.
 
-Limitele inițiale sunt 32 MiB pentru arhivă, 64 MiB total dezarhivat, 12 MiB pentru o intrare, 3 MiB pentru un JSON, 1.200 de intrări și 12 megapixeli per imagine. Acestea sunt limite de protecție, nu rezultate ale unui benchmark pe dispozitive modeste. Împarte colecțiile mari în pachete mai mici.
+The initial limits are 32 MiB for an archive, 64 MiB total uncompressed, 12 MiB per entry, 3 MiB for a JSON, 1,200 entries and 12 megapixels per image. These are protection limits, not the results of a benchmark on modest devices. Split large collections into smaller packs.
 
-Păstrează backupuri descărcate: stocarea browserului poate fi eliminată. Persistența suplimentară este o opțiune explicită în Study, nu o cerință de utilizare.
+Keep downloaded backups: browser storage can be cleared. Extra persistence is an explicit option in Study, not a usage requirement.

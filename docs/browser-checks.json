@@ -1,38 +1,11 @@
 {
-  "executed": true,
-  "recordedAt": "2026-11-16T18:50:20.141018+00:00",
-  "environment": "ChatGPT in-app browser",
-  "url": "https://andregit7.github.io/radio/checks.html",
-  "passed": 7,
-  "failed": 0,
   "testedBuilds": {
-    "study": "1bc188780016",
-    "studio": "d0d2ac49d5ff"
+    "study": "ca5bb4c762aa",
+    "studio": "987bf2c9086a"
   },
-  "checks": [
-    "IndexedDB pack and image transaction",
-    "Failed replacement preserves installed pack",
-    "Repeated JSON restore does not duplicate attempts",
-    "ZIP export and import in module Worker",
-    "Catalogue filtering and explicit selection",
-    "Normalized image annotations and hidden exam hints",
-    "Replaced pack asset cleanup"
-  ],
-  "observedSmokeChecks": {
-    "emptyStudyLibrary": true,
-    "studyImportedCases": 80,
-    "readerImageLoaded": {
-      "width": 944,
-      "height": 1100
-    },
-    "linkedObservationClicked": true,
-    "practiceSetupOpened": true,
-    "studioImportedCases": 80,
-    "offlineShellReadyIndicator": true
-  },
-  "notExecuted": [
-    "PWA installation on Windows, Android, iOS and macOS",
-    "Airplane mode relaunch",
-    "Low-end phone performance benchmark"
-  ]
+  "checkedAt": "2026-11-18T15:37:10.174Z",
+  "harness": "dist/checks.html",
+  "passed": 8,
+  "results": "✓ IndexedDB: pachet și imagine salvate împreună\n✓ Eroarea de scriere anulează întreaga înlocuire\n✓ Backup JSON: restaurarea repetată nu dublează încercările\n✓ Worker: export și import ZIP cu integritatea imaginii păstrată\n✓ Catalog: diacritice, grupuri și confirmare explicită\n✓ Repere: coordonate relative și ascundere în teste\n✓ Interpretare: secțiuni prezente și diagnostic canonic fără alias\n✓ Înlocuirea reușită curăță imaginile versiunii precedente\n\n8 verificări trecute.\nInstalarea PWA și pornirea în mod avion necesită verificare manuală pe fiecare platformă.",
+  "studioSmoke": "Import ZIP, comparison layer, differential preview, structured guided step, Studio pack creation, bank creation, mark drawing, comparison upload and written-question creation completed without console errors."
 }
