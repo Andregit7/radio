@@ -1,0 +1,11 @@
+{
+  "testedBuilds": {
+    "study": "ca5bb4c762aa",
+    "studio": "987bf2c9086a"
+  },
+  "checkedAt": "2026-11-18T15:37:10.174Z",
+  "harness": "dist/checks.html",
+  "passed": 8,
+  "results": "✓ IndexedDB: pachet și imagine salvate împreună\n✓ Eroarea de scriere anulează întreaga înlocuire\n✓ Backup JSON: restaurarea repetată nu dublează încercările\n✓ Worker: export și import ZIP cu integritatea imaginii păstrată\n✓ Catalog: diacritice, grupuri și confirmare explicită\n✓ Repere: coordonate relative și ascundere în teste\n✓ Interpretare: secțiuni prezente și diagnostic canonic fără alias\n✓ Înlocuirea reușită curăță imaginile versiunii precedente\n\n8 verificări trecute.\nInstalarea PWA și pornirea în mod avion necesită verificare manuală pe fiecare platformă.",
+  "studioSmoke": "Import ZIP, comparison layer, differential preview, structured guided step, Studio pack creation, bank creation, mark drawing, comparison upload and written-question creation completed without console errors."
+}

@@ -1,0 +1,17 @@
+{
+  "id": "./",
+  "name": "RadioEasy · Radiologie",
+  "short_name": "RadioEasy",
+  "lang": "ro",
+  "description": "Atlas și exerciții de radiologie, disponibile offline.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#f7f8f5",
+  "theme_color": "#155f59",
+  "icons": [
+    { "src": "./icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "./icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "./icons/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

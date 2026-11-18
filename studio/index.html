@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="ro">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#155f59">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri 'none'; script-src 'self'; style-src 'self'; img-src 'self' blob:; connect-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; form-action 'none'">
+  <link rel="manifest" href="./manifest.webmanifest"><link rel="icon" href="./icons/icon.svg"><link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="./base.css"><link rel="stylesheet" href="./studio.css">
+  <title>RadioEasy Studio — Pachete de studiu</title>
+</head>
+<body>
+  <div id="studio"><div class="boot"><strong>RadioEasy Studio</strong><p>Se deschide atelierul…</p></div></div>
+  <input id="open-pack" class="visually-hidden" type="file" accept=".zip,application/zip">
+  <input id="add-image" class="visually-hidden" type="file" accept="image/png,image/jpeg">
+  <input id="add-case-image" class="visually-hidden" type="file" accept="image/png,image/jpeg">
+  <div id="notice" class="toast" role="status" aria-live="polite"></div><dialog id="modal"></dialog>
+  <script type="module" src="./studio.js"></script>
+</body>
+</html>
