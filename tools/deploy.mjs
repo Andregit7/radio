@@ -8,11 +8,12 @@ const root=path.resolve(fileURLToPath(new URL('../',import.meta.url)));
 const repo=path.resolve(process.env.RADIOEASY_PAGES_REPO || path.join(root,'..','..','..','radio-pages'));
 const dryRun=process.argv.includes('--dry-run');
 const PUBLISHED=['.nojekyll','checks','checks.html','icons','index.html','js','manifest.webmanifest','release.json','styles.css','sw.js','studio'];
+const SOURCE_ONLY=['dist','docs','tests','tools','node_modules','starter-pack','releases','test-results'];
 const git=(cwd,args)=>execFileSync('git',args,{cwd,encoding:'utf8',stdio:['ignore','pipe','pipe']});
 const run=(cwd,args)=>execFileSync('git',args,{cwd,stdio:'inherit'});
 
 async function stageInto(target){
-  for(const name of PUBLISHED)await rm(path.join(target,name),{recursive:true,force:true});
+  for(const name of [...PUBLISHED,...SOURCE_ONLY])await rm(path.join(target,name),{recursive:true,force:true});
   await cp(path.join(root,'releases','study-site'),target,{recursive:true,force:true});
   await cp(path.join(root,'releases','studio-site'),path.join(target,'studio'),{recursive:true,force:true});
   await cp(path.join(root,'dist','checks.html'),path.join(target,'checks.html'),{force:true});
