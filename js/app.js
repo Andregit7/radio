@@ -11,7 +11,7 @@ import { EXERCISE_LABELS, SECTION_PROMPTS, SECTION_ORDER, availableExercises, gr
   recordSelfAssessment, sessionAnswer, advanceSession, finishSessionEarly, receivedAnswers, selfAssessmentItems,
   canonicalDiagnosisLabels } from './exercises.js';
 
-const state={packs:[],activeId:null,progress:{},selfAssessments:{},bookmarks:[],visited:[],session:null,starter:null,offlineReady:false,registration:null,prompt:null,route:'library',page:0,chapter:'all',query:'',onlyBookmarks:false};
+const state={packs:[],activeId:null,progress:{},selfAssessments:{},bookmarks:[],visited:[],session:null,starter:null,offlineReady:false,registration:null,prompt:null,route:'library',page:0,chapter:'all',query:'',onlyBookmarks:false,updateChecking:false};
 let cleanup=[],renderToken=0,activeExport=false,installing=false;
 const act=fn=>async event=>{try{return await fn(event);}catch(error){toast(friendlyError(error),true);}};
 const active=()=>state.packs.find(row=>row.id===state.activeId) || state.packs[0];
@@ -47,13 +47,13 @@ function shell(){
   const nav=routes.map(([route,label,name])=>link([icon(name),el('span',{},label)],`#${route}`,`nav-item ${current===route?'active':''}`));
   const side=el('aside',{class:'sidebar'},link([el('img',{src:'./icons/icon.svg',alt:''}),el('div',{class:'brand-word'},'RadioEasy')],'#library','brand'),
     el('nav',{class:'nav-list','aria-label':'Navigare principală'},...nav),
-    el('div',{class:'sidebar-bottom'},link([icon('settings'),el('span',{},'Date & instalare')],'#settings',`nav-item ${current==='settings'?'active':''}`),
+    el('div',{class:'sidebar-bottom'},button([icon('refresh'),el('span',{'aria-live':'polite'},updateCheckLabel())],act(()=>checkForUpdates()),'nav-item update-check',{disabled:state.updateChecking}),link([icon('settings'),el('span',{},'Date & instalare')],'#settings',`nav-item ${current==='settings'?'active':''}`),
       el('div',{class:'private-note'},icon('shield',17),el('span',{},'Materialele și progresul rămân pe dispozitivul tău.')),
       el('div',{class:'sidebar-version'},el('span',{},`v${APP_VERSION}`))));
   const packSelect=state.packs.length>1?el('select',{class:'pack-select','aria-label':'Pachet activ',onchange:act(async event=>{state.activeId=event.target.value;state.page=0;state.chapter='all';state.query='';await setMeta('activeId',state.activeId);location.hash='library';await render();})},...state.packs.map(row=>el('option',{value:row.id,selected:row.id===record?.id},row.pack.title))):el('span',{class:'pack-select'},record?.pack.curriculum.title || 'Spațiul tău de studiu');
   const top=el('header',{class:'topbar'},link([el('img',{src:'./icons/icon.svg',alt:''}),'RadioEasy'],'#library','mobile-brand'),el('div',{class:'topbar-right'},packSelect));
   const main=el('main',{class:'content',id:'main',tabindex:'-1'});
-  const update=state.registration?.waiting?el('div',{class:'update-banner'},el('span',{},'O versiune nouă este gata.'),button('Actualizează după sesiune',act(applyUpdate),'button secondary')):null;
+  const update=state.registration?.waiting?el('div',{class:'update-banner'},el('span',{},'O versiune nouă este gata.'),button('Actualizează acum',act(()=>activateUpdate()),'button secondary')):null;
   const mobile=el('nav',{class:'mobile-nav','aria-label':'Navigare mobilă'},...routes.map(([route,label,name])=>link([icon(name),el('span',{},label)],`#${route}`,current===route?'active':'')),link([icon('settings'),el('span',{},'Date')],'#settings',current==='settings'?'active':''));
   document.getElementById('app').replaceChildren(el('div',{class:'app-shell'},side,el('div',{class:'main-shell'},top,update,main),mobile));return main;
 }
@@ -589,6 +589,8 @@ async function renderSettings(main,token){
     el('p',{class:'field-help'},'Fișierul de progres nu include imaginile. Copia completă le include.'));
   const install=el('section',{class:'settings-card'},el('h2',{},icon('plus',19),'Instalează RadioEasy'),el('p',{},'Deschide linkul direct în browser, apoi adaugă aplicația. Importă materialele din aplicația instalată pentru a păstra studiul în același loc.'),
     el('div',{class:'detail-row'},el('span',{},'Funcționează fără internet'),el('strong',{},state.offlineReady?'Da':'Nu încă')),
+    button([icon('refresh',15),el('span',{'aria-live':'polite'},updateCheckLabel())],act(()=>checkForUpdates()),'button secondary update-check',{disabled:state.updateChecking}),
+    el('p',{class:'field-help'},'Verifică dacă există o versiune nouă și o aplică fără să șteargă materialele sau progresul.'),
     state.prompt?button('Instalează aplicația',act(async()=>{await state.prompt.prompt();state.prompt=null;await render();})):null,
     el('ol',{class:'install-steps'},el('li',{},'iPhone / iPad: Safari → Partajează → Adaugă pe ecranul principal.'),el('li',{},'Android: Chrome → meniu → Instalează / Adaugă pe ecranul principal.'),el('li',{},'Windows: Chrome sau Edge → pictograma de instalare din bara de adrese.'),el('li',{},'macOS: Safari → Fișier → Adaugă în Dock; sau instalare din Chrome/Edge.')),
     el('details',{class:'help-details'},el('summary',{},'Ai deschis linkul din Discord sau altă aplicație?'),el('p',{},'Deschide meniul linkului și alege Safari sau Chrome. Dacă opțiunea lipsește, copiază linkul și lipește-l în browser.')));
@@ -705,9 +707,60 @@ async function reloadLearning(){
   [state.progress,state.selfAssessments,state.bookmarks,state.visited]=await Promise.all([getMeta('progress',{}),getMeta('selfAssessments',{}),getMeta('bookmarks',[]),getMeta('visited',[])]);
 }
 
-async function applyUpdate(){
-  if(state.session && !state.session.finished){toast('Încheie sesiunea înainte de actualizare. Răspunsurile tale sunt salvate.');return;}
-  if(state.registration?.waiting){navigator.serviceWorker.addEventListener('controllerchange',()=>location.reload(),{once:true});state.registration.waiting.postMessage({type:'ACTIVATE_UPDATE'});}
+function updateCheckLabel(){
+  return state.updateChecking?'Verific actualizările…':'Verifică actualizări';
+}
+
+function refreshUpdateControls(){
+  for(const node of document.querySelectorAll('.update-check')){
+    node.disabled=state.updateChecking;
+    const label=node.querySelector('span');
+    if(label)label.textContent=updateCheckLabel();
+  }
+}
+
+function activateUpdate(){
+  if(state.session && !state.session.finished){toast('Încheie sesiunea înainte de actualizare. Răspunsurile tale sunt salvate.');return false;}
+  const waiting=state.registration?.waiting;
+  if(!waiting)return false;
+  let reloaded=false;
+  const reload=()=>{if(reloaded)return;reloaded=true;location.reload();};
+  navigator.serviceWorker.addEventListener('controllerchange',reload,{once:true});
+  waiting.postMessage({type:'ACTIVATE_UPDATE'});
+  setTimeout(reload,4000);
+  return true;
+}
+
+function waitForWaitingWorker(registration,deadline){
+  return new Promise(resolve=>{
+    const poll=()=>{
+      if(registration.waiting)return resolve(true);
+      if(Date.now()>deadline)return resolve(false);
+      setTimeout(poll,250);
+    };
+    poll();
+  });
+}
+
+async function checkForUpdates(){
+  if(state.updateChecking)return;
+  if(!state.registration){
+    toast('Actualizarea automată nu este disponibilă în acest browser. Reîncarcă pagina.',true);
+    return;
+  }
+  state.updateChecking=true;refreshUpdateControls();
+  try{
+    await state.registration.update();
+    const ready=await waitForWaitingWorker(state.registration,Date.now()+15000);
+    state.updateChecking=false;refreshUpdateControls();
+    if(ready){
+      if(state.session && !state.session.finished){toast('Versiunea nouă se aplică după ce închei sesiunea.');await render();}
+      else{toast('Se aplică versiunea nouă…');activateUpdate();}
+    }else toast('Ai deja cea mai recentă versiune.');
+  }catch{
+    state.updateChecking=false;refreshUpdateControls();
+    toast('Nu am putut verifica actualizările. Verifică conexiunea și încearcă din nou.',true);
+  }
 }
 
 function setupOffline(){
@@ -715,7 +768,10 @@ function setupOffline(){
   navigator.serviceWorker.register('./sw.js',{scope:'./',updateViaCache:'none'}).then(registration=>{
     state.registration=registration;
     registration.addEventListener('updatefound',()=>{const incoming=registration.installing;incoming?.addEventListener('statechange',()=>{if(incoming.state==='installed' && navigator.serviceWorker.controller){if(!state.session || state.session.finished)render().catch(()=>{});}});});
-    navigator.serviceWorker.ready.then(()=>{state.offlineReady=true;if(state.route==='settings')render().catch(()=>{});});
+    navigator.serviceWorker.ready.then(()=>{
+      state.offlineReady=true;if(state.route==='settings')render().catch(()=>{});
+      registration.update().catch(()=>{});
+    });
   }).catch(()=>{state.offlineReady=false;});
 }
 

@@ -15,6 +15,15 @@
 @media(max-width:760px){input,select,textarea,.catalogue-input,.search-field input,.select,.number-input{font-size:16px}.button,.chip,.catalogue-heading,.page-head>.button{min-height:44px}.icon-button{width:44px;height:44px}.viewer-tool{min-height:40px;min-width:36px}.catalogue-search .clear-search{width:36px;min-width:36px}.question-panel .field-label{font-size:13px}.notes-body{font-size:13px}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{transition:none!important;scroll-behavior:auto!important}}
 .page-head h1{margin-top:0}
+button.nav-item{cursor:pointer;background:transparent;border:0;text-align:left;width:100%}
+button.nav-item:hover{background:#e7ede4}
+button.nav-item:disabled{cursor:progress;color:var(--muted)}
+button.nav-item:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
+.update-check svg{flex:none}
+.update-check:disabled svg{animation:update-spin 1s linear infinite}
+@keyframes update-spin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){.update-check:disabled svg{animation:none}}
+.settings-card .update-check{margin-top:10px}
 .stats-row{grid-template-columns:repeat(auto-fit,minmax(145px,1fr))}
 .stat{display:block}
 .hero-image{display:block;background:#263131;overflow:hidden}
