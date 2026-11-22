@@ -14,10 +14,9 @@ const caseData={id:'p001',chapterId:'respiratory',diagnosisIds:['d1'],
     {id:'investigations',items:[]},
   ],
   annotations:[
-    {id:'a1',imageId:'primary',itemId:'f1',shape:'ellipse',reviewStatus:'reviewed'},
-    {id:'a2',imageId:'primary',itemId:'f2',shape:'ellipse',reviewStatus:'reviewed'},
-    {id:'a3',imageId:'primary',itemId:'f3',shape:'ellipse',reviewStatus:'reviewed'},
-    {id:'a4',imageId:'primary',itemId:'f1',shape:'ellipse',reviewStatus:'draft'},
+    {id:'a1',imageId:'primary',itemId:'f1',shape:'ellipse'},
+    {id:'a2',imageId:'primary',itemId:'f2',shape:'ellipse'},
+    {id:'a3',imageId:'primary',itemId:'f3',shape:'ellipse'},
   ]};
 const record={pack:{id:'pack',diagnoses:[{id:'d1',label:'Diagnostic canonic',aliases:['alias']}],cases:[caseData]}};
 const pack={cases:[caseData],curriculum:{chapters:[{id:'respiratory',label:'Respirator'}],scopes:[{id:'all',chapterIds:['respiratory']}]}};
@@ -37,16 +36,16 @@ test('self-assessment uses the canonical diagnosis and not the raw alias text',(
   assert(items.some(item=>item.id==='p001-examination-1'));
 });
 
-test('guided regions use reviewed annotations only and require one-to-one links',()=>{
+test('guided regions use every annotation linked to a finding and require one-to-one links',()=>{
   const exercise=regionsExercise(caseData);
   assert.deepEqual(exercise.regions.map(row=>row.itemId),['f1','f2','f3']);
-  assert(!exercise.regions.some(row=>row.annotationId==='a4'),'draft annotation leaked into exercise');
-  const duplicate={...caseData,annotations:[...caseData.annotations,{id:'a5',imageId:'primary',itemId:'f1',shape:'ellipse',reviewStatus:'reviewed'}]};
+  assert.deepEqual(exercise.regions.map(row=>row.annotationId),['a1','a2','a3']);
+  const duplicate={...caseData,annotations:[...caseData.annotations,{id:'a5',imageId:'primary',itemId:'f1',shape:'ellipse'}]};
   assert.equal(regionsExercise(duplicate),null);
   assert.equal(regionsExercise({...caseData,annotations:[]}),null);
 });
 
-test('matching requires three reviewed pairs and grades exact mappings',()=>{
+test('matching requires three annotated findings and grades exact mappings',()=>{
   const exercise=matchingExercise(caseData,()=>.5);
   assert.equal(exercise.pairs.length,3);
   assert.equal(exercise.options.length,3);
@@ -59,7 +58,7 @@ test('matching requires three reviewed pairs and grades exact mappings',()=>{
 });
 
 test('available exercise counts follow chapters and keep short questions separate',()=>{
-  const bank={items:[{id:'q1',caseId:'p001',kind:'mcq',sectionId:'diagnosis',prompt:'Q',options:[{id:'o1',label:'A'},{id:'o2',label:'B'}],correctOptionIds:['o1'],reviewStatus:'source-derived'}]};
+  const bank={items:[{id:'q1',caseId:'p001',kind:'mcq',sectionId:'diagnosis',prompt:'Q',options:[{id:'o1',label:'A'},{id:'o2',label:'B'}],correctOptionIds:['o1']}]};
   const pools=availableExercises(pack,bank,{chapterIds:['respiratory']});
   assert.equal(pools.interpretation.length,1);
   assert.equal(pools.regions.length,1);

@@ -50,10 +50,10 @@ test('changed answer keys invalidate scheduling but stable option order does not
   assert.equal(matchingProgress(record,{...q,options:[...q.options].reverse()}),record);
   assert.equal(matchingProgress(record,{...q,correctOptionIds:['y']}),null);
 });
-test('diagnosis-only cases remain testable; missing diagnosis is study-only; mixed avoids duplicate diagnosis tasks',()=>{
+test('every authored question is eligible; a missing diagnosis stays study-only; mixed avoids duplicate diagnosis tasks',()=>{
   const pack={cases:[{id:'p1',chapterId:'respiratory',diagnosisIds:['endo'],sections:[]},{id:'p2',chapterId:'renal',diagnosisIds:[],sections:[]}]};
-  const bank={items:[{...question('authored'),kind:'mcq',caseId:'p1',reviewStatus:'source-derived'},{...question('projection'),kind:'mcq',caseId:'p1',sectionId:'projection',reviewStatus:'source-derived'},{...question('draft'),kind:'mcq',caseId:'p1',reviewStatus:'draft'}]};
+  const bank={items:[{...question('authored'),kind:'mcq',caseId:'p1'},{...question('projection'),kind:'mcq',caseId:'p1',sectionId:'projection'},{...question('second-diagnosis'),kind:'mcq',caseId:'p1'}]};
   assert.equal(availableQuestions(pack,bank,{kind:'catalogue'}).length,1);
   assert.equal(availableQuestions(pack,bank,{kind:'mixed'}).length,2);
-  assert.equal(availableQuestions(pack,bank,{kind:'mcq'}).length,2);
+  assert.equal(availableQuestions(pack,bank,{kind:'mcq'}).length,3);
 });

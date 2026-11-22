@@ -1,6 +1,6 @@
 {
   "name": "radiologie-study",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "private": true,
   "type": "module",
   "description": "An inspectable, local-first radiology study PWA. No runtime services or build framework.",

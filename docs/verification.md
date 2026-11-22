@@ -4,7 +4,7 @@
 
 - Node tests cover diacritics, diagnosis name and keyword search, migration of legacy search terms, curriculum filtering, grading by ID, multiple selection, spaced-review intervals and exam selection.
 - Detecting a change of the key/prompt without depending on the order of the options.
-- Eligibility of the full interpretation, missing sections, canonical diagnosis labels, `reviewed` annotations, exact matching, self-assessment and session transitions.
+- Eligibility of the full interpretation, missing sections, canonical diagnosis labels, regions and matching from all annotations linked to findings, exact matching, self-assessment and session transitions.
 - Structured interpretation: chapter-bank steps, exact choice sets, repeated observation matching, measurement normalization, order-independent signatures, image/key invalidation and one scheduled attempt per case.
 - Authored written questions with their own rubric and self-assessment signature; they stay outside automatic accuracy.
 - Validation of pack v1/v2, mark styles, comparison layers, linked differentials, chapter banks, structured findings, images, hashes, coordinates and learning backups v1/v2.
@@ -32,7 +32,7 @@ This is desktop-browser evidence, not a substitute for the manual matrix below. 
 | Viewer drag panning | A zoomed or cropped image follows the pointer with a grab cursor; marks stay clickable; `Reset` returns to 1x and the top-left corner |
 | Diagnosis-only case | Missing sections are explicitly marked |
 | p054 | Can be studied, with no automatic diagnosis question |
-| Method selector | Five methods explained; annotation-based methods stay disabled until the annotations are verified |
+| Method selector | Five methods explained; annotation-based methods appear for the cases that have linked annotations |
 | Interpretare structurată, guided | One step at a time; a submitted step reveals its own reference; later steps do not inherit wrong choices |
 | Interpretare structurată, exam | All steps can be edited; no key, note, mark or comparison layer appears before final submission |
 | User layers | `Repere` hides every mark, including the selected one; comparison layers toggle without losing the base image |
@@ -61,7 +61,7 @@ This is desktop-browser evidence, not a substitute for the manual matrix below. 
 | Update during the test | Not activated in one's own unfinished session |
 | Network | No material, answer or progress uploaded to a server |
 | Studio, create/edit/export | The resulting pack can be imported into Study |
-| Studio, editing a case | The affected questions return to the draft state |
+| Studio, editing a case | Questions remain exportable after the edit |
 | Studio, case editor | The ribbon and each pane can collapse. Dividers resize the panes. The marks list and observations keep their scroll offsets on drawing and binding |
 | Studio, narrow window | Panes stack and can resize vertically. The radiograph fits its viewport and supports zoom and drag panning |
 | Studio, banks | Chapter-specific variants survive rename/reorder; deleting a used variant is blocked |

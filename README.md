@@ -4,7 +4,7 @@
 
 Two static web apps with no accounts, no backend and no AI services. The source is the code the browser runs.
 
-**Study** is for students: pack import, atlas, chapter-bank structured interpretation, full interpretation across six sections, semiology with verified annotations, matching, short questions, written questions with author rubrics, comparison layers, differential previews, spaced review, exam simulation and backup.
+**Study** is for students: pack import, atlas, chapter-bank structured interpretation, full interpretation across six sections, semiology with linked annotations, matching, short questions, written questions with author rubrics, comparison layers, differential previews, spaced review, exam simulation and backup.
 
 **Pack Studio** is the separate app for contributors: pack creation/import, editing cases and diagnoses, curriculum, chapter answer banks, structured observations and study notes, ellipses/rectangles/arrows/freehand marks with automatic or manual colors and fills, comparison layers, linked differentials, MCQs, written questions and validated export. Study never downloads the editing modules.
 
@@ -16,11 +16,11 @@ Study has five selectable methods:
 
 - **Structured interpretation** (`Interpretare structurată`) — the student chooses chapter-bank options and repeated observations, then the diagnosis. Guided review reveals one step at a time; exam simulation grades only after final submission. Exact ID sets and one-to-one observation matching are automatic.
 - **Full interpretation** (`Interpretare completă`) — empty fields for each section present in the source. The student's written answer is compared against the notes by ticking; there is no automatic grading of medical text. This legacy method remains for packs/cases without structured data.
-- **Numbered regions** (`Regiuni numerotate`) — regions marked `reviewed` are numbered on the image, and the student writes what each one represents.
+- **Numbered regions** (`Regiuni numerotate`) — the regions annotated on the image are numbered, and the student writes what each one represents.
 - **Matching** (`Potrivire`) — the student pairs the descriptions from the notes with the numbered regions; the pairing is graded automatically.
 - **Short questions** (`Întrebări scurte`) — the diagnosis catalogue, authored MCQs and authored written questions with a rubric and self-check.
 
-Methods that rely on annotations appear only for cases with `reviewed` annotations. `draft` annotations stay visible while reading but are not used in exercises. Only one-to-one links between a region and an observation are accepted per case. Notes, comparison layers and rubric text never become automatic keys.
+Methods that rely on annotations appear for every case that has annotations linked to its findings; the regions are numbered in the observation order of the notes. Only one-to-one links between a region and an observation are accepted per case, so two marks pointing at the same observation disable the method for that case. Notes, comparison layers and rubric text never become automatic keys.
 
 ## Running locally
 
@@ -48,9 +48,9 @@ The distinct ports separate the origins and storage of the two apps. The servers
 
 The private distribution includes `course-pack/radiografii-explicate.study.zip`. Import it from the Library (`Bibliotecă`). It can also be opened in Studio via "Open ZIP" (`Deschide ZIP`).
 
-The pack counts are in `starter-pack/build-report.json`; regenerate them with `python tools/build_starter_pack.py`. The images are the exact JPEG streams from the PDF, with no additional recompression. The pack is version 2: it includes chapter banks, source-derived structured cases and one authored written question.
+The pack counts are in `starter-pack/build-report.json`; regenerate them with `python tools/build_starter_pack.py`. The images are the exact JPEG streams from the PDF, with no additional recompression. The pack is version 2: it includes chapter banks, source-derived structured cases and an authored written question.
 
-A single orientation annotation, marked `draft`, demonstrates the text–image link on the first case. The annotation methods are implemented but stay disabled until the regions are visually verified in Studio and marked `reviewed`. `source-derived` MCQs, structured keys and written rubrics are not an independent medical validation.
+A single orientation annotation demonstrates the text–image link on the first case, so the annotation-based methods can be tried there. `source-derived` MCQs, structured keys and written rubrics are not an independent medical validation.
 
 Some cases have only a diagnosis. Case p054 has no explicit positive diagnosis and remains available for study, without an automatic diagnosis question. Findings without explicit source support remain study notes rather than keys. The colloquium limits were not invented.
 
@@ -66,7 +66,7 @@ npm run prepare:studio
 npm run release
 ```
 
-The Node tests cover Romanian filtering, selection and grading by identifier, review scheduling, key changes, data validation, ZIP import/export, section eligibility, `reviewed`-only annotations, exact matching, structured choice/observation grading, written-question signatures, self-assessment and session transitions. The test archives include directory traversal, duplicate names, active files, overlaps, oversized entries and bad CRC. If the original pack is not present, the separate test over the built pack is marked "skipped".
+The Node tests cover Romanian filtering, selection and grading by identifier, review scheduling, key changes, data validation, ZIP import/export, section eligibility, regions and matching from all finding-linked annotations, exact matching, structured choice/observation grading, written-question signatures, self-assessment and session transitions. The test archives include directory traversal, duplicate names, active files, overlaps, oversized entries and bad CRC. If the original pack is not present, the separate test over the built pack is marked "skipped".
 
 For browser integration tests, start Study and open `http://127.0.0.1:4173/checks.html`. These tests use a temporary IndexedDB database, separate from study data. They cover transactions, restore without duplication, the ZIP worker, the catalogue and annotation geometry. The tests are not cached by the app. A developer copy is available at https://andregit7.github.io/radio/checks.html; generated static releases remain free of these auxiliary files. The last local run and the additional Study/Studio smoke flow are recorded in `docs/browser-checks.json`.
 

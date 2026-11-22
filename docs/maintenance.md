@@ -24,8 +24,8 @@ Allowed exceptions when writing English technical docs:
   `Bibliotecă` (Library), `Potrivire` (Matching), `Toată materia` (All material).
 - Domain nouns that are already the data contract: section ids
   (`examination`, `projection`, `findings`, `diagnosis`, `differentials`, `investigations`),
-  shapes (`ellipse`/`rect`/`polygon`/`arrow`), statuses (`draft`, `reviewed`,
-  `source-derived`), and format strings (`radiology-study-pack`).
+  shapes (`ellipse`/`rect`/`polygon`/`arrow`), statuses (`draft`, `source-derived`), and
+  format strings (`radiology-study-pack`).
 - A filename, path, command or URL — never translate it.
 
 Never translate: identifiers, JSON keys, format-version strings, CLI flags, ports,

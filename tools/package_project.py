@@ -60,7 +60,7 @@ Codul și instrucțiunile sunt în `radioeasy/README.md`.
 
 `public-study-site/` și `public-studio-site/` sunt distribuții statice separate pentru găzduire HTTPS/GitHub Pages. Nu conțin materialele de curs.
 
-Starea verificării nu este înghețată în acest fișier: rulează `npm test`, `npm run check` și `npm run verify` în `radioeasy/`, iar `verification-results.json` conține numerele curente. Metodele cu repere rămân dezactivate până când adnotările sunt verificate în Studio. Instalarea pe dispozitive, modul avion și performanța pe un telefon modest rămân de verificat. Vezi `radioeasy/docs/verification.md`.
+Starea verificării nu este înghețată în acest fișier: rulează `npm test`, `npm run check` și `npm run verify` în `radioeasy/`, iar `verification-results.json` conține numerele curente. Metodele cu repere folosesc marcajele existente. Instalarea pe dispozitive, modul avion și performanța pe un telefon modest rămân de verificat. Vezi `radioeasy/docs/verification.md`.
 
 Nu publica întregul ZIP privat ca repository public: conține separat pachetul de curs. Codul aplicației poate fi publicat independent.
 ''')

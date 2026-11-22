@@ -15,11 +15,11 @@ try {
   browserIntegration=evidence.testedBuilds?.study===study.buildId && evidence.testedBuilds?.studio===studio.buildId
     ?evidence:{executed:false,reason:'App files changed after the recorded browser checks; repeat them for these builds.'};
 } catch {}
-let coursePack={cases:null,diagnoses:null,sourceDerivedMCQs:null,annotations:null,reviewedAnnotations:null};
+let coursePack={cases:null,diagnoses:null,sourceDerivedMCQs:null,annotations:null};
 try{
   const build=JSON.parse(await readFile(path.join(root,'starter-pack/build-report.json'),'utf8'));
   coursePack={cases:build.cases,diagnoses:build.diagnoses,sourceDerivedMCQs:build.questions,
-    annotations:build.annotationCount,reviewedAnnotations:build.reviewedAnnotationCount ?? 0};
+    annotations:build.annotationCount};
 }catch{}
 const report={version:JSON.parse(await readFile(path.join(root,'package.json'),'utf8')).version,generatedAt:new Date().toISOString(),
   nodeTests:{exitCode:run.status,tests:metric('tests'),passed:metric('pass'),failed:metric('fail'),skipped:metric('skipped')},

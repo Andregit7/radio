@@ -69,7 +69,7 @@ export function validateAnnotation(row, imageIds, itemIds, version = 1) {
   return { id: row.id, imageId: row.imageId, itemId: row.itemId, shape: row.shape,
     ...Object.fromEntries(['cx','cy','rx','ry','x','y','width','height','x1','y1','x2','y2'].filter(k => k in row).map(k => [k, row[k]])),
     ...(row.points ? { points: row.points.map(p => [...p]) } : {}), ...(style ? { style } : {}),
-    label: text(row.label, 80) ? row.label : '', reviewStatus: row.reviewStatus === 'reviewed' ? 'reviewed' : 'draft' };
+    label: text(row.label, 80) ? row.label : '' };
 }
 
 function validateBankSection(chapterId, sectionId, raw) {
@@ -190,7 +190,8 @@ export function validatePack(raw) {
     let structured = null;
     if (item.structured !== undefined) {
       requireThat(object(item.structured), 'Observațiile structurate sunt invalide.');
-      const status = oneOf(item.structured.status, ['draft', 'source-derived', 'reviewed']) ? item.structured.status : 'draft';
+      const status = item.structured.status === 'reviewed' ? 'source-derived'
+        : oneOf(item.structured.status, ['draft', 'source-derived']) ? item.structured.status : 'draft';
       const bank = banks.get(item.chapterId);
       const choices = {};
       for (const sectionId of CHOICE_SECTIONS) {
@@ -273,11 +274,10 @@ export function validateQuestions(raw, pack) {
   const items = raw.items.map(row => {
     requireThat(object(row) && id(row.id) && cases.has(row.caseId) && text(row.prompt, 2000) && row.prompt.trim(), 'Întrebare invalidă.');
     requireThat(SECTION_IDS.includes(row.sectionId), 'Secțiune de întrebare invalidă.');
-    const reviewStatus = ['reviewed','source-derived','draft'].includes(row.reviewStatus) ? row.reviewStatus : 'draft';
     if (row.kind === 'written') {
       requireThat(raw.version === 2 && text(row.rubric, 10000) && row.rubric.trim(), 'Întrebarea scrisă are nevoie de un barem autor.');
       requireThat(row.options === undefined && row.correctOptionIds === undefined, 'Întrebarea scrisă nu are variante.');
-      return { id:row.id,caseId:row.caseId,kind:'written',sectionId:row.sectionId,prompt:row.prompt,rubric:row.rubric,reviewStatus };
+      return { id:row.id,caseId:row.caseId,kind:'written',sectionId:row.sectionId,prompt:row.prompt,rubric:row.rubric };
     }
     requireThat(row.kind === 'mcq' && text(row.feedback || '', 10000), 'Întrebare invalidă.');
     requireThat(list(row.options, 8) && row.options.length >= 2 && unique(row.options) && row.options.every(o => id(o.id) && text(o.label, 1500) && o.label.trim() && text(o.feedback || '', 4000)), 'Opțiuni invalide sau necompletate.');
@@ -286,7 +286,7 @@ export function validateQuestions(raw, pack) {
     requireThat(list(row.correctOptionIds, 8) && row.correctOptionIds.length > 0 && row.correctOptionIds.every(v => options.has(v)) && new Set(row.correctOptionIds).size === row.correctOptionIds.length, 'Cheie de răspuns invalidă.');
     return { id:row.id,caseId:row.caseId,kind:'mcq',sectionId:row.sectionId,prompt:row.prompt,
       correctOptionIds:[...row.correctOptionIds],options:row.options.map(o=>({id:o.id,label:o.label,feedback:o.feedback || ''})),
-      feedback:row.feedback || '',reviewStatus };
+      feedback:row.feedback || '' };
   });
   return {format:raw.format,version:raw.version,packId:pack.id,revision:pack.revision,items};
 }

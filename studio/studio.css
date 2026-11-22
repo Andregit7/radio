@@ -7,10 +7,16 @@
 .studio-sidebar{min-width:0;min-height:0;overflow:auto}
 .studio-workspace{min-height:0;overflow:auto;overscroll-behavior:contain}
 .studio-case-workspace{display:flex;flex-direction:column;overflow:hidden}
-.studio-case-workspace>.studio-tabs,.studio-case-heading{flex:none}
-.studio-case-heading{flex-wrap:wrap;justify-content:space-between;gap:8px}
-.studio-case-heading h1{margin:0;overflow-wrap:anywhere}
-.studio-case-heading .button{min-height:32px;padding:4px 8px;font-size:11px}
+.studio-case-workspace>.studio-tabs{flex:none}
+.studio-sidebar-head{display:flex;align-items:flex-start;justify-content:space-between;gap:6px}
+.studio-sidebar-head .studio-workspace-header{flex:1;min-width:0;margin-bottom:0}
+.studio-sidebar-toggle{flex:none}
+.studio-layout.studio-nav-collapsed{grid-template-columns:48px minmax(0,1fr)}
+.studio-nav-collapsed .studio-sidebar{padding:12px 6px;overflow:hidden}
+.studio-nav-collapsed .studio-sidebar-head{justify-content:center}
+.studio-nav-collapsed .studio-sidebar-head .studio-workspace-header,
+.studio-nav-collapsed .studio-sidebar > .button,
+.studio-nav-collapsed .studio-case-list{display:none}
 .studio-observation-entry{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;gap:6px;padding:6px;border:1px solid transparent;border-radius:8px}
 .studio-observation-fields{grid-column:1;min-width:0}
 .studio-observation-controls{grid-column:1/-1;grid-row:2}
@@ -24,4 +30,5 @@
   .studio-workspace,.studio-case-workspace{overflow:visible}
   .studio-case-workspace{display:block}
   .studio-sidebar{overflow:visible}
+  .studio-nav-collapsed .studio-sidebar{padding:12px 15px}
 }

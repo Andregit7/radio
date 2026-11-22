@@ -258,7 +258,7 @@ function renderPractice(main,mode){
     const order=['structured','interpretation','regions','matching','short'];
     for(const id of order){
       const enabled=counts[id]>0,guided=id==='regions'||id==='matching';
-      const reason=!enabled?(guided?(capability[id]?'Nu există cazuri verificate în capitolul ales.':'Disponibil după verificarea marcajelor de pe imagine.'):id==='structured'?'Disponibil după completarea observațiilor structurate.':'Nu există în selecția curentă.'):`${counts[id]} ${id==='short'?'întrebări disponibile':'cazuri disponibile'}`;
+      const reason=!enabled?(guided?(capability[id]?'Nu există cazuri cu repere în capitolul ales.':'Nu există suficiente repere în capitolul ales.'):id==='structured'?'Disponibil după completarea observațiilor structurate.':'Nu există în selecția curentă.'):`${counts[id]} ${id==='short'?'întrebări disponibile':'cazuri disponibile'}`;
       const card=el('label',{class:`method-card ${method===id?'active':''} ${enabled?'':'disabled'}`},
         el('input',{type:'radio',name:'method',value:id,checked:method===id,disabled:!enabled,onchange:()=>{method=id;count.value=String(Math.min(id==='short'?10:5,counts[id]||1));updateAvailability();}}),
         el('span',{class:'method-copy'},el('strong',{},METHOD_COPY[id].label),el('span',{},METHOD_COPY[id].description),el('span',{class:'method-count'},reason)));

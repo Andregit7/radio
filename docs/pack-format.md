@@ -54,8 +54,7 @@ An annotation explicitly references an image and a text element:
   "cy": 0.455,
   "rx": 0.14,
   "ry": 0.115,
-  "label": "1",
-  "reviewStatus": "draft"
+  "label": "1"
 }
 ```
 
@@ -63,9 +62,7 @@ All coordinates are normalised to the 0–1 range. Other accepted shapes are `re
 
 Version 2 marks may carry `style: {color?, pattern?, width?, line?}`. `color` is `#RRGGBB`. `pattern` is `none`, `diagonal`, `dots`, `vertical` or `horizontal`, with fills available for `ellipse`, `rect` and `polygon`. `width` is a stroke thickness from 1 to 12 CSS pixels. `line` is `solid`, `dotted`, `dashed`, `dash-dot` or `double`. Legacy marks keep the default color and stroke. Studio stores the selected style per mark. Both apps number marks across the case images in the order of their linked text items.
 
-`reviewed` means verification assumed by the contributor, not a medical accreditation offered by the application.
-
-Study uses only `reviewed` annotations in exercises. `draft` ones stay visible in the case reading, with a note that they are indicative. For the matching exercise, each region must be linked to a distinct observation; duplicate links or a missing observation disable the method for that case. The reader has an independent `Repere` toggle and named comparison layers; comparison-only images never enter ordinary image tabs or graded prompts.
+Every annotation linked to a `findings` item feeds the numbered-regions and matching exercises, in observation order. Those exercises need a one-to-one link between a region and an observation: duplicate links to the same observation, or fewer regions than the exercise minimum, disable the method for that case. The reader has an independent `Repere` toggle and named comparison layers; comparison-only images never enter ordinary image tabs or graded prompts.
 
 ## Chapter banks (v2)
 
@@ -109,7 +106,7 @@ The choice sections are `examination`, `projection`, `differentials` and `invest
 }
 ```
 
-An observation links an existing `findings` item to a chapter type. `values` contains only keyed fields; an omitted field is unassessed, not assumed negative. `measurementMm` values are positive numbers rounded to 0.1 mm. Notes are plain text and never become questions, distractors or grading input. The positive diagnosis remains `case.diagnosisIds`; differential labels are never correct diagnoses.
+An observation links an existing `findings` item to a chapter type. `values` contains only keyed fields; an omitted field is unassessed, not assumed negative. `measurementMm` values are positive numbers rounded to 0.1 mm. Notes are plain text and never become questions, distractors or grading input. The positive diagnosis remains `case.diagnosisIds`; differential labels are never correct diagnoses. `status` is `draft` or `source-derived`; a legacy `reviewed` value is read as `source-derived` on import.
 
 Study derives structured exercises from non-draft cases. It asks `examination` → `projection` → `findings` → `diagnosis` → `differentials` → `investigations`, skipping unkeyed parts. Choice steps use exact ID sets. Findings are matched one-to-one by type and keyed fields (ignoring unkeyed submitted fields), so repeated observation types cannot receive double credit. The guided review reveals one step before continuing, while the exam simulation reveals nothing until final submission. A structured attempt updates one spaced-review record; free-text notes and authored written questions stay outside automatic accuracy.
 
@@ -139,13 +136,13 @@ The target is another case in the same pack, never the current case. Study opens
 | `packId`, `revision` | Must match the pack exactly |
 | `items` | The list of session-independent MCQs and written questions |
 
-An MCQ has `id, caseId, sectionId, kind:'mcq', prompt, options:[{id,label,feedback}], correctOptionIds, feedback, reviewStatus`. Grading compares exact sets of IDs; the order of options does not affect the key. Several correct IDs enable multiple selection.
+An MCQ has `id, caseId, sectionId, kind:'mcq', prompt, options:[{id,label,feedback}], correctOptionIds, feedback`. Grading compares exact sets of IDs; the order of options does not affect the key. Several correct IDs enable multiple selection.
 
-A written question has `id, caseId, sectionId, kind:'written', prompt, rubric, reviewStatus`. It has no options and is never graded automatically. The author's `rubric` is shown only after the answer is submitted; the learner may record one self-check per attempt, kept in `selfAssessments` with kind `written` and outside automatic accuracy.
+A written question has `id, caseId, sectionId, kind:'written', prompt, rubric`. It has no options and is never graded automatically. The author's `rubric` is shown only after the answer is submitted; the learner may record one self-check per attempt, kept in `selfAssessments` with kind `written` and outside automatic accuracy.
 
-The statuses are `draft`, `source-derived`, `reviewed`. Study excludes `draft`. Studio exports only reconfirmed questions or source ones kept without edits. A change to a case's explanations returns its questions to the `draft` status. Notes never generate MCQs or written questions; an author must write and review them explicitly.
+Every authored question in the bank is eligible for a session. Notes never generate MCQs or written questions; an author writes them explicitly. A legacy `reviewStatus` field is a leftover of an earlier authoring workflow: import ignores it instead of rejecting the bank, so older packs and question banks keep loading.
 
-Selecting the diagnosis from the catalogue does not require a question in the bank: it uses the catalogue and the case references directly. For other reasoning, the author prepares and verifies the alternatives explicitly.
+Selecting the diagnosis from the catalogue does not require a question in the bank: it uses the catalogue and the case references directly. For other reasoning, the author writes the alternatives explicitly.
 
 ## Compatibility and backup
 

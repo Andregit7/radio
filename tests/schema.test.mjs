@@ -35,7 +35,7 @@ test('annotations accept data geometry and require item/image references',()=>{
   p.cases[0].annotations[0].itemId='finding-1';p.cases[0].annotations[0].cx=Infinity;assert.throws(()=>validatePack(p));
 });
 test('question banks must match a revision and contain resolvable correct IDs',()=>{
-  const p=validatePack(pack()).pack,q={format:'radiology-question-bank',version:1,packId:p.id,revision:p.revision,items:[{id:'q1',caseId:'p001',sectionId:'diagnosis',kind:'mcq',prompt:'Question?',options:[{id:'a',label:'A'},{id:'b',label:'B'}],correctOptionIds:['a'],reviewStatus:'source-derived'}]};
+  const p=validatePack(pack()).pack,q={format:'radiology-question-bank',version:1,packId:p.id,revision:p.revision,items:[{id:'q1',caseId:'p001',sectionId:'diagnosis',kind:'mcq',prompt:'Question?',options:[{id:'a',label:'A'},{id:'b',label:'B'}],correctOptionIds:['a']}]};
   assert.equal(validateQuestions(q,p).items.length,1);q.revision='2';assert.throws(()=>validateQuestions(q,p));q.revision='1';q.items[0].correctOptionIds=['missing'];assert.throws(()=>validateQuestions(q,p));
 });
 test('PNG signatures and dimensions are checked before storage',async()=>{
@@ -113,8 +113,8 @@ test('v2 rejects dangling comparison targets, invalid fills and cross-chapter di
 test('pack v2 written questions require a rubric and a v2 pack',()=>{
   const pack=validatePack(v2pack()).pack;
   const bank={format:'radiology-question-bank',version:2,packId:pack.id,revision:pack.revision,items:[
-    {id:'w1',caseId:'p1',kind:'written',sectionId:'findings',prompt:'Explică.',rubric:'Topografie și mărime.',reviewStatus:'source-derived'},
-    {id:'m1',caseId:'p1',kind:'mcq',sectionId:'diagnosis',prompt:'Diagnostic?',options:[{id:'a',label:'A'},{id:'b',label:'B'}],correctOptionIds:['a'],reviewStatus:'source-derived'}]};
+    {id:'w1',caseId:'p1',kind:'written',sectionId:'findings',prompt:'Explică.',rubric:'Topografie și mărime.'},
+    {id:'m1',caseId:'p1',kind:'mcq',sectionId:'diagnosis',prompt:'Diagnostic?',options:[{id:'a',label:'A'},{id:'b',label:'B'}],correctOptionIds:['a']}]};
   assert.equal(validateQuestions(bank,pack).items[0].kind,'written');
   const missing=structuredClone(bank);missing.items[0].rubric='';assert.throws(()=>validateQuestions(missing,pack));
   const v1={...structuredClone(bank),version:1};assert.throws(()=>validateQuestions(v1,pack));

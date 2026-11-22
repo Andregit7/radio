@@ -46,11 +46,11 @@ export function interpretationExercise(caseData) {
   };
 }
 
-function reviewedFindingRows(caseData) {
+function findingRows(caseData) {
   const findings = caseData.sections.find(section => section.id === 'findings');
   if (!findings?.items?.length) return [];
   const itemIds = new Set(findings.items.map(item => item.id));
-  return annotationsInObservationOrder(caseData).filter(row => row.reviewStatus === 'reviewed' && itemIds.has(row.itemId));
+  return annotationsInObservationOrder(caseData).filter(row => itemIds.has(row.itemId));
 }
 
 function oneToOne(rows) {
@@ -58,7 +58,7 @@ function oneToOne(rows) {
 }
 
 export function regionsExercise(caseData) {
-  const rows = reviewedFindingRows(caseData);
+  const rows = findingRows(caseData);
   if (rows.length < 2 || !oneToOne(rows)) return null;
   const regions = rows.map((row, index) => ({ annotationId: row.id, label: String(index + 1), itemId: row.itemId }));
   return {
@@ -75,7 +75,7 @@ export function regionsExercise(caseData) {
 }
 
 export function matchingExercise(caseData, random = Math.random) {
-  const rows = reviewedFindingRows(caseData);
+  const rows = findingRows(caseData);
   if (rows.length < 3 || !oneToOne(rows)) return null;
   const texts = new Map(caseData.sections.flatMap(section => section.items).map(item => [item.id, item.text]));
   const pairs = rows.map((row, index) => ({ regionId: row.id, label: String(index + 1), itemId: row.itemId }));

@@ -60,7 +60,7 @@ function swatch(row) {
   return node;
 }
 
-export function annotationWorkbench({ item, pack, files, state, preferences = state, remember, changed, ensureV2, uid, onUpload, onPreview, renderNotes }) {
+export function annotationWorkbench({ item, pack, files, state, preferences = state, remember, changed, ensureV2, uid, onUpload, onPreview, undoControl, renderNotes }) {
   const settings = preferences.settings ??= { shape: 'ellipse', color: 'auto', pattern: 'none', line: 'solid', width: DEFAULT_LINE_WIDTH };
   const collapsed = preferences.collapsed ??= {};
   const widths = preferences.widths ??= { marks: 21, notes: 31 };
@@ -76,9 +76,13 @@ export function annotationWorkbench({ item, pack, files, state, preferences = st
   if (!itemFor(state.preboundId)) state.preboundId = null;
   if (!itemFor(state.selectedObservationId)) state.selectedObservationId = null;
   if (!itemFor(state.groupId)) state.groupId = null;
-  if (!item.annotations.some(row => row.id === state.annotationId)) state.annotationId = null;
+  if (!Array.isArray(state.selectedIds)) state.selectedIds = [];
+  state.selectedIds = state.selectedIds.filter(id => item.annotations.some(row => row.id === id));
+  if (!state.selectedIds.includes(state.annotationId)) {
+    state.annotationId = state.selectedIds.length === 1 ? state.selectedIds[0] : null;
+  }
 
-  let objectUrl, displayedPath, redrawId, frame = 0, gesture = null, liveMark = null, spaceHeld = false;
+  let objectUrl, displayedPath, redrawId, frame = 0, gesture = null, liveMark = null, spaceHeld = false, suppressMarkClick = false;
   let annotationLabels, ordered;
   const view = { zoom: 1, x: 0, y: 0 };
   const root = el('div', { class: 'studio-workbench' });
@@ -92,7 +96,8 @@ export function annotationWorkbench({ item, pack, files, state, preferences = st
   }, 'studio-panel-toggle', { 'aria-controls': 'studio-ribbon-body' });
   const ribbon = el('section', { class: 'studio-ribbon', 'aria-label': 'Instrumente pentru repere' },
     el('header', { class: 'studio-ribbon-head' }, el('div', { class: 'studio-ribbon-tabs' }, drawTab, selectionTab),
-      el('div', { class: 'studio-ribbon-actions' }, button([icon('eye', 15), 'Previzualizare Study'], () => onPreview?.(state.imageId, state.comparisonId), 'chip'), ribbonToggle)), ribbonBody);
+      el('div', { class: 'studio-ribbon-actions' }, undoControl || null,
+        button([icon('eye', 15), 'Previzualizare'], () => onPreview?.(state.imageId, state.comparisonId), 'chip'), ribbonToggle)), ribbonBody);
   const binding = el('div', { class: 'studio-bind-notice', role: 'status', 'aria-live': 'polite' });
   const list = el('div', { class: 'studio-mark-list' });
   const notes = el('div', { class: 'studio-pane-body studio-notes-body' });
@@ -102,33 +107,33 @@ export function annotationWorkbench({ item, pack, files, state, preferences = st
   const picture = el('img', { alt: item.title, draggable: 'false' });
   const canvas = el('div', { class: 'studio-workbench-canvas' }, picture, svg);
   const missing = el('p', { class: 'studio-workbench-missing', role: 'status', hidden: true }, 'Imaginea nu este disponibilă.');
-  const stage = el('div', { class: 'studio-workbench-stage', tabindex: '0', 'aria-label': 'Radiografie. Tastele [ și ] schimbă stratul. Ține Spațiu și trage pentru deplasare.' }, canvas, missing);
+  const stage = el('div', { class: 'studio-workbench-stage', tabindex: '0', 'aria-label': 'Radiografie. Rotița ajustează zoomul. Tastele [ și ] schimbă stratul. Ține Spațiu și trage pentru deplasare.' }, canvas, missing);
   const zoomLabel = el('output', { class: 'studio-zoom-label', 'aria-live': 'polite' }, '100%');
-  const hand = button('Mână', () => setTool(preferences.tool === 'pan' ? 'draw' : 'pan'), 'studio-stage-button', { title: 'Deplasează imaginea mărită (Spațiu + tragere)' });
+  const selectTool = button(icon('cursor', 17), () => setTool('select'), 'studio-stage-button', { 'aria-label': 'Selectează reperele', title: 'Selectează reperele' });
+  const panTool = button(icon('hand', 17), () => setTool('pan'), 'studio-stage-button', { 'aria-label': 'Deplasează imaginea', title: 'Deplasează imaginea (Spațiu + tragere)' });
   const viewerControls = el('div', { class: 'studio-view-tools' },
     button('−', () => zoomTo(view.zoom / 1.25), 'studio-stage-button', { 'aria-label': 'Micșorează radiografia' }),
     zoomLabel,
     button('+', () => zoomTo(view.zoom * 1.25), 'studio-stage-button', { 'aria-label': 'Mărește radiografia' }),
-    button('Încadrează', resetView, 'studio-stage-button'), hand);
+    button('Încadrează', resetView, 'studio-stage-button'), selectTool, panTool);
+  const imageSelect = select('Imagine editată', [], state.imageId, value => switchImage(value));
   const layerSelect = select('Strat afișat', [], '', value => setComparison(value || null));
-  const layerControls = el('div', { class: 'studio-layer-controls', role: 'group', 'aria-label': 'Straturi de comparație' },
-    button(icon('back', 15), () => cycleLayer(-1), 'studio-stage-button', { 'aria-label': 'Stratul anterior', title: 'Stratul anterior ([)' }),
-    layerSelect, button(icon('arrow', 15), () => cycleLayer(1), 'studio-stage-button', { 'aria-label': 'Stratul următor', title: 'Stratul următor (])' }));
-  const imageBody = el('div', { class: 'studio-pane-body studio-image-body' }, layerControls, stage, viewerControls);
+  const imageHeadTools = el('div', { class: 'studio-pane-head-tools' }, imageSelect, layerSelect);
+  const imageBody = el('div', { class: 'studio-pane-body studio-image-body' }, stage, viewerControls);
   const grid = el('div', { class: 'studio-workbench-grid' });
 
-  function pane(id, label, body) {
+  function pane(id, label, body, extra = null, heading = label) {
     body.id = `studio-pane-body-${id}`;
     const toggle = button('', () => setCollapsed(id, !collapsed[id]), 'studio-panel-toggle', { 'aria-controls': body.id });
     const node = el('section', { class: `studio-workbench-pane studio-pane-${id}`, 'aria-label': label },
-      el('header', { class: 'studio-pane-head' }, el('h2', {}, label), toggle), body,
+      el('header', { class: 'studio-pane-head' }, el('div', { class: 'studio-pane-head-title' }, el('h2', {}, heading), extra), toggle), body,
       separator(id, 'height', `Redimensionează pe verticală: ${label}`));
     paneToggles.set(id, { toggle, node, body, label });
     return node;
   }
 
   grid.append(pane('marks', 'Repere', listBody), separator('marks', 'width', 'Redimensionează lista de repere'),
-    pane('image', 'Radiografie', imageBody), separator('notes', 'width', 'Redimensionează observațiile'), pane('notes', 'Observații', notes));
+    pane('image', 'Radiografie', imageBody, imageHeadTools, 'Radiografie:'), separator('notes', 'width', 'Redimensionează observațiile'), pane('notes', 'Observații', notes));
   root.append(ribbon, binding, grid);
 
   function syncPaneSizes() {
@@ -202,7 +207,9 @@ export function annotationWorkbench({ item, pack, files, state, preferences = st
     return node;
   }
 
-  const selected = () => item.annotations.find(row => row.id === state.annotationId);
+  const selectedIdSet = () => new Set(state.selectedIds || []);
+  const selectedRows = () => item.annotations.filter(row => selectedIdSet().has(row.id));
+  const selected = () => item.annotations.find(row => row.id === state.annotationId) || (selectedRows().length === 1 ? selectedRows()[0] : null);
   const activeComparison = () => (item.comparisons || []).find(row => row.id === state.comparisonId);
   const comparisonImage = row => pack.cases.find(caseRow => caseRow.id === row.caseId)?.images.find(image => image.id === row.imageId);
   const displayedImage = () => activeComparison() ? comparisonImage(activeComparison()) : imageFor(state.imageId);
@@ -241,35 +248,65 @@ export function annotationWorkbench({ item, pack, files, state, preferences = st
   }
 
   function syncRibbon() {
-    const editing = state.ribbonTab === 'selection' && Boolean(selected());
-    selectionTab.disabled = !selected();
+    const editing = state.ribbonTab === 'selection' && selectedRows().length > 0;
+    selectionTab.disabled = selectedRows().length === 0;
     ribbonBody.hidden = Boolean(preferences.ribbonCollapsed);
     for (const [target, active] of [[drawTab, !editing], [selectionTab, editing]]) {
       target.classList.toggle('active', active);
       target.setAttribute('aria-pressed', String(active));
     }
-    ribbonToggle.textContent = preferences.ribbonCollapsed ? 'Extinde' : 'Restrânge';
+    const label = preferences.ribbonCollapsed ? 'Extinde instrumentele' : 'Restrânge instrumentele';
+    ribbonToggle.replaceChildren(icon(preferences.ribbonCollapsed ? 'chevron-up' : 'chevron-down', 15));
     ribbonToggle.setAttribute('aria-expanded', String(!preferences.ribbonCollapsed));
-    ribbonToggle.setAttribute('aria-label', `${ribbonToggle.textContent} instrumentele`);
+    ribbonToggle.setAttribute('aria-label', label);
+    ribbonToggle.title = label;
   }
 
   let toolControls;
   function renderRibbon() {
     syncRibbon();
-    const row = state.ribbonTab === 'selection' ? selected() : null;
+    const rowsSelected = state.ribbonTab === 'selection' ? selectedRows() : [];
+    const multi = rowsSelected.length > 1;
+    const row = rowsSelected.length === 1 ? rowsSelected[0] : null;
     const values = row ? row.style || {} : settings;
     const shape = row?.shape || settings.shape;
-    const applyStyle = (key, value) => {
-      if (!row) { settings[key] = value; return; }
-      updateAnnotation(mark => { mark.style = { ...mark.style, [key]: value }; });
+    const styleValue = (mark, key) => mark.style?.[key] ?? (key === 'pattern' ? 'none' : key === 'line' ? 'solid' : DEFAULT_LINE_WIDTH);
+    const commonValue = key => {
+      if (!rowsSelected.length) return settings[key];
+      const first = styleValue(rowsSelected[0], key);
+      return rowsSelected.every(candidate => styleValue(candidate, key) === first) ? first : undefined;
     };
-    const shapeControl = select('Formă', Object.entries(SHAPES), shape, value => {
+    const applyStyle = (key, value) => {
+      if (!rowsSelected.length) { settings[key] = value; return; }
+      if (!multi) { updateAnnotation(mark => { mark.style = { ...mark.style, [key]: value }; }); return; }
+      remember();
+      for (const mark of rowsSelected) mark.style = { ...mark.style, [key]: value };
+      ensureV2();
+      changed();
+      paint();
+      renderRibbon();
+    };
+    const applyFill = value => {
+      if (!rowsSelected.length) { settings.pattern = value; return; }
+      if (!multi) { updateAnnotation(mark => { mark.style = { ...mark.style, pattern: value }; }); return; }
+      const targets = rowsSelected.filter(mark => CLOSED.has(mark.shape));
+      if (!targets.length) return;
+      remember();
+      for (const mark of targets) mark.style = { ...mark.style, pattern: value };
+      ensureV2();
+      changed();
+      paint();
+      renderRibbon();
+    };
+    const shapeControl = select('Formă', multi ? [['', 'Diverse'], ...Object.entries(SHAPES)] : Object.entries(SHAPES), multi ? '' : shape, value => {
+      if (!value) return;
       if (row) updateAnnotation(mark => {
         const replacement = convertAnnotationShape(mark, value);
         item.annotations[item.annotations.indexOf(mark)] = replacement;
       }, { reselection: true });
       else { settings.shape = value; setTool('draw'); renderRibbon(); }
     });
+    shapeControl.disabled = multi;
     const currentColour = row ? markColour(row) : settings.color;
     const colorField = el('input', { type: 'color', value: currentColour === 'auto' ? MARK_PALETTE[0] : currentColour, 'aria-label': 'Culoare personalizată', onchange: event => applyStyle('color', event.target.value) });
     const colorPreset = select('Paleta de culori', [['auto', 'Automată'], ...MARK_PALETTE.map(color => [color, color]), ['custom', 'Personalizată']],
@@ -281,11 +318,16 @@ export function annotationWorkbench({ item, pack, files, state, preferences = st
         else { applyStyle('color', value); if (value !== 'auto') colorField.value = value; }
       });
     colorField.addEventListener('change', () => { colorPreset.value = MARK_PALETTE.includes(colorField.value) ? colorField.value : 'custom'; });
-    const fill = select('Umplere', Object.entries(FILLS), values.pattern || 'none', value => applyStyle('pattern', value));
-    fill.disabled = !CLOSED.has(shape);
-    const line = select('Stil linie', LINE_STYLES.map(id => [id, LINES[id]]), values.line || 'solid', value => applyStyle('line', value));
+    colorField.disabled = multi;
+    colorPreset.disabled = multi;
+    const fill = select('Umplere', multi ? [['', 'Diverse'], ...Object.entries(FILLS)] : Object.entries(FILLS),
+      multi ? (commonValue('pattern') ?? '') : (values.pattern || 'none'), value => { if (value) applyFill(value); });
+    fill.disabled = multi ? !rowsSelected.some(mark => CLOSED.has(mark.shape)) : !CLOSED.has(shape);
+    const line = select('Stil linie', multi ? [['', 'Diverse'], ...LINE_STYLES.map(id => [id, LINES[id]])] : LINE_STYLES.map(id => [id, LINES[id]]),
+      multi ? (commonValue('line') ?? '') : (values.line || 'solid'), value => { if (value) applyStyle('line', value); });
     const width = el('input', { type: 'number', class: 'studio-control studio-line-width', min: MIN_LINE_WIDTH, max: MAX_LINE_WIDTH, step: '.1',
-      value: values.width || DEFAULT_LINE_WIDTH, 'aria-label': 'Grosime (px)', onchange: event => {
+      value: multi ? (commonValue('width') ?? '') : (values.width || DEFAULT_LINE_WIDTH), placeholder: multi ? 'Diverse' : '', 'aria-label': 'Grosime (px)', onchange: event => {
+        if (!event.target.value) return;
         const next = clamp(event.target.valueAsNumber || DEFAULT_LINE_WIDTH, MIN_LINE_WIDTH, MAX_LINE_WIDTH);
         event.target.value = next;
         applyStyle('width', next);
@@ -294,11 +336,16 @@ export function annotationWorkbench({ item, pack, files, state, preferences = st
       control('Grosime (px)', width), control('Stil linie', line), control('Umplere', fill));
     toolControls = null;
     if (row) {
-      const review = el('input', { type: 'checkbox', checked: row.reviewStatus === 'reviewed', onchange: event => updateAnnotation(mark => { mark.reviewStatus = event.target.checked ? 'reviewed' : 'draft'; }) });
       const options = el('div', { class: 'studio-ribbon-group', role: 'group', 'aria-label': 'Reper selectat' }, control('Formă', shapeControl),
-        el('label', { class: 'studio-review-mark' }, review, 'Verificat'),
         button('Redesenează', () => startRedraw(row), 'chip', { disabled: Boolean(state.pending) }),
         button('Șterge reperul', removeMark, 'chip studio-delete-mark'));
+      ribbonBody.replaceChildren(options, attrs);
+      return;
+    }
+    if (multi) {
+      const options = el('div', { class: 'studio-ribbon-group', role: 'group', 'aria-label': 'Repere selectate' },
+        el('span', { class: 'studio-selection-count' }, `${rowsSelected.length} repere selectate`),
+        button('Șterge reperele', removeMark, 'chip studio-delete-mark'));
       ribbonBody.replaceChildren(options, attrs);
       return;
     }
@@ -307,7 +354,6 @@ export function annotationWorkbench({ item, pack, files, state, preferences = st
     const editOptions = el('div', { class: 'studio-ribbon-group', role: 'group', 'aria-label': 'Instrument' }, toolControls, control('Formă', shapeControl),
       button('Coordonate', openCoordinates, 'chip', { disabled: Boolean(state.pending) }));
     const images = el('div', { class: 'studio-ribbon-group', role: 'group', 'aria-label': 'Imagini' },
-      control('Imagine editată', select('Imagine editată', item.images.map((image, index) => [image.id, `${index + 1}. ${image.role === 'comparison' ? 'Comparație' : 'Principală'}`]), state.imageId, value => switchImage(value))),
       button('Adaugă imagine', () => onUpload('primary'), 'chip'), button('Comparații', openComparisons, 'chip'));
     ribbonBody.replaceChildren(editOptions, attrs, images);
     setTool(preferences.tool);
@@ -320,12 +366,15 @@ export function annotationWorkbench({ item, pack, files, state, preferences = st
   }
 
   function removeMark() {
-    const row = selected();
-    if (!row) return;
+    const targets = selectedRows();
+    if (!targets.length) return;
+    const ids = new Set(targets.map(row => row.id));
     remember();
-    item.annotations = item.annotations.filter(mark => mark.id !== row.id);
-    if (redrawId === row.id) redrawId = null;
+    item.annotations = item.annotations.filter(mark => !ids.has(mark.id));
+    if (ids.has(redrawId)) redrawId = null;
+    state.selectedIds = [];
     state.annotationId = null;
+    state.ribbonTab = 'draw';
     relabel();
     changed();
     paint();
@@ -348,7 +397,7 @@ export function annotationWorkbench({ item, pack, files, state, preferences = st
       node.setAttribute('tabindex', '0');
       node.setAttribute('role', 'button');
       node.setAttribute('aria-label', `Reper ${number}: ${itemFor(row.itemId)?.text || SHAPES[row.shape]}`);
-      node.addEventListener('click', () => selectMark(row.id, 'image'));
+      node.addEventListener('click', () => { if (!suppressMarkClick) selectMark(row.id, 'image'); });
       node.addEventListener('keydown', event => {
         if (event.key !== 'Enter' && event.key !== ' ') return;
         event.preventDefault();
@@ -370,10 +419,13 @@ export function annotationWorkbench({ item, pack, files, state, preferences = st
       const number = annotationLabels.get(row.id);
       const text = itemFor(row.itemId)?.text || 'Observație fără text';
       const footer = item.images.length > 1 ? `${SHAPES[row.shape]} · Imaginea ${item.images.findIndex(image => image.id === row.imageId) + 1}` : SHAPES[row.shape];
-      const node = button([swatch(row), el('span', { class: 'studio-mark-list-number' }, number),
+      const checkbox = el('input', { type: 'checkbox', class: 'studio-mark-check', checked: selectedIdSet().has(row.id),
+        'aria-label': `Selectează reperul ${number}`, onchange: event => toggleSelection(row.id, event.target.checked) });
+      const option = button([swatch(row), el('span', { class: 'studio-mark-list-number' }, number),
         el('span', { class: 'studio-mark-list-label' }, el('strong', {}, text), el('small', {}, footer))], () => selectMark(row.id, 'list'), 'studio-mark-option',
       { 'aria-label': `Reper ${number}: ${text}` });
-      rows.set(row.id, node);
+      const node = el('div', { class: 'studio-mark-row', 'data-mark-id': row.id }, checkbox, option);
+      rows.set(row.id, { node, option, checkbox });
       return node;
     });
     list.replaceChildren(...(groupHead ? [groupHead] : []), ...entries);
@@ -407,13 +459,20 @@ export function annotationWorkbench({ item, pack, files, state, preferences = st
   }
 
   function syncSelection() {
-    const active = selected();
-    const selectedRow = row => row.id === state.annotationId || (!active && row.itemId === state.selectedObservationId);
+    const ids = selectedIdSet();
     for (const row of ordered) {
-      const select = selectedRow(row);
-      for (const target of [marks.get(row.id), rows.get(row.id)]) {
-        target?.classList.toggle('is-selected', select);
-        target?.setAttribute('aria-pressed', String(select));
+      const select = ids.has(row.id);
+      const mark = marks.get(row.id);
+      if (mark) {
+        mark.classList.toggle('is-selected', select);
+        mark.setAttribute('aria-pressed', String(select));
+      }
+      const entry = rows.get(row.id);
+      if (entry) {
+        entry.node.classList.toggle('is-selected', select);
+        entry.option.classList.toggle('is-selected', select);
+        entry.option.setAttribute('aria-pressed', String(select));
+        entry.checkbox.checked = select;
       }
     }
     for (const [id, { select, bind, chips }] of observations) {
@@ -426,8 +485,7 @@ export function annotationWorkbench({ item, pack, files, state, preferences = st
       bind.textContent = state.pending ? 'Leagă reperul' : pinned ? 'Legată pentru desen' : 'Leagă înainte de desen';
       select.textContent = state.pending ? 'Alege observația' : 'Selectează observația';
       for (const chip of chips.children) {
-        const row = item.annotations.find(row => row.id === chip.dataset.markId);
-        const selected = row && selectedRow(row);
+        const selected = ids.has(chip.dataset.markId);
         chip.classList.toggle('is-selected', selected);
         chip.setAttribute('aria-pressed', String(Boolean(selected)));
       }
@@ -454,7 +512,7 @@ export function annotationWorkbench({ item, pack, files, state, preferences = st
   function focusList(id) {
     if (!id) return;
     if (collapsed.marks) setCollapsed('marks', false);
-    scrollWithin(listBody, rows.get(id));
+    scrollWithin(listBody, rows.get(id)?.node);
   }
 
   function focusDrawing(row) {
@@ -483,6 +541,7 @@ export function annotationWorkbench({ item, pack, files, state, preferences = st
     if (!row) return;
     if (state.groupId && state.groupId !== row.itemId) { state.groupId = null; paintList(); }
     if (redrawId !== id) redrawId = null;
+    state.selectedIds = [id];
     state.annotationId = id;
     state.selectedObservationId = row.itemId;
     state.ribbonTab = 'selection';
@@ -493,15 +552,28 @@ export function annotationWorkbench({ item, pack, files, state, preferences = st
     renderRibbon();
   }
 
+  function toggleSelection(id, checked) {
+    const ids = new Set(state.selectedIds || []);
+    if (checked) ids.add(id); else ids.delete(id);
+    state.selectedIds = [...ids];
+    state.annotationId = checked ? id : state.selectedIds.length === 1 ? state.selectedIds[0] : null;
+    const row = item.annotations.find(candidate => candidate.id === state.annotationId);
+    if (row) state.selectedObservationId = row.itemId;
+    state.ribbonTab = state.selectedIds.length ? 'selection' : 'draw';
+    syncSelection();
+    renderRibbon();
+  }
+
   function selectObservation(id, group = false) {
     if (state.pending) { bindObservation(id); return; }
     redrawId = null;
     const related = ordered.filter(row => row.itemId === id);
     const row = related.find(row => row.imageId === state.imageId) || related[0];
     state.selectedObservationId = id;
-    state.annotationId = group || related.length !== 1 ? null : row.id;
+    state.selectedIds = related.map(candidate => candidate.id);
+    state.annotationId = group || related.length !== 1 ? null : row?.id || null;
     state.groupId = group ? id : null;
-    state.ribbonTab = state.annotationId ? 'selection' : 'draw';
+    state.ribbonTab = related.length ? 'selection' : 'draw';
     paintList();
     focusDrawing(row);
     focusList(row?.id);
@@ -538,7 +610,11 @@ export function annotationWorkbench({ item, pack, files, state, preferences = st
   }
 
   function removeObservation(id) {
-    if (state.selectedObservationId === id) { state.selectedObservationId = null; state.annotationId = null; }
+    if (state.selectedObservationId === id) {
+      state.selectedObservationId = null;
+      state.annotationId = null;
+      state.selectedIds = [];
+    }
     if (state.preboundId === id) state.preboundId = null;
     if (state.groupId === id) state.groupId = null;
   }
@@ -546,6 +622,7 @@ export function annotationWorkbench({ item, pack, files, state, preferences = st
   function commitMark(row, itemId) {
     remember();
     item.annotations.push({ ...row, itemId });
+    state.selectedIds = [row.id];
     state.annotationId = row.id;
     state.selectedObservationId = itemId;
     if (state.groupId !== itemId) state.groupId = null;
@@ -557,7 +634,7 @@ export function annotationWorkbench({ item, pack, files, state, preferences = st
   }
 
   function proposeMark(geometry, style) {
-    const row = { ...geometry, style, id: uid('region'), imageId: state.imageId, reviewStatus: 'draft' };
+    const row = { ...geometry, style, id: uid('region'), imageId: state.imageId };
     if (itemFor(state.preboundId)) { commitMark(row, state.preboundId); return; }
     state.pending = row;
     if (collapsed.notes) setCollapsed('notes', false);
@@ -615,10 +692,19 @@ export function annotationWorkbench({ item, pack, files, state, preferences = st
       })]);
   }
 
+  function refreshImageSelect() {
+    const entries = item.images.map((image, index) => [image.id, `${index + 1}. ${image.role === 'comparison' ? 'Comparație' : 'Principală'}`]);
+    if (entries.length !== imageSelect.options.length || entries.some(([id, label], index) =>
+      id !== imageSelect.options[index].value || label !== imageSelect.options[index].text)) {
+      imageSelect.replaceChildren(...entries.map(([id, label]) => choice(id, label)));
+    }
+    imageSelect.value = state.imageId;
+  }
+
   function refreshLayers() {
     const comparisons = (item.comparisons || []).filter(comparisonImage);
     if (!comparisons.some(row => row.id === state.comparisonId)) state.comparisonId = null;
-    layerControls.hidden = !comparisons.length;
+    layerSelect.hidden = !comparisons.length;
     const entries = [['', 'Imaginea editată'], ...comparisons.map(row => [row.id, row.label])];
     if (entries.length !== layerSelect.options.length || entries.some(([id, label], index) =>
       id !== layerSelect.options[index].value || label !== layerSelect.options[index].text)) {
@@ -646,7 +732,10 @@ export function annotationWorkbench({ item, pack, files, state, preferences = st
     if (id !== state.imageId) redrawId = null;
     state.imageId = id;
     state.comparisonId = null;
-    if (selected()?.imageId !== id) state.annotationId = null;
+    state.selectedIds = state.selectedIds.filter(markId => item.annotations.find(row => row.id === markId)?.imageId === id);
+    if (!state.selectedIds.includes(state.annotationId)) {
+      state.annotationId = state.selectedIds.length === 1 ? state.selectedIds[0] : null;
+    }
     refreshImage();
     paintMarks();
     syncSelection();
@@ -704,6 +793,7 @@ export function annotationWorkbench({ item, pack, files, state, preferences = st
   }
 
   function refreshImage() {
+    refreshImageSelect();
     refreshLayers();
     const image = displayedImage();
     if (image?.path !== displayedPath) {
@@ -768,8 +858,10 @@ export function annotationWorkbench({ item, pack, files, state, preferences = st
     stage.classList.toggle('is-pannable', pannable && handMode);
     stage.classList.toggle('is-panning', gesture?.kind === 'pan');
     stage.classList.toggle('is-drawing', preferences.tool === 'draw' && !spaceHeld && !activeComparison() && !state.pending);
-    hand.classList.toggle('active', preferences.tool === 'pan');
-    hand.setAttribute('aria-pressed', String(preferences.tool === 'pan'));
+    selectTool.classList.toggle('active', preferences.tool === 'select');
+    selectTool.setAttribute('aria-pressed', String(preferences.tool === 'select'));
+    panTool.classList.toggle('active', preferences.tool === 'pan');
+    panTool.setAttribute('aria-pressed', String(preferences.tool === 'pan'));
   }
 
   function normalPoint(event, box) {
@@ -844,11 +936,13 @@ export function annotationWorkbench({ item, pack, files, state, preferences = st
     clearGesture();
     if (validGeometry(row, box)) {
       const { id, style, ...geometry } = row;
+      suppressMarkClick = true;
+      setTimeout(() => { suppressMarkClick = false; }, 0);
       if (redrawId) {
         redrawId = null;
         updateAnnotation(mark => {
           const replacement = { ...geometry, id: mark.id, imageId: mark.imageId, itemId: mark.itemId,
-            label: mark.label, reviewStatus: 'draft', ...(mark.style ? { style: mark.style } : {}) };
+            label: mark.label, ...(mark.style ? { style: mark.style } : {}) };
           item.annotations[item.annotations.indexOf(mark)] = replacement;
         }, { reselection: true });
       } else proposeMark(geometry, style);
@@ -857,7 +951,7 @@ export function annotationWorkbench({ item, pack, files, state, preferences = st
   stage.addEventListener('pointercancel', clearGesture);
   stage.addEventListener('lostpointercapture', clearGesture);
   stage.addEventListener('wheel', event => {
-    if (gesture || (!event.ctrlKey && !event.metaKey)) return;
+    if (gesture || !event.deltaY) return;
     event.preventDefault();
     zoomTo(view.zoom * (event.deltaY < 0 ? 1.15 : 1 / 1.15), event);
   }, { passive: false });
@@ -878,6 +972,58 @@ export function annotationWorkbench({ item, pack, files, state, preferences = st
   stage.addEventListener('keyup', event => { if (event.key === ' ') releaseSpace(); });
   stage.addEventListener('blur', releaseSpace);
   picture.addEventListener('error', () => { missing.hidden = false; });
+
+  let marquee = null, suppressListClick = false;
+  function startMarquee(event) {
+    if (event.button !== 0 || event.target.closest('input')) return;
+    marquee = { x: event.clientX, y: event.clientY, pointerId: event.pointerId,
+      base: new Set(state.selectedIds || []), additive: event.ctrlKey || event.metaKey || event.shiftKey, active: false, node: null };
+  }
+  function updateMarquee(event) {
+    if (!marquee || event.pointerId !== marquee.pointerId) return;
+    if (!marquee.active && Math.hypot(event.clientX - marquee.x, event.clientY - marquee.y) < 5) return;
+    if (!marquee.active) {
+      marquee.active = true;
+      marquee.node = el('div', { class: 'studio-marquee' });
+      document.body.append(marquee.node);
+      list.classList.add('is-marquee');
+    }
+    event.preventDefault();
+    const left = Math.min(marquee.x, event.clientX), top = Math.min(marquee.y, event.clientY);
+    const right = Math.max(marquee.x, event.clientX), bottom = Math.max(marquee.y, event.clientY);
+    marquee.node.style.cssText = `left:${left}px;top:${top}px;width:${right - left}px;height:${bottom - top}px`;
+    const ids = new Set(marquee.additive ? marquee.base : []);
+    for (const [id, entry] of rows) {
+      const box = entry.node.getBoundingClientRect();
+      if (box.bottom >= top && box.top <= bottom && box.right >= left && box.left <= right) ids.add(id);
+    }
+    state.selectedIds = [...ids];
+    state.annotationId = ids.size === 1 ? [...ids][0] : null;
+    state.ribbonTab = state.selectedIds.length ? 'selection' : 'draw';
+    syncSelection();
+  }
+  function endMarquee(event) {
+    if (!marquee || (event && event.pointerId !== marquee.pointerId)) return;
+    const active = marquee.active;
+    marquee.node?.remove();
+    list.classList.remove('is-marquee');
+    marquee = null;
+    if (active) {
+      suppressListClick = true;
+      setTimeout(() => { suppressListClick = false; }, 0);
+      renderRibbon();
+    } else syncSelection();
+  }
+  list.addEventListener('pointerdown', startMarquee);
+  list.addEventListener('click', event => {
+    if (!suppressListClick) return;
+    suppressListClick = false;
+    event.preventDefault();
+    event.stopPropagation();
+  }, true);
+  window.addEventListener('pointermove', updateMarquee);
+  window.addEventListener('pointerup', endMarquee);
+  window.addEventListener('pointercancel', endMarquee);
 
   const noteContent = renderNotes({ observationControls, bindObservation, removeObservation });
   if (noteContent) notes.append(noteContent);
@@ -920,6 +1066,10 @@ export function annotationWorkbench({ item, pack, files, state, preferences = st
       if (!notes.hidden) state.notesScroll = notes.scrollTop;
       observer.disconnect();
       clearGesture();
+      marquee?.node?.remove();
+      window.removeEventListener('pointermove', updateMarquee);
+      window.removeEventListener('pointerup', endMarquee);
+      window.removeEventListener('pointercancel', endMarquee);
       if (objectUrl) URL.revokeObjectURL(objectUrl);
     },
   };

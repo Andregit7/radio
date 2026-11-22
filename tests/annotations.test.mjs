@@ -29,19 +29,24 @@ test('annotation stroke styles round trip and enforce the allowed widths and val
 });
 
 test('changing shape keeps the linked mark and produces exportable geometry', () => {
-  const row = { ...ids, shape: 'ellipse', cx: .4, cy: .5, rx: .1, ry: .2, reviewStatus: 'reviewed',
+  const row = { ...ids, shape: 'ellipse', cx: .4, cy: .5, rx: .1, ry: .2,
     style: { color: '#ffa000', pattern: 'dots', line: 'dashed', width: 4 } };
   for (const shape of ['rect', 'arrow', 'polygon', 'polyline']) {
     const converted = validate(convertAnnotationShape(row, shape));
     assert.equal(converted.shape, shape);
     assert.equal(converted.id, row.id);
     assert.equal(converted.itemId, row.itemId);
-    assert.equal(converted.reviewStatus, row.reviewStatus);
     assert.equal(converted.style.width, 4);
     assert.equal(converted.style.pattern, ['arrow', 'polyline'].includes(shape) ? 'none' : 'dots');
   }
   const zeroLengthArrow = { ...ids, shape: 'arrow', x1: .9, y1: 1, x2: .9, y2: 1 };
   assert.equal(validate(convertAnnotationShape(zeroLengthArrow, 'polyline')).points.length, 2);
+});
+
+test('legacy annotation review status is stripped instead of rejected', () => {
+  const row = { ...ids, shape: 'ellipse', cx: .4, cy: .5, rx: .1, ry: .2, reviewStatus: 'reviewed' };
+  assert.equal(validate(row).reviewStatus, undefined);
+  assert.equal(validate({ ...row, reviewStatus: 'draft' }).reviewStatus, undefined);
 });
 
 test('display numbers follow linked interpretations across the case images', () => {

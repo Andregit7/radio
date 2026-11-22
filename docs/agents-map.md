@@ -73,7 +73,7 @@ This directory is **source**, not build output. It is served directly.
 | `core.test.mjs` | normalise/diacritics, catalogue scoping, grading by ID sets, review intervals, question choice, signature invalidation |
 | `schema.test.mjs` | prototype-key and oversize JSON, pack stripping, path/duplicate/pixel rejection, annotations, question bank, PNG/JPEG dimensions, sha256, learning restore |
 | `zip.test.mjs` | crc32, stored/deflate import, roundtrip, truncation, zip-slip/duplicate/active/overlap/oversize, inflate overflow, CRC corruption, real 80-case pack |
-| `exercises.test.mjs` | interpretation sections, canonical diagnoses, regions `reviewed`-only + 1:1, matching ≥ 3, pools, signatures, self-assessment, session transitions |
+| `exercises.test.mjs` | interpretation sections, canonical diagnoses, regions from all finding-linked annotations + 1:1, matching ≥ 3, pools, signatures, self-assessment, session transitions |
 | `structured.test.mjs` | chapter-bank steps, exact choice sets, repeated observation matching, order-independent signatures, image/key invalidation, structured scheduling, written-question pools |
 
 ## Shared contracts

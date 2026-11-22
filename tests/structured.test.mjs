@@ -84,8 +84,8 @@ test('structured progress schedules once and keeps the score separate from accur
 
 test('written questions live in the short pool and carry their own signature',()=>{
   const bank={items:[
-    {id:'w1',caseId:'p001',kind:'written',sectionId:'findings',prompt:'Explică opacitatea.',rubric:'Topografie, contur, mărime.',reviewStatus:'source-derived'},
-    {id:'m1',caseId:'p001',kind:'mcq',sectionId:'findings',prompt:'Ce observi?',options:[{id:'a',label:'A'},{id:'b',label:'B'}],correctOptionIds:['a'],reviewStatus:'source-derived'},
+    {id:'w1',caseId:'p001',kind:'written',sectionId:'findings',prompt:'Explică opacitatea.',rubric:'Topografie, contur, mărime.'},
+    {id:'m1',caseId:'p001',kind:'mcq',sectionId:'findings',prompt:'Ce observi?',options:[{id:'a',label:'A'},{id:'b',label:'B'}],correctOptionIds:['a']},
   ]};
   const short=availableQuestions(pack,bank,{kind:'mixed'});
   assert(short.some(row=>row.kind==='written'&&row.id==='w1'));
