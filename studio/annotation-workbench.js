@@ -73,7 +73,7 @@ function wheelBadge() {
   return node;
 }
 
-export function annotationWorkbench({ item, pack, files, state, preferences = state, remember, changed, ensureV2, uid, onUpload, onPreview, onDelete, undoControl, renderNotes }) {
+export function annotationWorkbench({ item, pack, files, state, preferences = state, remember, changed, ensureV2, uid, onUpload, onPreview, onDelete, onDeleteImage, undoControl, renderNotes }) {
   const settings = preferences.settings ??= { shape: 'ellipse', color: 'auto', pattern: 'none', line: 'solid', width: DEFAULT_LINE_WIDTH };
   const collapsed = preferences.collapsed ??= {};
   const widths = preferences.widths ??= { marks: 21, notes: 31 };
@@ -454,7 +454,9 @@ export function annotationWorkbench({ item, pack, files, state, preferences = st
     const editOptions = el('div', { class: 'studio-ribbon-group', role: 'group', 'aria-label': 'Instrument' }, toolControls, control('Formă', shapeControl),
       button('Coordonate', openCoordinates, 'chip', { disabled: Boolean(state.pending) }));
     const images = el('div', { class: 'studio-ribbon-group', role: 'group', 'aria-label': 'Imagini' },
-      button('Adaugă imagine', () => onUpload('primary'), 'chip'), button('Comparații', openComparisons, 'chip'));
+      button('Adaugă imagine', () => onUpload('primary'), 'chip'),
+      onDeleteImage ? button([icon('trash', 14), 'Șterge imaginea'], () => onDeleteImage(state.imageId), 'chip studio-delete-mark') : null,
+      button('Comparații', openComparisons, 'chip'));
     replaceRibbon(editOptions, attrs, images);
     setTool(preferences.tool);
   }

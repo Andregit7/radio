@@ -126,6 +126,27 @@
   background: var(--selected);
 }
 
+.studio-draft-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.studio-draft-row .studio-draft-choice {
+  flex: 1;
+  min-width: 0;
+}
+
+.studio-draft-delete {
+  flex: none;
+  color: var(--red);
+}
+
+.studio-draft-delete:hover {
+  background: var(--danger-surface);
+  color: var(--red);
+}
+
 .studio-draft-choice strong,
 .studio-draft-choice small {
   display: block;

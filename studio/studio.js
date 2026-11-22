@@ -187,6 +187,9 @@ function applyPendingFocus(){
   pendingFocus=null;
   if(node){node.focus();node.select();}
 }
+function syncChapterLabel(id,label){
+  for(const node of document.querySelectorAll(`[data-chapter-label="${id}"]`))node.textContent=label||'Capitol fără nume';
+}
 function field(label,value,onChange,{textarea=false,type='text',help='',controlId=null}={}){
   const input=el(textarea?'textarea':'input',{...(textarea?{}:{type}),value,'data-field-id':controlId,oninput:event=>onChange(event.target.value)});
   return el('label',{class:'studio-field'},el('span',{},label),input,help?el('small',{class:'field-help'},help):null);
@@ -272,7 +275,7 @@ function render(){
   workbench?.destroy();workbench=null;
   if(showStudioMenu||!draft){
     root.replaceChildren(studioLanding({drafts,activeId:draft?.pack.id,onNew:act(newPack),
-      onOpenZip:()=>document.getElementById('open-pack').click(),onOpenDraft:act(openDraft),
+      onOpenZip:()=>document.getElementById('open-pack').click(),onOpenDraft:act(openDraft),onDeleteDraft:act(deleteDraft),
       onExport:act(exportDraft),onUpdate:act(checkForUpdates),updateChecking,updateLabel:updateCheckLabel()}));
     return;
   }
@@ -331,7 +334,7 @@ function groupedCaseList(){
   groups.forEach((group,index)=>{
     if(!group.cases.length)return;
     const open=Boolean(expanded[group.id]),bodyId=`studio-case-group-${group.id || 'orphaned'}`;
-    const head=button([icon(open?'chevron-down':'chevron-up',14),el('span',{class:'studio-case-group-label'},group.label),
+    const head=button([icon(open?'chevron-down':'chevron-up',14),el('span',{class:'studio-case-group-label','data-chapter-label':group.id||null},group.label),
       el('span',{class:'studio-case-count'},String(group.cases.length))],
     ()=>{expanded[group.id]=!open;renderCaseList();},'studio-case-group-head',
     {'aria-expanded':String(open),'aria-controls':bodyId,title:`${group.label} · ${group.cases.length} cazuri`});
@@ -376,6 +379,7 @@ function renderCaseEditor(work){
     onUpload:role=>{pendingUpload={role,caseId,project:draft};document.getElementById('add-case-image').click();},
     onPreview:(imageId,comparisonId)=>showCasePreview(item,imageId||state.imageId,comparisonId),
     onDelete:act(()=>deleteCase(item)),
+    onDeleteImage:act(id=>deleteImage(id)),
     undoControl:undoControl(),
     renderNotes:controls=>renderCaseNotes(item,controls),
   });
@@ -383,43 +387,149 @@ function renderCaseEditor(work){
   work.append(workbench.node);
 }
 
-const deleteConfirmKey='radioeasy-studio-skip-delete';
+const skipDeleteKeys={
+  case:'radioeasy-studio-skip-delete',
+  chapter:'radioeasy-studio-skip-chapter-delete',
+  scope:'radioeasy-studio-skip-scope-delete',
+  diagnosis:'radioeasy-studio-skip-diagnosis-delete',
+  image:'radioeasy-studio-skip-image-delete',
+  draft:'radioeasy-studio-skip-draft-delete',
+};
 
-function askDeleteCase(item){
+function confirmDestructive({key,title,message,label}){
   return new Promise(resolve=>{
+    let skip=false;try{skip=localStorage.getItem(key)==='off';}catch{}
+    if(skip){resolve(true);return;}
     let answer=false;
-    const skip=el('input',{type:'checkbox'});
-    const dialog=modal('Șterge cazul',
-      el('div',{class:'studio-confirm'},
-        el('p',{},`Ștergi definitiv „${item.title}”? Se elimină imaginea, reperele și întrebările legate de acest caz.`),
-        el('label',{class:'studio-confirm-skip'},skip,el('span',{},'Nu mai afișa acest mesaj'))),
+    const box=el('input',{type:'checkbox'});
+    const dialog=modal(title,
+      el('div',{class:'studio-confirm'},el('p',{},message),
+        el('label',{class:'studio-confirm-skip'},box,el('span',{},'Nu mai afișa acest mesaj'))),
       [button('Renunță',()=>dialog.close(),'button ghost'),
-        button([icon('trash',15),'Șterge cazul'],()=>{answer=true;try{localStorage.setItem(deleteConfirmKey,skip.checked?'off':'on');}catch{}dialog.close();},'button danger')]);
+        button([icon('trash',15),label],()=>{answer=true;try{localStorage.setItem(key,box.checked?'off':'on');}catch{}dialog.close();},'button danger')]);
     dialog.addEventListener('close',()=>resolve(answer),{once:true});
   });
 }
 
-async function deleteCase(item){
-  if(!draft||!item)return;
-  let skip=false;try{skip=localStorage.getItem(deleteConfirmKey)==='off';}catch{}
-  if(!skip && !await askDeleteCase(item))return;
-  const index=draft.pack.cases.findIndex(row=>row.id===item.id);
-  if(index<0)return;
-  remember();
-  draft.pack.cases=draft.pack.cases.filter(row=>row.id!==item.id);
-  if(draft.bank?.items)draft.bank.items=draft.bank.items.filter(row=>row.caseId!==item.id);
+function removeCases(ids){
+  const set=new Set(ids),removed=draft.pack.cases.filter(row=>set.has(row.id));
+  draft.pack.cases=draft.pack.cases.filter(row=>!set.has(row.id));
+  if(draft.bank?.items)draft.bank.items=draft.bank.items.filter(row=>!set.has(row.caseId));
   for(const row of draft.pack.cases){
-    if(row.comparisons)row.comparisons=row.comparisons.filter(comparison=>comparison.caseId!==item.id);
+    if(row.comparisons)row.comparisons=row.comparisons.filter(comparison=>!set.has(comparison.caseId));
     const differentials=row.sections.find(section=>section.id==='differentials');
-    for(const entry of differentials?.items||[])if(entry.targetCaseId===item.id)delete entry.targetCaseId;
+    for(const entry of differentials?.items||[])if(set.has(entry.targetCaseId))delete entry.targetCaseId;
   }
   const used=new Set(draft.pack.cases.flatMap(row=>row.images.map(image=>image.path)));
-  for(const image of item.images)if(!used.has(image.path))draft.files.delete(image.path);
-  caseViews.delete(item.id);
+  for(const item of removed)for(const image of item.images)if(!used.has(image.path))draft.files.delete(image.path);
+  for(const id of ids)caseViews.delete(id);
+}
+
+async function deleteCase(item){
+  if(!draft||!item)return;
+  const index=draft.pack.cases.findIndex(row=>row.id===item.id);
+  if(index<0)return;
+  if(!await confirmDestructive({key:skipDeleteKeys.case,title:'Șterge cazul',label:'Șterge cazul',
+    message:`Ștergi definitiv „${item.title}”? Se elimină imaginile, reperele și întrebările legate de acest caz.`}))return;
+  remember();
+  removeCases([item.id]);
   caseId=(draft.pack.cases[index] || draft.pack.cases[index-1])?.id || null;
   tab='case';
   changed();await saveNow();render();
   toast('Cazul a fost șters.');
+}
+
+async function deleteChapter(chapter){
+  if(!draft)return;
+  const chapters=draft.pack.curriculum.chapters;
+  if(chapters.length<=1){toast('Păstrează cel puțin un capitol: fiecare caz are nevoie de unul.',true);return;}
+  const ids=draft.pack.cases.filter(item=>item.chapterId===chapter.id).map(item=>item.id);
+  if(ids.length && !await confirmDestructive({key:skipDeleteKeys.chapter,title:'Șterge capitolul',label:'Șterge capitolul',
+    message:`Capitolul „${chapter.label || 'fără nume'}” are ${ids.length} ${ids.length===1?'caz':'cazuri'}. Ștergerea capitolului șterge și ${ids.length===1?'acest caz':'aceste cazuri'}, împreună cu reperele și întrebările lor.`}))return;
+  remember();
+  removeCases(ids);
+  draft.pack.curriculum.chapters=chapters.filter(row=>row.id!==chapter.id);
+  if(draft.pack.curriculum.chapterBanks)draft.pack.curriculum.chapterBanks=draft.pack.curriculum.chapterBanks.filter(bank=>bank.chapterId!==chapter.id);
+  for(const scope of draft.pack.curriculum.scopes||[])scope.chapterIds=scope.chapterIds.filter(id=>id!==chapter.id);
+  draft.pack.curriculum.scopes=(draft.pack.curriculum.scopes||[]).filter(scope=>scope.chapterIds.length);
+  if(!draft.pack.curriculum.scopes.length)draft.pack.curriculum.scopes=[{id:uid('scope'),label:'Toată materia',chapterIds:draft.pack.curriculum.chapters.map(row=>row.id)}];
+  for(const diagnosis of draft.pack.diagnoses)diagnosis.chapterIds=diagnosis.chapterIds.filter(id=>id!==chapter.id);
+  draft.pack.diagnoses=draft.pack.diagnoses.filter(diagnosis=>diagnosis.chapterIds.length);
+  if(selectedChapters.bank===chapter.id)selectedChapters.bank=draft.pack.curriculum.chapters[0]?.id;
+  if(caseId&&!currentCase())caseId=null;
+  changed();await saveNow();render();
+  toast('Capitolul a fost șters.');
+}
+
+async function deleteScope(scope){
+  if(!draft)return;
+  const scopes=draft.pack.curriculum.scopes;
+  if(scopes.length<=1){toast('Păstrează cel puțin un domeniu de examen.',true);return;}
+  if(!await confirmDestructive({key:skipDeleteKeys.scope,title:'Șterge domeniul',label:'Șterge domeniul',
+    message:`Ștergi domeniul „${scope.label || 'fără nume'}”? Capitolele și cazurile rămân neschimbate.`}))return;
+  remember();
+  draft.pack.curriculum.scopes=scopes.filter(row=>row.id!==scope.id);
+  changed();await saveNow();render();
+  toast('Domeniul a fost șters.');
+}
+
+async function deleteDiagnosis(diagnosis){
+  if(!draft)return;
+  const used=draft.pack.cases.filter(item=>item.diagnosisIds.includes(diagnosis.id)).length;
+  if(used && !await confirmDestructive({key:skipDeleteKeys.diagnosis,title:'Șterge diagnosticul',label:'Șterge diagnosticul',
+    message:`Diagnosticul „${diagnosis.label}” este folosit de ${used} ${used===1?'caz':'cazuri'}. Se elimină și din ${used===1?'acel caz':'acele cazuri'}.`}))return;
+  remember();
+  draft.pack.diagnoses=draft.pack.diagnoses.filter(row=>row.id!==diagnosis.id);
+  for(const item of draft.pack.cases)item.diagnosisIds=item.diagnosisIds.filter(id=>id!==diagnosis.id);
+  changed();await saveNow();render();
+  toast('Diagnosticul a fost șters.');
+}
+
+async function deleteImage(imageId){
+  const item=currentCase();
+  if(!item||!imageId)return;
+  const image=item.images.find(row=>row.id===imageId);
+  if(!image)return;
+  if(item.images.length<=1){toast('Cazul are nevoie de cel puțin o imagine.',true);return;}
+  if(!await confirmDestructive({key:skipDeleteKeys.image,title:'Șterge imaginea',label:'Șterge imaginea',
+    message:'Ștergi imaginea selectată? Reperele desenate pe ea se șterg.'}))return;
+  remember();
+  item.images=item.images.filter(row=>row.id!==imageId);
+  item.annotations=(item.annotations||[]).filter(row=>row.imageId!==imageId);
+  for(const row of draft.pack.cases)if(row.comparisons)row.comparisons=row.comparisons.filter(comparison=>!(comparison.caseId===item.id&&comparison.imageId===imageId));
+  const used=new Set(draft.pack.cases.flatMap(row=>row.images.map(candidate=>candidate.path)));
+  if(!used.has(image.path))draft.files.delete(image.path);
+  if(item.images.some(row=>row.role!==undefined) && !item.images.some(row=>row.role==='primary'))item.images[0].role='primary';
+  const state=caseView();
+  state.imageId=item.images[0].id;state.comparisonId=null;
+  changed();await saveNow();render();
+  toast('Imaginea a fost ștearsă.');
+}
+
+async function deleteChapterBank(chapterId){
+  if(!draft)return;
+  const bank=findChapterBank(chapterId);
+  if(!bank)return;
+  const used=draft.pack.cases.filter(item=>item.chapterId===chapterId && item.structured && (Object.values(item.structured.choices||{}).some(values=>values.length)||(item.structured.observations||[]).length)).length;
+  if(used){toast(`Banca este folosită de ${used} ${used===1?'caz':'cazuri'}. Golește selecțiile din acele cazuri mai întâi.`,true);return;}
+  remember();
+  draft.pack.curriculum.chapterBanks=draft.pack.curriculum.chapterBanks.filter(row=>row.chapterId!==chapterId);
+  if(!draft.pack.curriculum.chapterBanks.length)delete draft.pack.curriculum.chapterBanks;
+  changed();await saveNow();render();
+  toast('Banca a fost ștearsă.');
+}
+
+async function deleteDraft(entry){
+  if(!entry)return;
+  if(!await confirmDestructive({key:skipDeleteKeys.draft,title:'Șterge pachetul',label:'Șterge pachetul',
+    message:`Ștergi pachetul „${entry.title || 'fără titlu'}”? Se elimină schița locală, cu cazurile, imaginile și întrebările ei. Exportă-l mai întâi dacă vrei să îl păstrezi.`}))return;
+  const isActive=draft?.pack.id===entry.id;
+  if(isActive){clearTimeout(saveTimer);draft=null;caseId=null;showStudioMenu=true;scrollMemory.clear();}
+  const tx=db.transaction('drafts','readwrite');tx.objectStore('drafts').delete(entry.id);await txDone(tx);
+  drafts=drafts.filter(row=>row.id!==entry.id);
+  if(isActive){const meta=db.transaction('meta','readwrite');meta.objectStore('meta').delete('activeId');await txDone(meta);}
+  document.getElementById('modal').close();
+  render();toast('Pachetul a fost șters.');
 }
 
 function showCasePreview(item,initialImageId,initialComparisonId){
@@ -580,6 +690,7 @@ function renderBanks(work){
   }
   findingsCard.append(button([icon('plus',13),'Adaugă tip de observație'],()=>{remember();const type={id:uid('type'),label:'',fields:[]};bankSection(selected,'findings').types.push(type);focusField(type.id);changed();render();},'button secondary'));
   work.append(findingsCard);
+  work.append(button([icon('trash',14),'Șterge banca capitolului'],()=>deleteChapterBank(selected),'button ghost studio-danger-text'));
 }
 
 function renderCatalogue(work){
@@ -601,7 +712,8 @@ function renderCatalogue(work){
     field(keywordLabel,(diagnosis.keywords ?? diagnosis.aliases ?? []).join(', '),value=>{
       diagnosis.keywords=parseKeywords(value);delete diagnosis.aliases;changed();
     }),
-    el('div',{class:'studio-checks'},...draft.pack.curriculum.chapters.map(c=>{const input=el('input',{type:'checkbox',checked:diagnosis.chapterIds.includes(c.id),onchange:()=>{if(input.checked)diagnosis.chapterIds=[...new Set([...diagnosis.chapterIds,c.id])];else diagnosis.chapterIds=diagnosis.chapterIds.filter(id=>id!==c.id);changed();}});return el('label',{},input,c.label);}))));
+    el('div',{class:'studio-checks'},...draft.pack.curriculum.chapters.map(c=>{const input=el('input',{type:'checkbox',checked:diagnosis.chapterIds.includes(c.id),onchange:()=>{if(!input.checked&&diagnosis.chapterIds.length<=1){input.checked=true;toast('Diagnosticul are nevoie de cel puțin un capitol.',true);return;}if(input.checked)diagnosis.chapterIds=[...new Set([...diagnosis.chapterIds,c.id])];else diagnosis.chapterIds=diagnosis.chapterIds.filter(id=>id!==c.id);changed();}});return el('label',{},input,c.label);})),
+    el('div',{class:'studio-catalogue-tools'},button([icon('trash',14),'Șterge diagnosticul'],()=>deleteDiagnosis(diagnosis),'button ghost studio-danger-text'))));
   work.append(list);
 }
 
@@ -616,11 +728,17 @@ function renderCurriculum(work){
     field('Sursa și dreptul de distribuire',draft.pack.source.note,value=>{draft.pack.source.note=value;changed();},{textarea:true,help:'Pachetul și aplicația au distribuții separate. Include doar imagini și texte pe care le poți distribui.'}),
     el('p',{class:'studio-note'},`Identificator stabil: ${draft.pack.id}`)));
   const chapters=el('section',{class:'studio-form-section'},el('h2',{},'Capitole'));
-  for(const chapter of draft.pack.curriculum.chapters)chapters.append(field('Titlul capitolului',chapter.label,value=>{chapter.label=value;changed();},{controlId:chapter.id}));
+  for(const chapter of draft.pack.curriculum.chapters)chapters.append(el('div',{class:'studio-entity-row'},
+    field('Titlul capitolului',chapter.label,value=>{chapter.label=value;changed();syncChapterLabel(chapter.id,value);},{controlId:chapter.id}),
+    button(icon('trash',16),()=>deleteChapter(chapter),'icon-button studio-danger-icon',{'aria-label':`Șterge capitolul ${chapter.label || ''}`,title:'Șterge capitolul'})));
   chapters.append(button('Adaugă capitol',()=>{remember();const chapter={id:uid('chapter'),label:''};draft.pack.curriculum.chapters.push(chapter);draft.pack.curriculum.scopes[0]?.chapterIds.push(chapter.id);focusField(chapter.id);changed();render();},'button secondary'));form.append(chapters);
   form.append(el('h2',{},'Domenii de examen'),el('p',{class:'studio-note'},'Definește explicit capitolele unui colocviu sau ale examenului final. Aplicația nu presupune unde sunt limitele programei.'));
   for(const scope of draft.pack.curriculum.scopes){
-    form.append(el('section',{class:'studio-scope'},field('Numele evaluării',scope.label,value=>{scope.label=value;changed();},{controlId:scope.id}),el('div',{class:'studio-checks'},...draft.pack.curriculum.chapters.map(c=>{const input=el('input',{type:'checkbox',checked:scope.chapterIds.includes(c.id),onchange:()=>{scope.chapterIds=input.checked?[...new Set([...scope.chapterIds,c.id])]:scope.chapterIds.filter(id=>id!==c.id);changed();}});return el('label',{},input,c.label);}))))
+    form.append(el('section',{class:'studio-scope'},
+      el('div',{class:'studio-entity-row'},
+        field('Numele evaluării',scope.label,value=>{scope.label=value;changed();},{controlId:scope.id}),
+        button(icon('trash',16),()=>deleteScope(scope),'icon-button studio-danger-icon',{'aria-label':`Șterge domeniul ${scope.label || ''}`,title:'Șterge domeniul'})),
+      el('div',{class:'studio-checks'},...draft.pack.curriculum.chapters.map(c=>{const input=el('input',{type:'checkbox',checked:scope.chapterIds.includes(c.id),onchange:()=>{if(!input.checked&&scope.chapterIds.length<=1){input.checked=true;toast('Domeniul are nevoie de cel puțin un capitol.',true);return;}scope.chapterIds=input.checked?[...new Set([...scope.chapterIds,c.id])]:scope.chapterIds.filter(id=>id!==c.id);changed();}});return el('label',{},input,el('span',{'data-chapter-label':c.id},c.label||'Capitol fără nume'));}))))
   }
   form.append(button('Adaugă domeniu de examen',()=>{remember();const scope={id:uid('scope'),label:'',chapterIds:draft.pack.curriculum.chapters.map(c=>c.id)};draft.pack.curriculum.scopes.push(scope);focusField(scope.id);changed();render();},'button secondary'));
   work.append(form);

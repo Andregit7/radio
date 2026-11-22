@@ -4,21 +4,23 @@ import {creditsButton} from './lib/credits.js';
 
 initAppearance();
 
-function chooseDraft(drafts,activeId,onOpenDraft){
-  const list=el('div',{class:'studio-draft-picker'},...drafts.map(draft=>button([
-    icon('book',18),
-    el('span',{},el('strong',{},draft.title || 'Pachet fără titlu'),draft.id===activeId?el('small',{},'Deschis ultima dată'):null),
-    icon('chevron',15),
-  ],()=>{
-    document.getElementById('modal').close();
-    return onOpenDraft(draft.id);
-  },'studio-draft-choice')));
+function chooseDraft(drafts,activeId,onOpenDraft,onDeleteDraft){
+  const list=el('div',{class:'studio-draft-picker'},...drafts.map(draft=>el('div',{class:'studio-draft-row'},
+    button([
+      icon('book',18),
+      el('span',{},el('strong',{},draft.title || 'Pachet fără titlu'),draft.id===activeId?el('small',{},'Deschis ultima dată'):null),
+      icon('chevron',15),
+    ],()=>{
+      document.getElementById('modal').close();
+      return onOpenDraft(draft.id);
+    },'studio-draft-choice'),
+    onDeleteDraft?button(icon('trash',16),()=>onDeleteDraft(draft),'icon-button studio-draft-delete',{'aria-label':`Șterge pachetul ${draft.title || ''}`,title:'Șterge pachetul'}):null)));
   modal('Pachete salvate',list,[button('Înapoi',()=>document.getElementById('modal').close(),'button secondary')]);
 }
 
-export function studioLanding({drafts,activeId,onNew,onOpenZip,onOpenDraft,onExport,onUpdate,updateChecking,updateLabel}){
+export function studioLanding({drafts,activeId,onNew,onOpenZip,onOpenDraft,onDeleteDraft,onExport,onUpdate,updateChecking,updateLabel}){
   const active=drafts.find(row=>row.id===activeId);
-  const saved=drafts.length?button([icon('book',18),'Pachete salvate'],()=>chooseDraft(drafts,activeId,onOpenDraft),'button secondary'):null;
+  const saved=drafts.length?button([icon('book',18),'Pachete salvate'],()=>chooseDraft(drafts,activeId,onOpenDraft,onDeleteDraft),'button secondary'):null;
   return el('main',{class:'studio-landing'},
     el('section',{class:'studio-launch-card','aria-labelledby':'studio-launch-title'},
       el('div',{class:'studio-launch-brand'},
