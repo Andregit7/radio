@@ -53,7 +53,7 @@ function applyTheme(){
           el('span',{class:'seasonal-nose'}))));
     document.body.append(decorations);
   }
-  if(decorations)decorations.hidden=theme!=='christmas'||!animations;
+  if(decorations)decorations.hidden=theme!=='christmas';
   for(const control of document.querySelectorAll('.theme-control')){
     const select=control.querySelector('select');
     if(select)select.value=preference;

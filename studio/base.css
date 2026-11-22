@@ -370,8 +370,9 @@ button.nav-item:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
   filter:drop-shadow(0 0 6px #ffdb8a66);
 }
 .seasonal-decorations {position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden}
-:root[data-animations=off] .seasonal-decorations {display:none}
-:root[data-animations=off] .seasonal-decorations * {animation:none!important}
+:root[data-animations=off] .seasonal-decorations *,
+:root[data-animations=off] .seasonal-decorations *:before,
+:root[data-animations=off] .seasonal-decorations *:after {animation:none!important}
 .seasonal-snow {position:absolute;inset:0;overflow:hidden}
 .seasonal-snow:before,.seasonal-snow:after {
   position:absolute;
