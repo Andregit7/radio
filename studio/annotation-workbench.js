@@ -100,6 +100,12 @@ export function annotationWorkbench({ item, pack, files, state, preferences = st
   const view = { zoom: 1, x: 0, y: 0 };
   const root = el('div', { class: 'studio-workbench' });
   const ribbonBody = el('div', { class: 'studio-ribbon-body', id: 'studio-ribbon-body' });
+  const replaceRibbon = (...nodes) => {
+    const top = ribbonBody.scrollTop, left = ribbonBody.scrollLeft;
+    ribbonBody.replaceChildren(...nodes);
+    ribbonBody.scrollTop = top;
+    ribbonBody.scrollLeft = left;
+  };
   const drawTab = button('Desen', () => setRibbonTab('draw'), 'chip');
   const selectionTab = button('Reper selectat', () => setRibbonTab('selection'), 'chip');
   const ribbonToggle = button('', () => {
@@ -433,14 +439,14 @@ export function annotationWorkbench({ item, pack, files, state, preferences = st
       const options = el('div', { class: 'studio-ribbon-group', role: 'group', 'aria-label': 'Reper selectat' }, control('Formă', shapeControl),
         button('Redesenează', () => startRedraw(row), 'chip', { disabled: Boolean(state.pending) }),
         button('Șterge reperul', removeMark, 'chip studio-delete-mark'));
-      ribbonBody.replaceChildren(options, attrs);
+      replaceRibbon(options, attrs);
       return;
     }
     if (multi) {
       const options = el('div', { class: 'studio-ribbon-group', role: 'group', 'aria-label': 'Repere selectate' },
         el('span', { class: 'studio-selection-count' }, `${rowsSelected.length} repere selectate`),
         button('Șterge reperele', removeMark, 'chip studio-delete-mark'));
-      ribbonBody.replaceChildren(options, attrs);
+      replaceRibbon(options, attrs);
       return;
     }
     toolControls = el('div', { class: 'studio-edit-mode', role: 'group', 'aria-label': 'Mod de editare' },
@@ -449,7 +455,7 @@ export function annotationWorkbench({ item, pack, files, state, preferences = st
       button('Coordonate', openCoordinates, 'chip', { disabled: Boolean(state.pending) }));
     const images = el('div', { class: 'studio-ribbon-group', role: 'group', 'aria-label': 'Imagini' },
       button('Adaugă imagine', () => onUpload('primary'), 'chip'), button('Comparații', openComparisons, 'chip'));
-    ribbonBody.replaceChildren(editOptions, attrs, images);
+    replaceRibbon(editOptions, attrs, images);
     setTool(preferences.tool);
   }
 
@@ -861,6 +867,7 @@ export function annotationWorkbench({ item, pack, files, state, preferences = st
       imageSelect.replaceChildren(...candidates.map((image, index) => choice(image.id, `${index + 1}. ${image.role === 'comparison' ? 'Comparație' : 'Principală'}`)));
     }
     function refreshRows() {
+      const top = comparisonList.scrollTop;
       comparisonList.replaceChildren(...(item.comparisons || []).map(row => el('div', { class: 'studio-comparison-entry' },
         el('span', {}, row.label), button('Arată', () => { dialog.close(); setComparison(row.id); }, 'chip'),
         button(icon('close', 14), () => {
@@ -871,6 +878,7 @@ export function annotationWorkbench({ item, pack, files, state, preferences = st
           refreshLayers();
           refreshRows();
         }, 'chip', { 'aria-label': `Șterge comparația ${row.label}` }))));
+      comparisonList.scrollTop = top;
     }
     function addComparison() {
       if (!imageSelect.value) { toast('Alege o imagine de comparație.', true); return; }

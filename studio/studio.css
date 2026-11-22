@@ -46,7 +46,7 @@
 .studio-case-section{display:grid;gap:6px}
 .studio-case-section-body{display:grid;gap:0}
 .studio-case-section .studio-case-add{width:calc(100% - 18px);margin:2px auto 0;min-height:34px;padding:6px 10px;font-size:11px;justify-content:flex-start}
-.studio-case-list{display:grid;gap:5px;width:calc(100% - 18px);margin:8px 0 0;margin-inline:auto;padding:6px;max-height:clamp(260px,55vh,620px);overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;scrollbar-color:var(--line) var(--case-list-bg,var(--subtle));background:var(--case-list-bg,var(--subtle));border:1px solid var(--case-list-line,var(--line));border-radius:10px}
+.studio-case-list{display:grid;grid-auto-rows:max-content;align-content:start;gap:5px;width:calc(100% - 18px);margin:8px 0 0;margin-inline:auto;padding:6px;max-height:clamp(260px,55vh,620px);overflow-y:auto;overflow-x:hidden;scrollbar-width:thin;scrollbar-color:var(--line) var(--case-list-bg,var(--subtle));background:var(--case-list-bg,var(--subtle));border:1px solid var(--case-list-line,var(--line));border-radius:10px}
 .studio-case-empty{margin:0;padding:10px 8px;font-size:11px;line-height:1.6;color:var(--muted);text-align:center}
 .studio-case-group{background:var(--case-list-bg,var(--subtle));border:1px solid var(--case-list-line,var(--line));border-radius:9px;overflow:hidden}
 .studio-case-group-head{display:flex;align-items:center;gap:7px;width:100%;min-height:30px;padding:4px 8px;border:0;border-left:3px solid var(--chapter-accent,var(--teal));border-radius:0;background:var(--case-list-head,var(--mint));color:var(--ink);font-size:11px;font-weight:600;line-height:1.35;text-align:left;cursor:pointer;transition:background .15s,color .15s}
