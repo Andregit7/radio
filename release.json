@@ -1,7 +1,7 @@
 {
   "app": "radioeasy-study",
-  "version": "0.2.0",
-  "buildId": "8d9bff6e51d5",
+  "version": "0.3.0",
+  "buildId": "f2297f28ed1c",
   "files": [
     {
       "path": ".nojekyll",
@@ -40,13 +40,18 @@
     },
     {
       "path": "js/annotation-view.js",
-      "bytes": 6251,
-      "sha256": "05f96b2ffb41273086a69feb65c9d2fe57fbaf289034a81bc2e0706de2b65414"
+      "bytes": 11704,
+      "sha256": "d656a50b93a3b23c00e38ab8943528634f7ccad3ea1357f7e1f4754623c0f3f4"
     },
     {
       "path": "js/app.js",
-      "bytes": 102816,
-      "sha256": "76dc5fe87110d1e60dbc3cd24cf7f1fb720d14281e23929fbeab758db5633a91"
+      "bytes": 102542,
+      "sha256": "f05eb0603aee7e72345f804b8168d20650a1d0917bbcc33bc756c0e8c60499c1"
+    },
+    {
+      "path": "js/appearance.js",
+      "bytes": 2291,
+      "sha256": "77159e72800716ab18232ca61589e650ed412bca03b3995f538b74689cff49c9"
     },
     {
       "path": "js/archive-worker.js",
@@ -59,29 +64,34 @@
       "sha256": "cece9152bdef54ca5fe12116fe1af00ffb701b9572bb280b76695fbcdd669966"
     },
     {
+      "path": "js/case-interpretation.js",
+      "bytes": 3469,
+      "sha256": "52f677635603e9b05505390d82ef850143116eb8a7a3dde9a6657371f3d4e6d2"
+    },
+    {
       "path": "js/catalogue.js",
-      "bytes": 3491,
-      "sha256": "935f3dc62750c8bdfff16cd901b7b277f89fd240f7a1a573b841f66cbb004ae0"
+      "bytes": 3505,
+      "sha256": "d1e2d80d20141fd1a93bdd69e835e0fd63c76430da13e2b5ab3f433b4bc048f6"
     },
     {
       "path": "js/core.js",
-      "bytes": 6893,
-      "sha256": "416b49bba26cb2b394c8a00c1cd730cd0fd74ca21ee388a0c7a4a2d6d9e58873"
+      "bytes": 6910,
+      "sha256": "b4b7ab69b44cf92bd06391514c505df179efb4475da0fb4cbb9c1ab8ee0b698a"
     },
     {
       "path": "js/dom.js",
-      "bytes": 3724,
-      "sha256": "ad723eed11d699dbda8bc0db27e5e383f777fb13132ee9ad88165c8eae349e91"
+      "bytes": 3763,
+      "sha256": "f309de6cd68c4f483282158b8e968100a6b04b5788508f37abbf8f37832ac744"
     },
     {
       "path": "js/exercises.js",
-      "bytes": 8389,
-      "sha256": "f9c1f72e1d0e12fea28ac467baf6e41b137dd7303cbbcb41d108cbe1f83f7dd3"
+      "bytes": 8478,
+      "sha256": "c240fd7b58acefe34e6861ac1ccff7c3a54fee883dac302f1d5a190f50a82b8d"
     },
     {
       "path": "js/schema.js",
-      "bytes": 25664,
-      "sha256": "76786d89d9c088fb1dd1faeda5e3dc0c75b98da1529807bcf14dd3408659dbe1"
+      "bytes": 26349,
+      "sha256": "09d08d2815b8b6562ed2a2bec53111fed47b47cc60970ed834d0c2d484db9c72"
     },
     {
       "path": "js/storage.js",
@@ -95,8 +105,8 @@
     },
     {
       "path": "js/viewer.js",
-      "bytes": 11985,
-      "sha256": "7dbeebe2c3e703c717ba8291f7e9f328b8b10e850bdffd41ec6e1cbf917e7727"
+      "bytes": 15441,
+      "sha256": "c966b9015b56ed8151fd44744b8c2c2d956f3580502f99516044fa147da6aa16"
     },
     {
       "path": "js/zip.js",
@@ -110,14 +120,14 @@
     },
     {
       "path": "styles.css",
-      "bytes": 40357,
-      "sha256": "806bf8bb9245952c56a3e3c8da500ac8824562cd602efd2b5f79c6bf0b81d315"
+      "bytes": 48290,
+      "sha256": "8f59a4f40da6b7ff640ba762b1e8b5960eb78dfc0daeb1e76f0b590bafa8b7ff"
     },
     {
       "path": "sw.js",
-      "bytes": 1795,
-      "sha256": "53ff6fa77d93afe31846cdd8d5addb0c2396ba0cc9e11f62c900f32dfc72ce1f"
+      "bytes": 1846,
+      "sha256": "88873afd629a716894eacd3582879421cd57d3705ebc7cb0021767d827dba0ba"
     }
   ],
-  "totalBytes": 249220
+  "totalBytes": 272443
 }

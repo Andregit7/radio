@@ -5,7 +5,9 @@ import { openDatabase, listPacks, assetBlob, packAssets, getMeta, setMeta, setMe
   learningSnapshot, validateLearning, mergeLearning, restoreLearningFile, clearLearning } from './storage.js';
 import { archiveJob } from './archive.js';
 import { el, button, link, badge, icon, toast, modal } from './dom.js';
+import { initAppearance, themeControl } from './appearance.js';
 import { imageViewer } from './viewer.js';
+import {caseComparisonLayers,caseInterpretation} from './case-interpretation.js';
 import { catalogueSelector } from './catalogue.js';
 import { EXERCISE_LABELS, SECTION_PROMPTS, SECTION_ORDER, availableExercises, gradeMatching, matchingScore,
   recordSelfAssessment, sessionAnswer, advanceSession, finishSessionEarly, receivedAnswers, selfAssessmentItems,
@@ -13,6 +15,10 @@ import { EXERCISE_LABELS, SECTION_PROMPTS, SECTION_ORDER, availableExercises, gr
 import { gradeStructured, structuredRecord, describeObservation, stepLabel, optionLabel as structuredOptionLabel } from './structured.js';
 
 const state={packs:[],activeId:null,progress:{},selfAssessments:{},bookmarks:[],visited:[],session:null,starter:null,offlineReady:false,registration:null,prompt:null,route:'library',page:0,chapter:'all',query:'',onlyBookmarks:false,updateChecking:false,viewerMode:'fit'};
+const navPreferenceKey='radioeasy-study-nav-collapsed';
+const narrowNav=matchMedia('(max-width: 950px)');
+let navPreference;
+try{navPreference=localStorage.getItem(navPreferenceKey);}catch{}
 let cleanup=[],renderToken=0,activeExport=false,installing=false,swReloading=false;
 const act=fn=>async event=>{try{return await fn(event);}catch(error){toast(friendlyError(error),true);}};
 const active=()=>state.packs.find(row=>row.id===state.activeId) || state.packs[0];
@@ -50,18 +56,50 @@ function fullscreenButton(target,label='Vezi imaginea pe tot ecranul'){
 function shell(){
   const record=active();const routes=[['library','Bibliotecă','book'],['practice','Recapitulare','repeat'],['exam','Simulare','exam'],['progress','Progres','chart']];
   const current=state.route.startsWith('case/') || state.route==='cases'?'library':state.route;
-  const nav=routes.map(([route,label,name])=>link([icon(name),el('span',{},label)],`#${route}`,`nav-item ${current===route?'active':''}`));
-  const side=el('aside',{class:'sidebar'},link([el('img',{src:'./icons/icon.svg',alt:''}),el('div',{class:'brand-word'},'RadioEasy')],'#library','brand'),
-    el('nav',{class:'nav-list','aria-label':'Navigare principală'},...nav),
-    el('div',{class:'sidebar-bottom'},button([icon('refresh'),el('span',{'aria-live':'polite'},updateCheckLabel())],act(()=>checkForUpdates()),'nav-item update-check',{disabled:state.updateChecking}),link([icon('settings'),el('span',{},'Date & instalare')],'#settings',`nav-item ${current==='settings'?'active':''}`),
-      el('div',{class:'private-note'},icon('shield',17),el('span',{},'Materialele și progresul rămân pe dispozitivul tău.')),
-      el('div',{class:'sidebar-version'},el('span',{},`v${APP_VERSION}`))));
+  const navLink=(route,label,name)=>el('a',{href:`#${route}`,class:`nav-item ${current===route?'active':''}`,title:label,'aria-current':current===route?'page':null},icon(name),el('span',{},label));
+  const brand=el('a',{href:'#library',class:'brand','aria-label':'RadioEasy'},el('img',{src:'./icons/icon.svg',alt:''}),el('span',{class:'brand-word'},'RadioEasy'));
+  const desktopToggle=button(icon('menu',18),()=>{
+    navPreference=String(!desktopCollapsed());
+    try{localStorage.setItem(navPreferenceKey,navPreference);}catch{}
+    updateDesktopMenu();
+  },'icon-button sidebar-toggle',{'aria-controls':'study-sidebar-menu'});
   const packSelect=state.packs.length>1?el('select',{class:'pack-select','aria-label':'Pachet activ',onchange:act(async event=>{state.activeId=event.target.value;state.page=0;state.chapter='all';state.query='';await setMeta('activeId',state.activeId);location.hash='library';await render();})},...state.packs.map(row=>el('option',{value:row.id,selected:row.id===record?.id},row.pack.title))):el('span',{class:'pack-select'},record?.pack.curriculum.title || 'Spațiul tău de studiu');
-  const top=el('header',{class:'topbar'},link([el('img',{src:'./icons/icon.svg',alt:''}),'RadioEasy'],'#library','mobile-brand'),el('div',{class:'topbar-right'},packSelect));
+  const side=el('aside',{class:'sidebar',id:'study-sidebar'},
+    el('div',{class:'sidebar-head'},brand,desktopToggle),
+    el('div',{class:'sidebar-menu',id:'study-sidebar-menu'},
+      el('nav',{class:'nav-list','aria-label':'Navigare principală'},...routes.map(row=>navLink(...row))),
+      el('div',{class:'sidebar-pack'},el('span',{class:'field-label'},'Pachet activ'),packSelect),
+      el('div',{class:'sidebar-bottom'},themeControl(),
+        button([icon('refresh'),el('span',{'aria-live':'polite'},updateCheckLabel())],act(()=>checkForUpdates()),'nav-item update-check',{disabled:state.updateChecking,title:'Verifică actualizările'}),
+        navLink('settings','Date & instalare','settings'),
+        el('div',{class:'sidebar-version'},`v${APP_VERSION}`))));
+  const mobileToggle=button(icon('menu',21),()=>setMobileMenu(mobileToggle.getAttribute('aria-expanded')!=='true'),'icon-button mobile-menu-toggle',{'aria-controls':'study-sidebar','aria-expanded':'false','aria-label':'Deschide meniul'});
+  const top=el('header',{class:'study-mobile-header'},mobileToggle,link([el('img',{src:'./icons/icon.svg',alt:''}),'RadioEasy'],'#library','mobile-brand'));
   const main=el('main',{class:'content',id:'main',tabindex:'-1'});
   const update=state.registration?.waiting?el('div',{class:'update-banner'},el('span',{},'O versiune nouă este gata.'),button('Actualizează acum',act(()=>activateUpdate()),'button secondary')):null;
   const mobile=el('nav',{class:'mobile-nav','aria-label':'Navigare mobilă'},...routes.map(([route,label,name])=>link([icon(name),el('span',{},label)],`#${route}`,current===route?'active':'')),link([icon('settings'),el('span',{},'Date')],'#settings',current==='settings'?'active':''));
-  document.getElementById('app').replaceChildren(el('div',{class:'app-shell'},side,el('div',{class:'main-shell'},top,update,main),mobile));return main;
+  const layout=el('div',{class:'app-shell'},top,side,el('div',{class:'main-shell'},update,main),mobile);
+  const desktopCollapsed=()=>navPreference==null?narrowNav.matches:navPreference==='true';
+  function updateDesktopMenu(){
+    const collapsed=desktopCollapsed();
+    const label=collapsed?'Extinde meniul':'Restrânge meniul';
+    layout.classList.toggle('nav-collapsed',collapsed);
+    desktopToggle.title=label;
+    desktopToggle.setAttribute('aria-label',label);
+    desktopToggle.setAttribute('aria-expanded',String(!collapsed));
+  }
+  function setMobileMenu(open){
+    const label=open?'Restrânge meniul':'Deschide meniul';
+    layout.classList.toggle('mobile-menu-open',open);
+    mobileToggle.setAttribute('aria-expanded',String(open));
+    mobileToggle.setAttribute('aria-label',label);
+  }
+  side.addEventListener('click',event=>{if(event.target.closest('a'))setMobileMenu(false);});
+  layout.addEventListener('keydown',event=>{if(event.key==='Escape' && layout.classList.contains('mobile-menu-open')){setMobileMenu(false);mobileToggle.focus();}});
+  narrowNav.addEventListener('change',updateDesktopMenu);
+  registerCleanup(()=>narrowNav.removeEventListener('change',updateDesktopMenu));
+  updateDesktopMenu();
+  document.getElementById('app').replaceChildren(layout);return main;
 }
 
 async function render(){
@@ -132,29 +170,16 @@ async function renderReader(main,id){
   const record=active();if(!record){main.append(noPack());return;}const pack=record.pack,item=pack.cases.find(row=>row.id===id);
   if(!item){main.append(el('div',{class:'empty-state'},el('h2',{},'Cazul nu este în acest pachet.'),link('Înapoi la cazuri','#cases','button')));return;}
   const key=visitKey(record,item);
-  const comparisons=(item.comparisons||[]).map(row=>{const target=pack.cases.find(caseRow=>caseRow.id===row.caseId),imageRow=target?.images.find(image=>image.id===row.imageId);return target&&imageRow?{label:row.label,path:imageRow.path}:null;}).filter(Boolean);
+  const comparisons=caseComparisonLayers(pack,item);
   if(!state.visited.includes(key)){state.visited.push(key);setMeta('visited',state.visited).catch(error=>toast(friendlyError(error),true));}
   const bookmark=button(icon('bookmark',17),act(async()=>{const exists=state.bookmarks.includes(key);state.bookmarks=exists?state.bookmarks.filter(v=>v!==key):[...state.bookmarks,key];await setMeta('bookmarks',state.bookmarks);bookmark.classList.toggle('active',!exists);bookmark.setAttribute('aria-pressed',String(!exists));toast(exists?'Caz eliminat din salvate.':'Caz salvat.');}),`icon-button ${state.bookmarks.includes(key)?'active':''}`,{'aria-label':'Salvează cazul','aria-pressed':String(state.bookmarks.includes(key))});
   main.append(el('header',{class:'reader-header'},link([icon('back',14),'Toate cazurile'],'#cases','button ghost'),el('div',{class:'section-head'},el('h1',{},item.title),el('div',{class:'button-row'},bookmark,button([icon('exam',15),'Exersează cazul'],act(()=>openCasePractice(record,item)),'button secondary'))),el('div',{class:'reader-meta'},badge(chapterLabel(pack,item.chapterId),'green'),item.completeness!=='full'?badge(coverageLabel(item),'orange'):null,item.source.page?el('span',{},`Notițe, pagina ${item.source.page}`):null)));
-  const rows=new Map(),bodies=new Map();
-  const viewer=imageViewer(record,item,{comparisons,mode:state.viewerMode,onModeChange:setViewerMode,onSelect:itemId=>{const row=rows.get(itemId);if(row){const body=row.parentElement;body.hidden=false;const toggle=bodies.get(body);toggle?.setAttribute('aria-expanded','true');for(const r of rows.values())r.classList.toggle('active',r===row);row.scrollIntoView({behavior:'smooth',block:'nearest'});}}});registerCleanup(()=>viewer.destroy());
-  const observationNotes=new Map((item.structured?.observations||[]).filter(row=>row.note).map(row=>[row.itemId,row.note]));
-  const notes=el('section',{class:'interpretation','aria-label':'Interpretarea radiografiei'});
-  if(item.annotations.some(a=>a.reviewStatus!=='reviewed'))notes.append(el('div',{class:'annotation-note'},icon('info',14),'Marcaje orientative, în curs de verificare.'));
-  for(const [index,sectionId] of Object.keys(SECTION_LABELS).entries()){
-    const section=item.sections.find(row=>row.id===sectionId),body=el('div',{class:'notes-body',id:`section-${sectionId}`});
-    const toggle=button([el('span',{class:'notes-number'},String(index+1).padStart(2,'0')),SECTION_LABELS[sectionId],icon('chevron',15)],()=>{body.hidden=!body.hidden;toggle.setAttribute('aria-expanded',String(!body.hidden));},'notes-heading',{'aria-expanded':'true','aria-controls':body.id});bodies.set(body,toggle);
-    if(!section?.items.length)body.append(el('p',{class:'missing'},'Nu este precizat în notițele sursă.'));
-    else for(const point of section.items){const linked=item.annotations.some(a=>a.itemId===point.id),row=el('div',{class:`finding ${linked?'linked':''}`,tabindex:linked?'0':null,role:linked?'button':null},point.text);
-      if(linked){const select=()=>{viewer.selectItem(point.id);for(const r of rows.values())r.classList.toggle('active',r===row);};row.addEventListener('click',select);row.addEventListener('keydown',event=>{if(['Enter',' '].includes(event.key)){event.preventDefault();select();}});}
-      body.append(row);rows.set(point.id,row);
-      if(observationNotes.has(point.id))body.append(el('p',{class:'study-note'},icon('info',13),observationNotes.get(point.id)));
-    }
-    if(item.structured?.sectionNotes?.[sectionId])body.append(el('p',{class:'study-note'},icon('info',13),item.structured.sectionNotes[sectionId]));
-    notes.append(el('section',{class:'notes-section'},toggle,body));
-  }
-  notes.append(el('details',{class:'source-disclosure'},el('summary',{},'Vezi transcrierea integrală'),el('div',{class:'source-text'},item.referenceText)));
-  main.append(el('div',{class:'reader-grid'},viewer.node,notes));
+  const notes=caseInterpretation(item,itemId=>viewer.selectItem(itemId));
+  const viewer=imageViewer(record,item,{comparisons,mode:state.viewerMode,onModeChange:setViewerMode,
+    onSelect:itemId=>notes.select(itemId,true),
+  });
+  registerCleanup(()=>viewer.destroy());
+  main.append(el('div',{class:'reader-grid'},viewer.node,notes.node));
   const differentialLinks=(item.sections.find(section=>section.id==='differentials')?.items||[]).filter(row=>row.targetCaseId);
   if(differentialLinks.length){
     const panel=el('section',{class:'differential-panel'},el('div',{class:'section-head'},el('h2',{},'Diagnostice diferențiale')),el('p',{class:'field-help'},'Deschide un caz comparativ într-o fereastră, fără să părăsești cazul curent.'));
@@ -1194,6 +1219,7 @@ async function boot(){
   }).catch(()=>{});
 }
 
+initAppearance();
 window.addEventListener('hashchange',()=>render().catch(error=>toast(friendlyError(error),true)));
 window.addEventListener('beforeinstallprompt',event=>{event.preventDefault();state.prompt=event;if(state.route==='settings')render().catch(()=>{});});
 document.getElementById('pack-input').addEventListener('change',act(async event=>{const file=event.target.files[0];event.target.value='';if(file)await importPackFile(file);}));

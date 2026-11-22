@@ -1,7 +1,7 @@
 {
   "app": "radioeasy-studio",
-  "version": "0.2.0",
-  "buildId": "ea5d1d6daeee",
+  "version": "0.3.0",
+  "buildId": "caa1f1bfd951",
   "files": [
     {
       "path": ".nojekyll",
@@ -9,9 +9,19 @@
       "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
     },
     {
+      "path": "annotation-workbench.css",
+      "bytes": 11368,
+      "sha256": "3b8026040fc761a468f7cf32e81242dfc4d85b27a6b05d719bf16d1516ffaa42"
+    },
+    {
+      "path": "annotation-workbench.js",
+      "bytes": 46574,
+      "sha256": "3a1a7fa0a3c0261d304b4a6e3bce8cbaf94bfdf0ba4d715f63193069b0f20b21"
+    },
+    {
       "path": "base.css",
-      "bytes": 40357,
-      "sha256": "806bf8bb9245952c56a3e3c8da500ac8824562cd602efd2b5f79c6bf0b81d315"
+      "bytes": 48290,
+      "sha256": "8f59a4f40da6b7ff640ba762b1e8b5960eb78dfc0daeb1e76f0b590bafa8b7ff"
     },
     {
       "path": "icons/apple-touch-icon.png",
@@ -40,13 +50,28 @@
     },
     {
       "path": "index.html",
-      "bytes": 1326,
-      "sha256": "3149eda88c3ceff232ff7f9bcdc267e9d946ca35323bd2fe1fa58a01e71c29bc"
+      "bytes": 1430,
+      "sha256": "16227eda81da507fa563bac22790d6c1961f652568da130b9a9cf0979993fb3c"
+    },
+    {
+      "path": "landing.css",
+      "bytes": 2879,
+      "sha256": "54da152640d73418f4e72ecd286daf53bc88b3dbca63ce4a004fca752f1441b8"
+    },
+    {
+      "path": "landing.js",
+      "bytes": 2570,
+      "sha256": "535aaa83592670d67bc2f0a728326f7b9dc2960d1be695c624087e1a37c8d1a1"
     },
     {
       "path": "lib/annotation-view.js",
-      "bytes": 6251,
-      "sha256": "05f96b2ffb41273086a69feb65c9d2fe57fbaf289034a81bc2e0706de2b65414"
+      "bytes": 11704,
+      "sha256": "d656a50b93a3b23c00e38ab8943528634f7ccad3ea1357f7e1f4754623c0f3f4"
+    },
+    {
+      "path": "lib/appearance.js",
+      "bytes": 2291,
+      "sha256": "77159e72800716ab18232ca61589e650ed412bca03b3995f538b74689cff49c9"
     },
     {
       "path": "lib/archive-worker.js",
@@ -59,19 +84,29 @@
       "sha256": "cece9152bdef54ca5fe12116fe1af00ffb701b9572bb280b76695fbcdd669966"
     },
     {
+      "path": "lib/case-interpretation.js",
+      "bytes": 3469,
+      "sha256": "52f677635603e9b05505390d82ef850143116eb8a7a3dde9a6657371f3d4e6d2"
+    },
+    {
       "path": "lib/core.js",
-      "bytes": 6893,
-      "sha256": "416b49bba26cb2b394c8a00c1cd730cd0fd74ca21ee388a0c7a4a2d6d9e58873"
+      "bytes": 6910,
+      "sha256": "b4b7ab69b44cf92bd06391514c505df179efb4475da0fb4cbb9c1ab8ee0b698a"
     },
     {
       "path": "lib/dom.js",
-      "bytes": 3724,
-      "sha256": "ad723eed11d699dbda8bc0db27e5e383f777fb13132ee9ad88165c8eae349e91"
+      "bytes": 3763,
+      "sha256": "f309de6cd68c4f483282158b8e968100a6b04b5788508f37abbf8f37832ac744"
     },
     {
       "path": "lib/schema.js",
-      "bytes": 25664,
-      "sha256": "76786d89d9c088fb1dd1faeda5e3dc0c75b98da1529807bcf14dd3408659dbe1"
+      "bytes": 26349,
+      "sha256": "09d08d2815b8b6562ed2a2bec53111fed47b47cc60970ed834d0c2d484db9c72"
+    },
+    {
+      "path": "lib/viewer.js",
+      "bytes": 15441,
+      "sha256": "c966b9015b56ed8151fd44744b8c2c2d956f3580502f99516044fa147da6aa16"
     },
     {
       "path": "lib/zip.js",
@@ -85,19 +120,19 @@
     },
     {
       "path": "studio.css",
-      "bytes": 10517,
-      "sha256": "6dd5b7e4cd1f5d01c7733dc76944f3152bfd79f670d05ab3e65b9e617baad716"
+      "bytes": 7013,
+      "sha256": "2c9aa508a8d1a19613bee94b5ea581f4e8a4bcdffa7c1bf59e2a27ce44f7b16b"
     },
     {
       "path": "studio.js",
-      "bytes": 67211,
-      "sha256": "7ae45fbece963797ef3c5165bde47ef713ebce7f2d391322a5ca779a0fe551a3"
+      "bytes": 54356,
+      "sha256": "2aa45d3bef26360dac73a5ec083f95fb8eaa599c64635a7f3e52c6d8f24e7054"
     },
     {
       "path": "sw.js",
-      "bytes": 1453,
-      "sha256": "8985c444e9d1c3b280cec696c70a83227b056a0f84eed2a96f4e3358f4fea272"
+      "bytes": 1612,
+      "sha256": "bf5f72459f83335cc0dc8261780b4e7df120c4dc6b42daa49ddcac9c4d7f1272"
     }
   ],
-  "totalBytes": 181264
+  "totalBytes": 263887
 }

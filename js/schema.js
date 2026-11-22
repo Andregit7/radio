@@ -21,6 +21,9 @@ const V2_SHAPES = [...SHAPES, 'polyline'];
 const PATTERNS = ['none', 'diagonal', 'dots', 'vertical', 'horizontal'];
 const CLOSED_SHAPES = new Set(['ellipse', 'rect', 'polygon']);
 const HEX_COLOUR = /^#[0-9a-f]{6}$/i;
+export const LINE_STYLES = Object.freeze(['solid', 'dotted', 'dashed', 'dash-dot', 'double']);
+export const MIN_LINE_WIDTH = 1;
+export const MAX_LINE_WIDTH = 12;
 
 export function parseJSON(value, max = LIMITS.json) {
   requireThat(typeof value === 'string' && new TextEncoder().encode(value).length <= max, 'Fișierul JSON depășește limita permisă.');
@@ -30,18 +33,15 @@ export function parseJSON(value, max = LIMITS.json) {
 }
 
 function points(row, minimum) {
-  return list(row, 100) && row.length >= minimum &&
+  return Array.isArray(row) && row.length >= minimum &&
     row.every(point => Array.isArray(point) && point.length === 2 && point.every(range));
 }
 
-function nonCollinear(rows) {
-  if (!rows || rows.length < 3) return false;
+export function nonCollinear(rows) {
   const [first] = rows;
-  return rows.some((point, index) => {
-    if (index === 0) return false;
-    const second = rows[index - 1];
-    return (second[0] - first[0]) * (point[1] - first[1]) - (second[1] - first[1]) * (point[0] - first[0]) !== 0;
-  });
+  const second = rows.find(point => point[0] !== first[0] || point[1] !== first[1]);
+  return Boolean(second && rows.some(point =>
+    (second[0] - first[0]) * (point[1] - first[1]) - (second[1] - first[1]) * (point[0] - first[0]) !== 0));
 }
 
 export function validateAnnotation(row, imageIds, itemIds, version = 1) {
@@ -52,15 +52,19 @@ export function validateAnnotation(row, imageIds, itemIds, version = 1) {
   if (row.shape === 'rect') requireThat([row.x, row.y, row.width, row.height].every(range) && row.width > 0 && row.height > 0, 'Dreptunghi invalid.');
   if (row.shape === 'arrow') requireThat([row.x1, row.y1, row.x2, row.y2].every(range), 'Săgeată invalidă.');
   if (row.shape === 'polygon') requireThat(points(row.points, 3) && nonCollinear(row.points), 'Poligon invalid.');
-  if (row.shape === 'polyline') requireThat(v2 && points(row.points, 2) && new Set(row.points.map(point => point.join(':'))).size >= 2, 'Contur liber invalid.');
+  if (row.shape === 'polyline') requireThat(v2 && points(row.points, 2) && row.points.some(([x, y]) =>
+    x !== row.points[0][0] || y !== row.points[0][1]), 'Contur liber invalid.');
   let style;
   if (row.style !== undefined) {
     requireThat(v2, 'Stilurile de adnotare necesită pachetul versiunea 2.');
     requireThat(object(row.style) && (row.style.color === undefined || (typeof row.style.color === 'string' && HEX_COLOUR.test(row.style.color))) &&
-      (row.style.pattern === undefined || PATTERNS.includes(row.style.pattern)), 'Stil de adnotare invalid.');
+      (row.style.pattern === undefined || PATTERNS.includes(row.style.pattern)) &&
+      (row.style.line === undefined || LINE_STYLES.includes(row.style.line)) &&
+      (row.style.width === undefined || (Number.isFinite(row.style.width) && row.style.width >= MIN_LINE_WIDTH && row.style.width <= MAX_LINE_WIDTH)), 'Stil de adnotare invalid.');
     const pattern = row.style.pattern || 'none';
     requireThat(CLOSED_SHAPES.has(row.shape) || pattern === 'none', 'Modelul de umplere este permis doar formelor închise.');
-    style = { pattern, ...(row.style.color ? { color: row.style.color.toLowerCase() } : {}) };
+    style = { pattern, ...(row.style.color ? { color: row.style.color.toLowerCase() } : {}),
+      ...(row.style.line !== undefined ? { line: row.style.line } : {}), ...(row.style.width !== undefined ? { width: row.style.width } : {}) };
   }
   return { id: row.id, imageId: row.imageId, itemId: row.itemId, shape: row.shape,
     ...Object.fromEntries(['cx','cy','rx','ry','x','y','width','height','x1','y1','x2','y2'].filter(k => k in row).map(k => [k, row[k]])),
@@ -131,10 +135,14 @@ export function validatePack(raw) {
   const banks = new Map(chapterBanks.map(bank => [bank.chapterId, { ...bank, index: bankIndex(bank) }]));
   const scopes = curriculum.scopes || [{ id: 'all', label: 'Toată materia', chapterIds: [...chapterIds] }];
   requireThat(list(scopes, 30) && unique(scopes) && scopes.every(row => id(row.id) && text(row.label, 160) && list(row.chapterIds, 50) && row.chapterIds.length && row.chapterIds.every(v => chapterIds.has(v))), 'Domenii de examen invalide.');
-  requireThat(list(raw.diagnoses, LIMITS.diagnoses) && unique(raw.diagnoses), 'Catalog de diagnostice invalid.');
-  requireThat(raw.diagnoses.every(row => object(row) && id(row.id) && text(row.label, 400) && row.label.trim() &&
-    list(row.chapterIds, 50) && row.chapterIds.length && row.chapterIds.every(v => chapterIds.has(v)) && strings(row.aliases || [])), 'Diagnostic invalid în catalog.');
-  const diagnoses = new Map(raw.diagnoses.map(row => [row.id, row]));
+  requireThat(list(raw.diagnoses, LIMITS.diagnoses) && raw.diagnoses.every(object) && unique(raw.diagnoses), 'Catalog de diagnostice invalid.');
+  const diagnoses = new Map(raw.diagnoses.map(row => {
+    requireThat(id(row.id) && text(row.label, 400) && row.label.trim() &&
+      list(row.chapterIds, 50) && row.chapterIds.length && row.chapterIds.every(v => chapterIds.has(v)), 'Diagnostic invalid în catalog.');
+    const keywords = row.keywords === undefined ? (row.aliases || []) : row.keywords;
+    requireThat(strings(keywords), 'Cuvinte-cheie invalide în catalogul de diagnostice.');
+    return [row.id, {id:row.id,label:row.label,chapterIds:[...row.chapterIds],keywords:[...keywords]}];
+  }));
   requireThat(list(raw.cases, LIMITS.cases) && raw.cases.length && unique(raw.cases), 'Lista de cazuri este goală sau invalidă.');
   const assets = new Map();
   const cases = raw.cases.map(item => {
@@ -252,7 +260,7 @@ export function validatePack(raw) {
     curriculum: {id:curriculum.id,title:curriculum.title,edition:text(curriculum.edition, 100) ? curriculum.edition : '',chapters:curriculum.chapters.map(c => ({id:c.id,label:c.label})),
       ...(chapterBanks.length ? { chapterBanks: chapterBanks.map(bank => ({ chapterId: bank.chapterId, sections: bank.sections })) } : {}),
       scopes:scopes.map(s => ({id:s.id,label:s.label,chapterIds:[...s.chapterIds]}))},
-    diagnoses:raw.diagnoses.map(d => ({id:d.id,label:d.label,chapterIds:[...d.chapterIds],aliases:[...(d.aliases || [])]})),cases };
+    diagnoses:[...diagnoses.values()],cases };
   return {pack:clean,assets};
 }
 
