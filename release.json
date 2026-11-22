@@ -1,7 +1,7 @@
 {
   "app": "radioeasy-study",
-  "version": "0.3.0",
-  "buildId": "f2297f28ed1c",
+  "version": "0.4.0",
+  "buildId": "bafe99676363",
   "files": [
     {
       "path": ".nojekyll",
@@ -45,8 +45,8 @@
     },
     {
       "path": "js/app.js",
-      "bytes": 102542,
-      "sha256": "f05eb0603aee7e72345f804b8168d20650a1d0917bbcc33bc756c0e8c60499c1"
+      "bytes": 102535,
+      "sha256": "f91a628fee1f9e658e57c8fa03b5a49ddb4df2a0bbafae6e0e915e1c875b1d2b"
     },
     {
       "path": "js/appearance.js",
@@ -65,8 +65,8 @@
     },
     {
       "path": "js/case-interpretation.js",
-      "bytes": 3469,
-      "sha256": "52f677635603e9b05505390d82ef850143116eb8a7a3dde9a6657371f3d4e6d2"
+      "bytes": 3269,
+      "sha256": "14940f7213fa4d3cafc8c067eaa99faaaf26f4de6968a6714573f1a709767e4e"
     },
     {
       "path": "js/catalogue.js",
@@ -75,23 +75,23 @@
     },
     {
       "path": "js/core.js",
-      "bytes": 6910,
-      "sha256": "b4b7ab69b44cf92bd06391514c505df179efb4475da0fb4cbb9c1ab8ee0b698a"
+      "bytes": 6877,
+      "sha256": "7107803e47e4e9411250985e67d3fa87b8bbcf40989da11893d082119a1e2ffd"
     },
     {
       "path": "js/dom.js",
-      "bytes": 3763,
-      "sha256": "f309de6cd68c4f483282158b8e968100a6b04b5788508f37abbf8f37832ac744"
+      "bytes": 4074,
+      "sha256": "29ee7a121f32584623b47356515731993b4b22404f9abbc4eaf6eec68bf37bd3"
     },
     {
       "path": "js/exercises.js",
-      "bytes": 8478,
-      "sha256": "c240fd7b58acefe34e6861ac1ccff7c3a54fee883dac302f1d5a190f50a82b8d"
+      "bytes": 8419,
+      "sha256": "743e3c5372bdc599091e24bfea5e88ca2fbd2e1a130ea7cd7cbcddfe833d5433"
     },
     {
       "path": "js/schema.js",
-      "bytes": 26349,
-      "sha256": "09d08d2815b8b6562ed2a2bec53111fed47b47cc60970ed834d0c2d484db9c72"
+      "bytes": 26188,
+      "sha256": "74606647c1a3081acea42d414d827eecf364f0b67f5a7d9439e686ebf9fb87c5"
     },
     {
       "path": "js/storage.js",
@@ -126,8 +126,8 @@
     {
       "path": "sw.js",
       "bytes": 1846,
-      "sha256": "88873afd629a716894eacd3582879421cd57d3705ebc7cb0021767d827dba0ba"
+      "sha256": "b2533aef33ca7ec065494b6b441f61fd13ed7689de9ed27072feddf8dc3f0793"
     }
   ],
-  "totalBytes": 272443
+  "totalBytes": 272294
 }

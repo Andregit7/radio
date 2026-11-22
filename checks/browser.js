@@ -66,13 +66,13 @@ run.addEventListener('click',async()=>{
     await check('Interpretare: secțiuni prezente și diagnostic canonic fără alias',async()=>{
       const c={id:'px',title:'Caz interpretare',chapterId:'respiratory',diagnosisIds:['endo'],source:{page:1},images:[{id:'primary',path:'images/test.png',width:8,height:8}],
         sections:[{id:'examination',items:[{id:'e1',text:'Rx torace'}]},{id:'findings',items:[{id:'f1',text:'Opacitate'},{id:'f2',text:'Distrucție'},{id:'f3',text:'Retracție'}]},{id:'diagnosis',items:[{id:'d1',text:'endobronșic - alias'}]},{id:'differentials',items:[]}],
-        annotations:[{id:'a1',imageId:'primary',itemId:'f1',shape:'ellipse',cx:.4,cy:.5,rx:.1,ry:.2,reviewStatus:'reviewed'},{id:'a2',imageId:'primary',itemId:'f2',shape:'ellipse',cx:.5,cy:.5,rx:.1,ry:.2,reviewStatus:'reviewed'},{id:'a3',imageId:'primary',itemId:'f3',shape:'ellipse',cx:.6,cy:.5,rx:.1,ry:.2,reviewStatus:'reviewed'},{id:'a4',imageId:'primary',itemId:'f1',shape:'ellipse',cx:.7,cy:.5,rx:.1,ry:.2,reviewStatus:'draft'}]};
+        annotations:[{id:'a1',imageId:'primary',itemId:'f1',shape:'ellipse',cx:.4,cy:.5,rx:.1,ry:.2},{id:'a2',imageId:'primary',itemId:'f2',shape:'ellipse',cx:.5,cy:.5,rx:.1,ry:.2},{id:'a3',imageId:'primary',itemId:'f3',shape:'ellipse',cx:.6,cy:.5,rx:.1,ry:.2}]};
       const ex=interpretationExercise(c);assert(ex,'Exercițiul de interpretare lipsește');assert(same(ex.sections.map(s=>s.id),['examination','findings','diagnosis']),'Secțiuni goale evaluate');
       const items=selfAssessmentItems({pack:{cases:[c],diagnoses:[{id:'endo',label:'Cancer endobronșic',aliases:['alias']}]}},ex);
       assert(items.some(i=>i.id==='diagnosis:endo'&&i.text==='Cancer endobronșic'),'Diagnostic canonic lipsă');assert(!items.some(i=>i.text.includes('alias')),'Alias expus');
-      const regions=regionsExercise(c);assert(regions?.regions.length===3,'Repere verificate lipsă');
+      const regions=regionsExercise(c);assert(regions?.regions.length===3,'Repere lipsă');
       const viewer=imageViewer(original,c,{exercise:regions});fixture.append(viewer.node);
-      assert(viewer.node.querySelectorAll('.annotation').length===3,'Reper draft expus');
+      assert(viewer.node.querySelectorAll('.annotation').length===3,'Repere neașteptate');
       assert(viewer.node.querySelector('.annotation').getAttribute('aria-label')==='Regiunea 1','Etichetă care expune răspunsul');
       assert(!viewer.node.textContent.includes('Opacitate'),'Textul observației apare în exercițiu');viewer.destroy();viewer.node.remove();
       const match=matchingExercise(c,()=>.5);assert(match?.pairs.length===3,'Potrivire incompletă');assert(gradeMatching(match.correctMapping,match.correctMapping),'Cheia potrivirii nu se notează');

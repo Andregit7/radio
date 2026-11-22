@@ -20,9 +20,6 @@ export function caseInterpretation(item, onSelect) {
     }
   }
 
-  if (item.annotations.some(row => row.reviewStatus !== 'reviewed')) {
-    notes.append(el('div', { class: 'annotation-note' }, icon('info', 14), 'Marcaje orientative, în curs de verificare.'));
-  }
   for (const [index, [sectionId, label]] of Object.entries(SECTION_LABELS).entries()) {
     const section = item.sections.find(row => row.id === sectionId);
     const body = el('div', { class: 'notes-body', id: `section-${sectionId}` });

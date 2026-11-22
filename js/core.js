@@ -1,4 +1,4 @@
-export const APP_VERSION = '0.3.0';
+export const APP_VERSION = '0.4.0';
 export const DAY = 86_400_000;
 export const SECTION_LABELS = Object.freeze({
   examination: 'Tipul examinării', projection: 'Incidență', findings: 'Semiologie',
@@ -106,7 +106,7 @@ export function availableQuestions(pack, bank = null, { kind = 'mixed', chapterI
   }));
   const authored = (bank?.items || []).filter(item => {
     const source = cases.get(item.caseId);
-    return source && item.reviewStatus !== 'draft' && (!allowed.size || allowed.has(source.chapterId));
+    return source && (!allowed.size || allowed.has(source.chapterId));
   }).map(item => ({ ...item, chapterId: cases.get(item.caseId).chapterId }));
   const mcqs = kind === 'catalogue' || kind === 'written' ? [] : authored.filter(item => (item.kind || 'mcq') === 'mcq');
   const written = kind === 'catalogue' || kind === 'mcq' ? [] : authored.filter(item => item.kind === 'written');

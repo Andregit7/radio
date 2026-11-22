@@ -10,6 +10,9 @@ import {studioLanding,studioWorkspaceHeader} from './landing.js';
 let db,drafts=[],draft=null,caseId=null,tab='case',saveTimer,saveGeneration=0,undoSnapshot=null;
 let showStudioMenu=true,pendingUpload=null,selectedChapters={},workbench=null,saveMessage='Salvat local';
 const caseViews=new Map();
+const navPreferenceKey='radioeasy-studio-nav-collapsed';
+let sidebarCollapsed=false;
+try{sidebarCollapsed=localStorage.getItem(navPreferenceKey)==='true';}catch{}
 const editorPreferences={};
 let registration=null,updateChecking=false,swReloading=false;
 const uid=prefix=>prefix+'-'+crypto.randomUUID();
@@ -167,7 +170,7 @@ function remember(){
   undoSnapshot={pack:structuredClone(draft.pack),bank:structuredClone(draft.bank),files:new Map(draft.files)};
   const undo=document.getElementById('studio-undo');if(undo)undo.disabled=false;
 }
-function changeCase(fn,assessmentChanged=true){remember();fn(currentCase());if(assessmentChanged)for(const q of draft.bank.items.filter(q=>q.caseId===caseId))q.reviewStatus='draft';changed();}
+function changeCase(fn){remember();fn(currentCase());changed();}
 async function saveNow(){
   if(!draft)return;clearTimeout(saveTimer);const generation=saveGeneration,{pack,bank,files}=draft;
   const tx=db.transaction(['drafts','meta'],'readwrite'),done=txDone(tx);
@@ -232,20 +235,34 @@ function render(){
     await saveNow();showStudioMenu=true;render();
   })});
   const openCaseFile=()=>{if(canLeaveCase())document.getElementById('add-image').click();};
-  const caseList=el('div',{class:'studio-case-list'},...draft.pack.cases.map(item=>button([
+  const caseList=el('div',{class:'studio-case-list',id:'studio-case-list'},...draft.pack.cases.map(item=>button([
     el('span',{},item.title),el('small',{},draft.pack.curriculum.chapters.find(c=>c.id===item.chapterId)?.label || ''),
   ],()=>{if(caseId===item.id&&tab==='case')return;if(canLeaveCase()){caseId=item.id;tab='case';render();}},
   `studio-case ${caseId===item.id?'active':''}`,{'aria-current':caseId===item.id?'true':null})));
-  const side=el('aside',{class:'studio-sidebar'},workspaceHeader,
+  const sidebarToggle=button(icon('menu',18),()=>{
+    sidebarCollapsed=!sidebarCollapsed;
+    try{localStorage.setItem(navPreferenceKey,String(sidebarCollapsed));}catch{}
+    document.querySelector('.studio-layout')?.classList.toggle('studio-nav-collapsed',sidebarCollapsed);
+    syncSidebarToggle(sidebarToggle);
+  },'icon-button studio-sidebar-toggle',{'aria-controls':'studio-sidebar'});
+  syncSidebarToggle(sidebarToggle);
+  const side=el('aside',{class:'studio-sidebar',id:'studio-sidebar'},el('div',{class:'studio-sidebar-head'},workspaceHeader,sidebarToggle),
     button([icon('plus',14),'Adaugă radiografie'],openCaseFile,'button secondary'),caseList);
   const tabs=[['case','Caz & repere'],['banks','Bănci de răspunsuri'],['catalogue','Diagnostice'],['curriculum','Programă'],['questions','Grile']];
   const work=el('main',{class:'studio-workspace'},el('nav',{class:'studio-tabs','aria-label':'Secțiuni Studio'},...tabs.map(([id,label])=>
     button(label,()=>{if(tab!==id&&canLeaveCase()){tab=id;render();}},`chip ${tab===id?'active':''}`,{'aria-current':tab===id?'page':null}))),
     tab!=='case'?undoControl():null);
   if(tab==='case')renderCaseEditor(work);else if(tab==='banks')renderBanks(work);else if(tab==='catalogue')renderCatalogue(work);else if(tab==='curriculum')renderCurriculum(work);else renderQuestions(work);
-  root.replaceChildren(el('div',{class:'studio-layout studio-layout-compact'},side,work));
+  root.replaceChildren(el('div',{class:`studio-layout studio-layout-compact${sidebarCollapsed?' studio-nav-collapsed':''}`},side,work));
   caseList.scrollTop=caseListTop;caseList.scrollLeft=caseListLeft;
   workbench?.restoreScroll();
+}
+
+function syncSidebarToggle(toggle){
+  const label=sidebarCollapsed?'Extinde lista cazurilor':'Restrânge lista cazurilor';
+  toggle.title=label;
+  toggle.setAttribute('aria-label',label);
+  toggle.setAttribute('aria-expanded',String(!sidebarCollapsed));
 }
 
 function undoControl(){
@@ -259,14 +276,14 @@ function renderCaseEditor(work){
     return;
   }
   const state=caseView();
-  const title=el('div',{class:'studio-title studio-case-heading'},el('h1',{},item.title),undoControl());
   workbench=annotationWorkbench({item,pack:draft.pack,files:draft.files,state,preferences:editorPreferences,remember,changed,ensureV2,uid,
     onUpload:role=>{pendingUpload={role,caseId,project:draft};document.getElementById('add-case-image').click();},
     onPreview:(imageId,comparisonId)=>showCasePreview(item,imageId||state.imageId,comparisonId),
+    undoControl:undoControl(),
     renderNotes:controls=>renderCaseNotes(item,controls),
   });
   work.classList.add('studio-case-workspace');
-  work.append(title,workbench.node);
+  work.append(workbench.node);
 }
 
 function showCasePreview(item,initialImageId,initialComparisonId){
@@ -287,7 +304,7 @@ function renderCaseNotes(item,{observationControls,removeObservation}){
   const state=caseView();
   notes.append(el('details',{class:'studio-form-section studio-notes-details',open:state.caseDetailsOpen,
     ontoggle:event=>{state.caseDetailsOpen=event.target.open;}},el('summary',{},'Detalii caz'),
-    field('Numele cazului',item.title,value=>changeCase(c=>c.title=value,false)),
+    field('Numele cazului',item.title,value=>changeCase(c=>c.title=value)),
     selectField('Capitol',draft.pack.curriculum.chapters,item.chapterId,value=>changeCase(c=>c.chapterId=value)),
     selectField('Diagnosticul pozitiv',[{id:'',label:'Nu este precizat / alege un diagnostic'},...draft.pack.diagnoses.map(d=>({id:d.id,label:d.label}))],item.diagnosisIds[0] || '',value=>{
       changeCase(c=>{c.diagnosisIds=value?[value]:[];const section=c.sections.find(s=>s.id==='diagnosis');if(value && !section.items.length)section.items.push({id:uid('point'),text:draft.pack.diagnoses.find(d=>d.id===value).label});});render();
@@ -328,7 +345,8 @@ function structuredEditor(item){
     return wrapper;
   }
   const structured=item.structured;
-  const status=el('select',{class:'select',onchange:event=>{structured.status=event.target.value;changed();}},...[['draft','Schiță — nu se notează'],['source-derived','Derivat din sursă'],['reviewed','Verificat de contributor']].map(([value,text])=>el('option',{value,selected:structured.status===value},text)));
+  if(structured.status==='reviewed')structured.status='source-derived';
+  const status=el('select',{class:'select',onchange:event=>{structured.status=event.target.value;changed();}},...[['draft','Schiță — nu se notează'],['source-derived','Derivat din sursă']].map(([value,text])=>el('option',{value,selected:structured.status===value},text)));
   wrapper.append(el('label',{class:'studio-field'},el('span',{},'Starea observațiilor'),status),el('p',{class:'studio-note'},'Câmpurile necompletate nu sunt evaluate. Notele sunt doar pentru învățare și nu intră în notare.'));
   for(const sectionId of ['examination','projection','differentials','investigations']){
     const rows=bankChoiceRows(item.chapterId,sectionId),group=el('div',{class:'studio-structured-choice'},el('span',{class:'field-label'},SECTION_LABELS[sectionId]));
@@ -447,7 +465,7 @@ function renderCatalogue(work){
     field(keywordLabel,(diagnosis.keywords ?? diagnosis.aliases ?? []).join(', '),value=>{
       diagnosis.keywords=parseKeywords(value);delete diagnosis.aliases;changed();
     }),
-    el('div',{class:'studio-checks'},...draft.pack.curriculum.chapters.map(c=>{const input=el('input',{type:'checkbox',checked:diagnosis.chapterIds.includes(c.id),onchange:()=>{if(input.checked)diagnosis.chapterIds=[...new Set([...diagnosis.chapterIds,c.id])];else diagnosis.chapterIds=diagnosis.chapterIds.filter(id=>id!==c.id);changed();}});return el('label',{},input,c.label);})),el('small',{class:'field-help'},diagnosis.id)));
+    el('div',{class:'studio-checks'},...draft.pack.curriculum.chapters.map(c=>{const input=el('input',{type:'checkbox',checked:diagnosis.chapterIds.includes(c.id),onchange:()=>{if(input.checked)diagnosis.chapterIds=[...new Set([...diagnosis.chapterIds,c.id])];else diagnosis.chapterIds=diagnosis.chapterIds.filter(id=>id!==c.id);changed();}});return el('label',{},input,c.label);}))));
   work.append(list);
 }
 
@@ -475,28 +493,25 @@ function renderCurriculum(work){
 function renderQuestions(work){
   const item=currentCase();work.append(el('div',{class:'studio-title'},el('h1',{},'Întrebări pentru caz')));
   if(!item){work.append(el('p',{},'Adaugă sau selectează mai întâi un caz.'));return;}
-  work.append(el('div',{class:'studio-banner'},'Întrebarea de diagnostic cu selecție din catalog este creată automat în Study. Întrebările de aici sunt opționale. Modificarea explicațiilor unui caz readuce întrebările lui în starea „schiță”. Notele nu devin întrebări automat.'));
+  work.append(el('div',{class:'studio-banner'},'Întrebarea de diagnostic cu selecție din catalog este creată automat în Study. Întrebările de aici sunt opționale. Notele nu devin întrebări automat.'));
   const questions=draft.bank.items.filter(q=>q.caseId===caseId);
   work.append(button('Adaugă o grilă',()=>{
-    remember();const id=uid('question');draft.bank.items.push({id,caseId,sectionId:'diagnosis',kind:'mcq',prompt:'Care este diagnosticul pozitiv?',options:['a','b','c','d'].map(id=>({id,label:'',feedback:''})),correctOptionIds:['a'],feedback:'',reviewStatus:'draft'});changed();render();
+    remember();const id=uid('question');draft.bank.items.push({id,caseId,sectionId:'diagnosis',kind:'mcq',prompt:'Care este diagnosticul pozitiv?',options:['a','b','c','d'].map(id=>({id,label:'',feedback:''})),correctOptionIds:['a'],feedback:''});changed();render();
   },'button secondary'));
   work.append(button('Adaugă răspuns scris',()=>{
-    remember();ensureBankV2();affectsV2();draft.bank.items.push({id:uid('question'),caseId,sectionId:'findings',kind:'written',prompt:'Explică observația din imagine.',rubric:'',reviewStatus:'draft'});changed();render();
+    remember();ensureBankV2();affectsV2();draft.bank.items.push({id:uid('question'),caseId,sectionId:'findings',kind:'written',prompt:'Explică observația din imagine.',rubric:''});changed();render();
   },'button secondary'));
   if(item.diagnosisIds.length)work.append(button('Propune o grilă de diagnostic',()=>{
     const correct=draft.pack.diagnoses.find(d=>d.id===item.diagnosisIds[0]),others=shuffled(draft.pack.diagnoses.filter(d=>d.id!==correct.id && d.chapterIds.includes(item.chapterId))).slice(0,3);
     if(!others.length){toast('Adaugă mai întâi alte diagnostice din capitol.',true);return;}
-    remember();draft.bank.items.push({id:uid('question'),caseId,sectionId:'diagnosis',kind:'mcq',prompt:'Care este diagnosticul pozitiv?',options:[correct,...others].map(d=>({id:d.id,label:d.label,feedback:''})),correctOptionIds:[correct.id],feedback:item.sections.find(s=>s.id==='diagnosis')?.items.map(p=>p.text).join('\n') || '',reviewStatus:'draft'});changed();render();
+    remember();draft.bank.items.push({id:uid('question'),caseId,sectionId:'diagnosis',kind:'mcq',prompt:'Care este diagnosticul pozitiv?',options:[correct,...others].map(d=>({id:d.id,label:d.label,feedback:''})),correctOptionIds:[correct.id],feedback:item.sections.find(s=>s.id==='diagnosis')?.items.map(p=>p.text).join('\n') || ''});changed();render();
   },'button ghost'));
   for(const q of questions){
-    const kind=q.kind || 'mcq';let reviewed;const touch=fn=>{fn();q.reviewStatus='draft';if(reviewed)reviewed.checked=false;changed();};
+    const kind=q.kind || 'mcq';const touch=fn=>{fn();changed();};
     const card=el('section',{class:'studio-question'},el('div',{class:'studio-question-kind'},badge(kind==='written'?'RĂSPUNS SCRIS':'Grilă',kind==='written'?'orange':'green')),selectField('Secțiunea evaluată',Object.entries(SECTION_LABELS).map(([id,label])=>({id,label})),q.sectionId,value=>touch(()=>q.sectionId=value)),field('Întrebarea',q.prompt,value=>touch(()=>q.prompt=value),{textarea:true}));
     if(kind==='written'){
-      card.append(field('Baremul autorului',q.rubric || '',value=>touch(()=>q.rubric=value),{textarea:true,help:'Afișat după ce studentul răspunde. Nu este notat automat; studentul își verifică răspunsul.'}));
-      reviewed=el('input',{type:'checkbox',checked:q.reviewStatus!=='draft',onchange:act(async()=>{
-        if(reviewed.checked){try{ensureBankV2();validateQuestions({...draft.bank,revision:draft.pack.revision,items:[q]},validatePack(draft.pack).pack);q.reviewStatus='reviewed';}catch(error){reviewed.checked=false;throw error;}}else q.reviewStatus='draft';changed();
-      })});
-      card.append(el('label',{class:'studio-checks'},reviewed,'Am verificat enunțul și baremul.'),el('p',{class:'studio-note'},'Răspunsul scris și autoevaluarea nu intră niciodată în precizia automată.'),button('Elimină întrebarea',()=>{remember();draft.bank.items=draft.bank.items.filter(row=>row.id!==q.id);changed();render();},'button ghost'));
+      card.append(field('Baremul autorului',q.rubric || '',value=>touch(()=>q.rubric=value),{textarea:true,help:'Afișat după ce studentul răspunde. Nu este notat automat; studentul își verifică răspunsul.'}),
+        el('p',{class:'studio-note'},'Răspunsul scris și autoevaluarea nu intră niciodată în precizia automată.'),button('Elimină întrebarea',()=>{remember();draft.bank.items=draft.bank.items.filter(row=>row.id!==q.id);changed();render();},'button ghost'));
     }else{
       const options=el('div',{class:'studio-options'});
       for(const option of q.options || []){
@@ -504,10 +519,8 @@ function renderQuestions(work){
         options.append(el('div',{class:'studio-option'},radio,el('input',{type:'text',value:option.label,'aria-label':'Textul opțiunii',oninput:event=>touch(()=>option.label=event.target.value)})));
         options.append(field('Explicația opțiunii (opțional)',option.feedback || '',value=>touch(()=>option.feedback=value)));
       }
-      reviewed=el('input',{type:'checkbox',checked:q.reviewStatus!=='draft',onchange:act(async()=>{
-        if(reviewed.checked){try{validateQuestions({...draft.bank,revision:draft.pack.revision,items:[q]},validatePack(draft.pack).pack);q.reviewStatus='reviewed';}catch(error){reviewed.checked=false;throw error;}}else q.reviewStatus='draft';changed();
-      })});
-      card.append(options,field('Explicația răspunsului',q.feedback,value=>touch(()=>q.feedback=value),{textarea:true}),el('label',{class:'studio-checks'},reviewed,'Am verificat enunțul, cheia și toate alternativele pentru acest caz.'),el('p',{class:'studio-note'},'Schițele nu sunt incluse în export. Alternativele propuse sunt doar un punct de plecare; verifică să existe un singur răspuns optim.'),button('Elimină grila',()=>{remember();draft.bank.items=draft.bank.items.filter(row=>row.id!==q.id);changed();render();},'button ghost'));
+      card.append(options,field('Explicația răspunsului',q.feedback,value=>touch(()=>q.feedback=value),{textarea:true}),
+        el('p',{class:'studio-note'},'Alternativele propuse sunt doar un punct de plecare; verifică să existe un singur răspuns optim.'),button('Elimină grila',()=>{remember();draft.bank.items=draft.bank.items.filter(row=>row.id!==q.id);changed();render();},'button ghost'));
     }
     work.append(card);
   }
@@ -599,13 +612,12 @@ async function importDraft(file){
 async function exportDraft(){
   requireThat(draft,'Nu există un pachet deschis.');await saveNow();sanitiseForExport();
   const {pack}=validatePack(draft.pack);
-  const bank=validateQuestions({...draft.bank,revision:pack.revision,items:draft.bank.items.filter(q=>q.reviewStatus!=='draft')},pack),used=new Set(pack.cases.flatMap(item=>item.images.map(image=>image.path)));
+  const bank=validateQuestions({...draft.bank,revision:pack.revision},pack),used=new Set(pack.cases.flatMap(item=>item.images.map(image=>image.path)));
   const files=[{name:'pack.json',data:JSON.stringify(pack,null,2)}];if(bank.items.length)files.push({name:'questions.json',data:JSON.stringify(bank,null,2)});
   for(const path of used){requireThat(draft.files.has(path),`Imagine lipsă: ${path}`);files.push({name:path,data:draft.files.get(path)});}
   // Validate exactly the data which will be exported, including hashes and links.
   const check=await validateFiles(new Map(await Promise.all(files.map(async f=>[f.name,typeof f.data==='string'?new TextEncoder().encode(f.data):new Uint8Array(await f.data.arrayBuffer())]))));
-  const skipped=draft.bank.items.length-bank.items.length;
-  modal('Pachet valid pentru Study',el('div',{class:'studio-validate'},`${check.pack.cases.length} cazuri · ${check.pack.diagnoses.length} diagnostice · ${bank.items.length} grile\n${check.pack.cases.reduce((n,c)=>n+c.annotations.length,0)} repere vizuale\n${skipped} grile în starea schiță nu vor fi exportate.\n\nImaginile și referințele au fost verificate. Exportul nu include progresul niciunui student.`),[
+  modal('Pachet valid pentru Study',el('div',{class:'studio-validate'},`${check.pack.cases.length} cazuri · ${check.pack.diagnoses.length} diagnostice · ${bank.items.length} grile\n${check.pack.cases.reduce((n,c)=>n+c.annotations.length,0)} repere vizuale\n\nImaginile și referințele au fost verificate. Exportul nu include progresul niciunui student.`),[
     button('Înapoi',()=>document.getElementById('modal').close(),'button secondary'),button('Descarcă ZIP',act(async()=>{
       status('Se exportă…');const result=await archiveJob('write',{files});const url=URL.createObjectURL(result.blob),a=el('a',{href:url,download:`${pack.id}-${pack.revision}.study.zip`});document.body.append(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),30000);document.getElementById('modal').close();status('Salvat local');toast('Exportul pachetului a fost pornit.');
     })),
