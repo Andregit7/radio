@@ -6,9 +6,8 @@ import {imageViewer} from './lib/viewer.js';
 import {caseComparisonLayers,caseInterpretation} from './lib/case-interpretation.js';
 import {annotationWorkbench} from './annotation-workbench.js';
 import {studioLanding,studioWorkspaceHeader} from './landing.js';
-import {creditsButton} from './lib/credits.js';
 
-let db,drafts=[],draft=null,caseId=null,tab='case',saveTimer,saveGeneration=0,undoSnapshot=null;
+let db,drafts=[],draft=null,caseId=null,tab='case',saveTimer,saveGeneration=0,undoSnapshot=null,pendingChapterId=null;
 let showStudioMenu=true,pendingUpload=null,selectedChapters={},workbench=null,saveMessage='Salvat local';
 const caseViews=new Map();
 const navPreferenceKey='radioeasy-studio-nav-collapsed';
@@ -202,7 +201,7 @@ async function openDraft(id){
   await saveNow();render();
 }
 function openWorkspace(next){
-  draft=next;caseId=draft.pack.cases[0]?.id||null;tab='case';showStudioMenu=false;
+  draft=next;caseId=null;tab='case';showStudioMenu=false;pendingChapterId=null;
   undoSnapshot=null;caseViews.clear();selectedChapters={};
 }
 
@@ -210,7 +209,7 @@ function undoEdit(){
   if(!undoSnapshot||!canLeaveCase())return;
   const previous=undoSnapshot;undoSnapshot=null;
   draft={...previous};
-  if(!currentCase())caseId=draft.pack.cases[0]?.id||null;
+  if(caseId&&!currentCase())caseId=null;
   changed();render();
 }
 
@@ -220,7 +219,15 @@ function canLeaveCase(){
   return false;
 }
 
-const openCaseFile=()=>{if(canLeaveCase())document.getElementById('add-image').click();};
+const openCaseFile=()=>{
+  if(!canLeaveCase())return;
+  pendingChapterId=null;
+  const chapters=draft?.pack.curriculum.chapters || [],dialog=modal('Alege capitolul',
+    el('div',{class:'studio-chapter-choice'},el('p',{class:'modal-body'},chapters.length?'Radiografia va fi adăugată în capitolul pe care îl alegi.':'Pachetul nu are niciun capitol, iar un caz are nevoie de unul. Adaugă mai întâi un capitol în fila „Programă”.'),
+      chapters.length?el('div',{class:'studio-chapter-picker'},...chapters.map(chapter=>button([icon('book',15),el('span',{class:'studio-chapter-label'},chapter.label)],
+        ()=>{dialog.close();pendingChapterId=chapter.id;document.getElementById('add-image').click();},'button secondary studio-chapter-option'))):null),
+    [button('Renunță',()=>dialog.close(),'button ghost')]);
+};
 
 function render(){
   const root=document.getElementById('studio');
@@ -257,7 +264,7 @@ function render(){
 }
 
 function sidebarNav(){
-  editorPreferences.caseListOpen ??= true;
+  editorPreferences.caseListOpen ??= false;
   const caseListOpen=editorPreferences.caseListOpen;
   const caseToggle=button([icon('book',16),el('span',{class:'studio-section-label'},'Cazuri & repere'),
     el('span',{class:'studio-section-arrow'},icon(caseListOpen?'chevron-down':'chevron-up',15))],
@@ -269,8 +276,7 @@ function sidebarNav(){
   return el('nav',{class:'studio-sidebar-nav','aria-label':'Secțiuni Studio'},
     el('section',{class:'studio-case-section'},caseToggle,caseListOpen?caseSectionBody():null),
     ...sections.map(([id,label,name])=>button([icon(name,16),el('span',{class:'studio-section-label'},label)],
-      ()=>{if(tab!==id&&canLeaveCase()){tab=id;render();}},`studio-section-button${tab===id?' active':''}`,{'aria-current':tab===id?'page':null})),
-    creditsButton('studio-section-button'));
+      ()=>{if(tab!==id&&canLeaveCase()){tab=id;render();}},`studio-section-button${tab===id?' active':''}`,{'aria-current':tab===id?'page':null})));
 }
 
 function caseSectionBody(){
@@ -281,7 +287,7 @@ function caseSectionBody(){
 
 function groupedCaseList(){
   const cases=draft.pack.cases,chapters=draft.pack.curriculum.chapters;
-  const collapsed=editorPreferences.chapters ??= {};
+  const expanded=editorPreferences.chapters ??= {};
   const groups=chapters.map(chapter=>({id:chapter.id,label:chapter.label,cases:cases.filter(item=>item.chapterId===chapter.id)}));
   const orphaned=cases.filter(item=>!chapters.some(chapter=>chapter.id===item.chapterId));
   if(orphaned.length)groups.push({id:'',label:'Fără capitol',cases:orphaned});
@@ -289,10 +295,10 @@ function groupedCaseList(){
   const list=el('div',{class:'studio-case-list',id:'studio-case-list'});
   groups.forEach((group,index)=>{
     if(!group.cases.length)return;
-    const open=!collapsed[group.id],bodyId=`studio-case-group-${group.id || 'orphaned'}`;
+    const open=Boolean(expanded[group.id]),bodyId=`studio-case-group-${group.id || 'orphaned'}`;
     const head=button([icon(open?'chevron-down':'chevron-up',14),el('span',{class:'studio-case-group-label'},group.label),
       el('span',{class:'studio-case-count'},String(group.cases.length))],
-    ()=>{collapsed[group.id]=open;render();},'studio-case-group-head',
+    ()=>{expanded[group.id]=!open;render();},'studio-case-group-head',
     {'aria-expanded':String(open),'aria-controls':bodyId,title:`${group.label} · ${group.cases.length} cazuri`});
     head.style.setProperty('--chapter-accent',accents[index%accents.length]);
     list.append(el('section',{class:'studio-case-group'},head,open?el('div',{class:'studio-case-group-body',id:bodyId},...group.cases.map(caseButton)):null));
@@ -322,7 +328,12 @@ function undoControl(){
 function renderCaseEditor(work){
   const item=currentCase();
   if(!item){
-    work.append(el('div',{class:'studio-empty'},el('h1',{},'Începe cu o radiografie.'),el('p',{},'Alege o imagine PNG sau JPEG.'),button('Alege imaginea',()=>document.getElementById('add-image').click())),undoControl());
+    work.append(el('div',{class:'studio-empty studio-empty-select'},
+      el('aside',{class:'setup-aside'},el('div',{class:'round-icon'},icon('image',25)),
+        el('h2',{},'Alege un caz pentru a-l edita'),
+        el('p',{},'Selectează un caz din lista „Cazuri & repere” din stânga pentru a-i edita imaginile, reperele și explicațiile.'),
+        el('p',{class:'field-help'},'Poți adăuga o radiografie nouă cu „Adaugă radiografie”; alegi capitolul înainte de a selecta imaginea.')),
+      draft.pack.cases.length?null:button([icon('plus',14),'Adaugă radiografie'],openCaseFile,'button secondary')),undoControl());
     return;
   }
   const state=caseView();
@@ -576,14 +587,17 @@ function renderQuestions(work){
   }
 }
 
-async function addImage(file){
+async function addImage(file,chapterId=pendingChapterId){
+  pendingChapterId=null;
   requireThat(draft,'Creează sau deschide mai întâi un pachet.');requireThat(file.size<=LIMITS.entry,'Imaginea depășește limita de 12 MiB.');
+  const chapters=draft.pack.curriculum.chapters,chapter=chapters.some(row=>row.id===chapterId)?chapterId:chapters[0]?.id;
+  requireThat(chapter,'Adaugă mai întâi un capitol în fila „Programă”.');
   const bytes=new Uint8Array(await file.arrayBuffer()),dims=imageDimensions(bytes);requireThat(dims.width*dims.height<=LIMITS.pixels,'Imaginea depășește 12 megapixeli.');
   const sha256=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),b=>b.toString(16).padStart(2,'0')).join(''),id=uid('case'),path=`images/${id}.${dims.mime==='image/png'?'png':'jpeg'}`;
   remember();draft.files.set(path,new Blob([bytes],{type:dims.mime}));
-  draft.pack.cases.push({id,title:`Cazul ${String(draft.pack.cases.length+1).padStart(2,'0')}`,chapterId:draft.pack.curriculum.chapters[0].id,diagnosisIds:[],
+  draft.pack.cases.push({id,title:`Cazul ${String(draft.pack.cases.length+1).padStart(2,'0')}`,chapterId:chapter,diagnosisIds:[],
     images:[{id:'primary',path,width:dims.width,height:dims.height,sha256}],sections:Object.entries(SECTION_LABELS).map(([id,label])=>({id,label,items:[],status:'missing'})),annotations:[],referenceText:'',source:{document:'',page:null},completeness:'partial'});
-  caseId=id;tab='case';changed();await saveNow();render();
+  caseId=id;tab='case';editorPreferences.caseListOpen=true;(editorPreferences.chapters ??= {})[chapter]=true;changed();await saveNow();render();
 }
 
 async function addCaseImage(file,upload){
@@ -692,7 +706,7 @@ async function boot(){
   }
 }
 document.getElementById('open-pack').addEventListener('change',act(async event=>{const file=event.target.files[0];event.target.value='';if(file)await importDraft(file);}));
-document.getElementById('add-image').addEventListener('change',act(async event=>{const file=event.target.files[0];event.target.value='';if(file)await addImage(file);}));
+document.getElementById('add-image').addEventListener('change',act(async event=>{const file=event.target.files[0];event.target.value='';if(file)await addImage(file);else pendingChapterId=null;}));
 document.getElementById('add-case-image').addEventListener('change',act(async event=>{const file=event.target.files[0],upload=pendingUpload;event.target.value='';pendingUpload=null;if(file&&upload)await addCaseImage(file,upload);}));
 document.getElementById('notice').classList.add('studio-toast');
 boot().catch(error=>{document.getElementById('studio').replaceChildren(el('main',{class:'studio-empty'},el('h1',{},'Studio nu poate deschide stocarea.'),el('p',{},error.message),button('Încearcă din nou',()=>location.reload())));});

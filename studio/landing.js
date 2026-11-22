@@ -30,9 +30,11 @@ export function studioLanding({drafts,activeId,onNew,onOpenZip,onOpenDraft,onExp
         saved,
         button([icon('download',18),'Validează și exportă'],onExport,'button secondary',{disabled:!active,'aria-describedby':'studio-launch-pack'}),
         button([icon('refresh',18),el('span',{'aria-live':'polite'},updateLabel)],onUpdate,'button secondary update-check',{disabled:updateChecking})),
-      el('p',{class:'studio-launch-current',id:'studio-launch-pack'},active?['Pachet pentru validare și export ',el('strong',{},active.title || 'Pachet fără titlu')]:'Deschide un pachet pentru a-l valida și exporta.'),
       el('footer',{class:'studio-launch-preferences'},
-        el('div',{class:'studio-launch-preferences-actions'},creditsButton('button secondary'),themeControl()),
+        el('div',{class:'studio-launch-preferences-row'},
+          themeControl(),
+          el('p',{class:'studio-launch-current',id:'studio-launch-pack'},active?['Pachet selectat: ',el('strong',{},active.title || 'Pachet fără titlu')]:'Deschide un pachet pentru a-l valida și exporta.'),
+          creditsButton('button secondary')),
         el('span',{class:'studio-launch-status',id:'save-status',role:'status'}))));
 }
 

@@ -123,16 +123,6 @@
 }
 
 .studio-control:disabled { opacity: .55; }
-.studio-color-controls { display: flex; gap: 4px; }
-.studio-color-controls input[type=color] {
-  width: 32px;
-  height: 30px;
-  border: 1px solid var(--line);
-  border-radius: 5px;
-  padding: 2px;
-  background: var(--white);
-  cursor: pointer;
-}
 
 .studio-line-width { width: 57px; }
 .studio-delete-mark { color: var(--red); }
@@ -209,21 +199,88 @@
 
 .studio-select-all { width: 14px; height: 14px; margin: 0; accent-color: var(--teal); }
 
-.studio-color-swatches { display: flex; flex-wrap: wrap; gap: 3px; max-width: 210px; }
-.studio-swatch {
-  position: relative;
-  flex: none;
-  width: 22px;
-  height: 22px;
-  padding: 0;
+.studio-colour-control { justify-items: start; }
+.studio-colour-trigger {
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  min-height: 0;
+  padding: 2px;
+  background: var(--white);
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  transition: border-color .12s, box-shadow .12s, transform .12s;
+}
+.studio-colour-trigger:hover { border-color: var(--teal); box-shadow: 0 0 0 2px color-mix(in srgb, var(--teal) 22%, transparent); transform: scale(1.06); }
+.studio-colour-trigger:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; border-color: var(--teal); }
+.studio-colour-trigger:disabled { opacity: .55; cursor: default; transform: none; box-shadow: none; border-color: var(--line); }
+.studio-colour-fill { display: block; width: 100%; height: 100%; border-radius: 3px; box-shadow: inset 0 0 0 1px #0002; }
+.studio-colour-wheel { display: grid; place-items: center; width: 100%; height: 100%; border-radius: 3px; box-shadow: inset 0 0 0 1px #0002; }
+.studio-colour-auto-mark {
+  display: grid;
+  place-items: center;
+  width: 64%;
+  height: 64%;
+  border-radius: 50%;
+  background: var(--white);
+  color: var(--ink);
+  font-size: 11px;
+  font-weight: 700;
+  line-height: 1;
+  box-shadow: 0 0 0 1px #0002;
+}
+.studio-colour-picker { display: grid; gap: 9px; color: var(--ink); }
+.studio-colour-option {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 4px;
+  background: var(--white);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font-size: 11px;
+  color: var(--ink);
+}
+.studio-colour-option > :is(.studio-colour-fill, .studio-colour-wheel) { flex: none; width: 24px; height: 24px; border-radius: 4px; }
+.studio-colour-grid .studio-colour-option > :is(.studio-colour-fill, .studio-colour-wheel) { width: 26px; height: 26px; }
+.studio-colour-option:hover { border-color: var(--selected-line, var(--teal)); background: var(--subtle); }
+.studio-colour-option:focus-visible { outline: 2px solid var(--teal); outline-offset: 1px; }
+.studio-colour-option.active { border-color: var(--teal); box-shadow: 0 0 0 2px var(--white), 0 0 0 3px var(--teal); }
+.studio-colour-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, 34px);
+  gap: 5px;
+  max-height: 132px;
+  overflow: auto;
+  padding: 3px;
+  scrollbar-width: thin;
+}
+.studio-colour-grid .studio-colour-option { justify-content: center; padding: 2px; }
+.studio-colour-custom {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px;
+  background: var(--white);
+  border: 1px dashed var(--line);
+  border-radius: 6px;
+  font-size: 11px;
+  color: var(--ink);
+  cursor: pointer;
+}
+.studio-colour-custom:hover { border-color: var(--selected-line, var(--teal)); background: var(--subtle); }
+.studio-colour-custom.active { border-style: solid; border-color: var(--teal); box-shadow: 0 0 0 2px var(--white), 0 0 0 3px var(--teal); }
+.studio-colour-custom input[type=color] {
+  width: 42px;
+  height: 26px;
+  padding: 1px;
   background: var(--white);
   border: 1px solid var(--line);
   border-radius: 4px;
+  cursor: pointer;
 }
-.studio-swatch.is-auto { background: conic-gradient(from 45deg, var(--teal), var(--orange), var(--red), var(--teal)); }
-.studio-swatch.active { border-color: var(--ink); box-shadow: 0 0 0 2px var(--white), 0 0 0 3px var(--teal); }
-.studio-swatch:disabled { opacity: .55; cursor: default; }
-.studio-color-controls input[type=color].active { border-color: var(--ink); box-shadow: 0 0 0 2px var(--white), 0 0 0 3px var(--teal); }
 
 .studio-mark-list { display: grid; gap: 5px; }
 .studio-mark-list.is-marquee { user-select: none; }

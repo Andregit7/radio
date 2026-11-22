@@ -60,6 +60,19 @@ function swatch(row) {
   return node;
 }
 
+function colourWheel() {
+  const step = 100 / MARK_PALETTE.length;
+  return `conic-gradient(${MARK_PALETTE.map((colour, index) => `${colour} ${index * step}% ${(index + 1) * step}%`).join(', ')})`;
+}
+
+const autoMark = () => el('span', { class: 'studio-colour-auto-mark', 'aria-hidden': 'true' }, 'A');
+
+function wheelBadge() {
+  const node = el('span', { class: 'studio-colour-wheel', 'aria-hidden': 'true' }, autoMark());
+  node.style.background = colourWheel();
+  return node;
+}
+
 export function annotationWorkbench({ item, pack, files, state, preferences = state, remember, changed, ensureV2, uid, onUpload, onPreview, undoControl, renderNotes }) {
   const settings = preferences.settings ??= { shape: 'ellipse', color: 'auto', pattern: 'none', line: 'solid', width: DEFAULT_LINE_WIDTH };
   const collapsed = preferences.collapsed ??= {};
@@ -344,8 +357,8 @@ export function annotationWorkbench({ item, pack, files, state, preferences = st
           const colour = value === 'auto' ? autoColour(item.annotations, state.imageId) : value;
           state.pending.style = { ...state.pending.style, color: colour };
           paint();
-          renderRibbon();
         }
+        renderRibbon();
         return;
       }
       if (multi) return;
@@ -357,23 +370,48 @@ export function annotationWorkbench({ item, pack, files, state, preferences = st
         updateAnnotation(mark => { mark.style = { ...mark.style, color: value }; }, { reselection: true });
       }
     };
-    const swatch = (value, label, extra = '') => {
-      const node = el('button', { type: 'button', class: `studio-swatch ${extra}`, 'aria-label': label, title: label, disabled: multi });
-      if (value !== 'auto') node.style.backgroundColor = value;
-      const active = value === 'auto' ? currentColour === 'auto' : String(currentColour).toLowerCase() === value.toLowerCase();
-      node.classList.toggle('active', active);
-      node.setAttribute('aria-pressed', String(active));
-      node.addEventListener('click', () => { if (!multi) applyColour(value); });
-      return node;
+    const pickColour = String(settings.color ?? 'auto').toLowerCase();
+    const faceColour = pickColour === 'auto' ? 'auto' : String(currentColour).toLowerCase();
+    const colourLabel = value => {
+      if (value === 'auto') return 'Culoare automată';
+      const index = MARK_PALETTE.indexOf(value);
+      return index === -1 ? `Culoare personalizată ${value}` : `Culoare ${index + 1}`;
     };
-    const colorSwatches = el('span', { class: 'studio-color-swatches', role: 'group', 'aria-label': 'Paletă de culori' },
-      swatch('auto', 'Culoare automată', 'is-auto'),
-      ...MARK_PALETTE.map((color, index) => swatch(color, `Culoare ${index + 1}`)));
-    const colorField = el('input', { type: 'color', value: currentColour === 'auto' ? MARK_PALETTE[0] : currentColour, 'aria-label': 'Culoare personalizată', onchange: event => applyColour(event.target.value) });
-    colorField.classList.toggle('active', currentColour !== 'auto' && !MARK_PALETTE.includes(String(currentColour).toLowerCase()));
-    colorField.disabled = multi;
-    const colourControl = el('div', { class: 'studio-ribbon-control' }, el('span', {}, 'Culoare'),
-      el('span', { class: 'studio-color-controls' }, colorSwatches, colorField));
+    const colourFace = value => {
+      if (value === 'auto') return wheelBadge();
+      const face = el('span', { class: 'studio-colour-fill', 'aria-hidden': 'true' });
+      face.style.backgroundColor = value;
+      return face;
+    };
+    const openColourPicker = () => {
+      let dialog;
+      const close = () => {
+        dialog.close();
+        ribbonBody.querySelector('.studio-colour-trigger')?.focus();
+      };
+      const option = (value, label) => {
+        const active = value === pickColour;
+        const node = el('button', { type: 'button', class: `studio-colour-option${active ? ' active' : ''}`,
+          'aria-label': label, 'aria-pressed': String(active), title: label });
+        node.append(colourFace(value));
+        if (value === 'auto') node.append(el('span', {}, 'Automată'));
+        node.addEventListener('click', () => { applyColour(value); close(); });
+        return node;
+      };
+      const custom = el('input', { type: 'color', value: pickColour === 'auto' ? MARK_PALETTE[0] : pickColour,
+        'aria-label': 'Culoare personalizată', onchange: event => { applyColour(event.target.value); close(); } });
+      const customActive = pickColour !== 'auto' && !MARK_PALETTE.includes(pickColour);
+      dialog = modal('Culoare', el('div', { class: 'studio-colour-picker' },
+        option('auto', 'Culoare automată'),
+        el('div', { class: 'studio-colour-grid', role: 'group', 'aria-label': 'Paletă de culori' },
+          ...MARK_PALETTE.map((colour, index) => option(colour, `Culoare ${index + 1}`))),
+        el('label', { class: `studio-colour-custom${customActive ? ' active' : ''}` }, el('span', {}, 'Culoare personalizată'), custom)),
+      [button('Închide', () => close(), 'button secondary')]);
+    };
+    const colourTrigger = el('button', { type: 'button', class: 'studio-colour-trigger', disabled: multi, onclick: openColourPicker,
+      'aria-label': `${colourLabel(faceColour)}. Deschide paleta de culori`, 'aria-haspopup': 'dialog',
+      title: colourLabel(faceColour) }, colourFace(faceColour));
+    const colourControl = el('div', { class: 'studio-ribbon-control studio-colour-control' }, el('span', {}, 'Culoare'), colourTrigger);
     const fill = select('Umplere', multi ? [['', 'Diverse'], ...Object.entries(FILLS)] : Object.entries(FILLS),
       multi ? (commonValue('pattern') ?? '') : (values.pattern || 'none'), value => { if (value) applyFill(value); });
     fill.disabled = multi ? !rowsSelected.some(mark => CLOSED.has(mark.shape)) : !CLOSED.has(shape);

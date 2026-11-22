@@ -47,7 +47,7 @@
 }
 
 .studio-launch-current {
-  margin-top: 16px;
+  min-width: 0;
   color: var(--muted);
   font-size: 12px;
   overflow-wrap: anywhere;
@@ -58,14 +58,30 @@
 }
 
 .studio-launch-preferences {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
+  display: grid;
+  gap: 10px;
   margin-top: 26px;
   border-top: 1px solid var(--line);
   padding-top: 16px;
+}
+
+.studio-launch-preferences-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+
+.studio-launch-preferences-row .theme-control {
+  flex: none;
+}
+
+.studio-launch-preferences-row .studio-launch-current {
+  flex: 1 1 140px;
+  overflow: hidden;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .studio-launch-status {
@@ -73,14 +89,9 @@
   font-size: 12px;
 }
 
-.studio-launch-preferences-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 10px;
-}
-
 .studio-launch-preferences .credits-button {
+  flex: none;
+  margin-left: auto;
   min-height: 36px;
   padding: 6px 12px;
   font-size: 12px;
@@ -173,8 +184,20 @@
     grid-template-columns: 1fr;
   }
 
-  .studio-launch-preferences-actions {
-    width: 100%;
-    justify-content: space-between;
+  .studio-launch-preferences-row {
+    gap: 10px;
+  }
+
+  .studio-launch-preferences-row .theme-control {
+    flex-wrap: wrap;
+  }
+
+  .studio-launch-preferences-row .studio-launch-current {
+    flex: 1 1 100%;
+    order: 3;
+    overflow: visible;
+    text-align: left;
+    text-overflow: clip;
+    white-space: normal;
   }
 }

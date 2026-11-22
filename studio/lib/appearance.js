@@ -20,6 +20,12 @@ function recognizedTheme(value){
   return themes.some(([theme])=>theme===value)?value:'system';
 }
 
+const ornament=variant=>el('span',{class:`seasonal-ball ${variant}`},
+  el('span',{class:'seasonal-ring'}),
+  el('span',{class:'seasonal-string'}),
+  el('span',{class:'seasonal-cap'}),
+  el('span',{class:'seasonal-globe'}));
+
 function applyTheme(){
   const theme=preference==='system'?(systemTheme.matches?'dark':'light'):preference;
   const root=document.documentElement;
@@ -28,8 +34,16 @@ function applyTheme(){
   if(theme==='christmas' && !decorations){
     decorations=el('div',{class:'seasonal-decorations','aria-hidden':'true'},
       el('div',{class:'seasonal-snow'}),
-      el('div',{class:'seasonal-ornaments'},el('span'),el('span'),el('span')),
-      el('div',{class:'seasonal-landscape'},el('span',{class:'seasonal-sleigh'},'🛷'),el('span',{class:'seasonal-tree'},'🎄'),el('span',{class:'seasonal-presents'},'🎁')));
+      el('div',{class:'seasonal-ornaments'},ornament('is-red'),ornament('is-green'),ornament('is-blue'),ornament('is-white')),
+      el('div',{class:'seasonal-landscape'},
+        el('span',{class:'seasonal-shadow'}),
+        el('span',{class:'seasonal-body'}),
+        el('span',{class:'seasonal-middle'}),
+        el('span',{class:'seasonal-scarf'}),
+        el('span',{class:'seasonal-head'},
+          el('span',{class:'seasonal-eye is-left'}),
+          el('span',{class:'seasonal-eye is-right'}),
+          el('span',{class:'seasonal-nose'}))));
     document.body.append(decorations);
   }
   if(decorations)decorations.hidden=theme!=='christmas';
