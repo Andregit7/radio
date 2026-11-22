@@ -56,6 +56,15 @@
   align-items: center;
   gap: 5px;
 }
+.studio-ribbon-actions .chip-danger {
+  color: var(--red);
+  background: var(--danger-surface);
+  border-color: var(--danger-line);
+}
+.studio-ribbon-actions .chip-danger:hover {
+  background: color-mix(in srgb, var(--danger-surface), var(--red) 16%);
+  border-color: var(--red);
+}
 
 .studio-panel-toggle {
   flex: none;

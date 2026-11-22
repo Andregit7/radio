@@ -88,3 +88,8 @@
   .studio-empty-select{padding:20px 0}
   .studio-empty-select .setup-aside{max-width:none}
 }
+
+.studio-confirm{display:grid;gap:12px;max-width:520px}
+.studio-confirm p{margin:0;font-size:13px;line-height:1.8;color:var(--muted)}
+.studio-confirm-skip{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+.studio-confirm-skip input{width:16px;height:16px;margin:0;accent-color:var(--teal)}

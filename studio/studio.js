@@ -373,11 +373,51 @@ function renderCaseEditor(work){
   workbench=annotationWorkbench({item,pack:draft.pack,files:draft.files,state,preferences:editorPreferences,remember,changed,ensureV2,uid,
     onUpload:role=>{pendingUpload={role,caseId,project:draft};document.getElementById('add-case-image').click();},
     onPreview:(imageId,comparisonId)=>showCasePreview(item,imageId||state.imageId,comparisonId),
+    onDelete:act(()=>deleteCase(item)),
     undoControl:undoControl(),
     renderNotes:controls=>renderCaseNotes(item,controls),
   });
   work.classList.add('studio-case-workspace');
   work.append(workbench.node);
+}
+
+const deleteConfirmKey='radioeasy-studio-skip-delete';
+
+function askDeleteCase(item){
+  return new Promise(resolve=>{
+    let answer=false;
+    const skip=el('input',{type:'checkbox'});
+    const dialog=modal('Șterge cazul',
+      el('div',{class:'studio-confirm'},
+        el('p',{},`Ștergi definitiv „${item.title}”? Se elimină imaginea, reperele și întrebările legate de acest caz.`),
+        el('label',{class:'studio-confirm-skip'},skip,el('span',{},'Nu mai afișa acest mesaj'))),
+      [button('Renunță',()=>dialog.close(),'button ghost'),
+        button([icon('trash',15),'Șterge cazul'],()=>{answer=true;try{localStorage.setItem(deleteConfirmKey,skip.checked?'off':'on');}catch{}dialog.close();},'button danger')]);
+    dialog.addEventListener('close',()=>resolve(answer),{once:true});
+  });
+}
+
+async function deleteCase(item){
+  if(!draft||!item)return;
+  let skip=false;try{skip=localStorage.getItem(deleteConfirmKey)==='off';}catch{}
+  if(!skip && !await askDeleteCase(item))return;
+  const index=draft.pack.cases.findIndex(row=>row.id===item.id);
+  if(index<0)return;
+  remember();
+  draft.pack.cases=draft.pack.cases.filter(row=>row.id!==item.id);
+  if(draft.bank?.items)draft.bank.items=draft.bank.items.filter(row=>row.caseId!==item.id);
+  for(const row of draft.pack.cases){
+    if(row.comparisons)row.comparisons=row.comparisons.filter(comparison=>comparison.caseId!==item.id);
+    const differentials=row.sections.find(section=>section.id==='differentials');
+    for(const entry of differentials?.items||[])if(entry.targetCaseId===item.id)delete entry.targetCaseId;
+  }
+  const used=new Set(draft.pack.cases.flatMap(row=>row.images.map(image=>image.path)));
+  for(const image of item.images)if(!used.has(image.path))draft.files.delete(image.path);
+  caseViews.delete(item.id);
+  caseId=(draft.pack.cases[index] || draft.pack.cases[index-1])?.id || null;
+  tab='case';
+  changed();await saveNow();render();
+  toast('Cazul a fost șters.');
 }
 
 function showCasePreview(item,initialImageId,initialComparisonId){

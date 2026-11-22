@@ -73,7 +73,7 @@ function wheelBadge() {
   return node;
 }
 
-export function annotationWorkbench({ item, pack, files, state, preferences = state, remember, changed, ensureV2, uid, onUpload, onPreview, undoControl, renderNotes }) {
+export function annotationWorkbench({ item, pack, files, state, preferences = state, remember, changed, ensureV2, uid, onUpload, onPreview, onDelete, undoControl, renderNotes }) {
   const settings = preferences.settings ??= { shape: 'ellipse', color: 'auto', pattern: 'none', line: 'solid', width: DEFAULT_LINE_WIDTH };
   const collapsed = preferences.collapsed ??= {};
   const widths = preferences.widths ??= { marks: 21, notes: 31 };
@@ -110,7 +110,9 @@ export function annotationWorkbench({ item, pack, files, state, preferences = st
   const ribbon = el('section', { class: 'studio-ribbon', 'aria-label': 'Instrumente pentru repere' },
     el('header', { class: 'studio-ribbon-head' }, el('div', { class: 'studio-ribbon-tabs' }, drawTab, selectionTab),
       el('div', { class: 'studio-ribbon-actions' }, undoControl || null,
-        button([icon('eye', 15), 'Previzualizare'], () => onPreview?.(state.imageId, state.comparisonId), 'chip'), ribbonToggle)), ribbonBody);
+        button([icon('eye', 15), 'Previzualizare'], () => onPreview?.(state.imageId, state.comparisonId), 'chip'),
+        onDelete ? button([icon('trash', 15), 'Șterge cazul'], () => onDelete(), 'chip chip-danger') : null,
+        ribbonToggle)), ribbonBody);
   const binding = el('div', { class: 'studio-bind-notice', role: 'status', 'aria-live': 'polite' });
   const list = el('div', { class: 'studio-mark-list' });
   const selectAll = el('input', { type: 'checkbox', class: 'studio-mark-check studio-select-all',
