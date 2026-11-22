@@ -1,5 +1,5 @@
 /* Versioned, atomic app-shell cache. Imported materials live only in IndexedDB. */
-const VERSION='0.2.0-2be70c0632bc';
+const VERSION='0.3.0-f2297f28ed1c';
 const PREFIX=`radia-shell:${self.registration.scope}:`;
 const CACHE=PREFIX+VERSION;
 const FILES=['./','./index.html','./styles.css','./manifest.webmanifest','./release.json','./icons/icon.svg','./icons/icon-192.png','./icons/icon-512.png','./icons/maskable-512.png','./icons/apple-touch-icon.png',
