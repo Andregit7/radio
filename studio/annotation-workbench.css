@@ -185,7 +185,8 @@
 .studio-notes-body .studio-item textarea { min-width: 100px; flex: 1; }
 .studio-workbench-pane.is-collapsed .studio-pane-head { flex-direction: column-reverse; border: 0; padding: 5px; }
 .studio-workbench-pane.is-collapsed h2 { writing-mode: vertical-rl; padding-top: 5px; }
-.studio-workbench-pane.is-collapsed .studio-pane-head-tools { display: none; }
+.studio-workbench-pane.is-collapsed .studio-pane-head-tools,
+.studio-workbench-pane.is-collapsed .studio-select-all-wrap { display: none; }
 
 .studio-resize { position: relative; background: transparent; touch-action: none; }
 .studio-resize-width { cursor: col-resize; }
