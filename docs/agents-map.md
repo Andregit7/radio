@@ -30,21 +30,22 @@ This directory is **source**, not build output. It is served directly.
 | `dom.js` | DOM kit | `el`, `button`, `link`, `badge`, `icon`, `toast`, `modal` | none |
 | `annotation-view.js` | shared SVG marks, conversion between shapes, observation order, and stroke/fill styling | `annotationRenderer`, `updateAnnotationGeometry`, `convertAnnotationShape`, `annotationsInObservationOrder`, `annotationNumbers`, palette and line options | `schema.js` |
 | `appearance.js` | resolves the local theme preference, installs seasonal decorations, and renders appearance controls | `initAppearance`, `themeControl` | `dom.js` |
+| `credits.js` | shared credits content, modal, and theme-aware credits button (present animation on the Christmas theme) | `CREDITS`, `openCredits`, `creditsButton` | `dom.js` |
 | `case-interpretation.js` | builds the linked observation panel and resolves comparison assets for Study and Studio preview | `caseInterpretation`, `caseComparisonLayers` | `core.js`, `dom.js` |
 | `viewer.js` | image viewer: fit/fill stage, zoom, drag panning, marks, and comparisons | `imageViewer(record, caseData, opts) → {node, selectItem, destroy}`. Provide `opts.loadAsset` when using local Studio draft files | `dom.js`, `annotation-view.js`, Study `storage.js` as the default asset loader |
 | `catalogue.js` | chapter/case selector UI | `catalogueSelector(pack, opts)` | `dom.js`, `core.js` |
 | `exercises.js` | exercise derivation + grading | `EXERCISE_LABELS`, `SECTION_PROMPTS`, `SECTION_ORDER`, `presentSections`, `interpretationExercise`, `regionsExercise`, `matchingExercise`, `availableExercises`, `gradeMatching`, `matchingScore`, `answerSelfChecks`, `selfAssessmentCount`, `selfAssessmentItems`, `recordSelfAssessment`, `sessionAnswer`, `advanceSession`, `finishSessionEarly`, `receivedAnswers`, `exerciseSubject`, `canonicalDiagnosisLabels` | `core.js`, `structured.js` |
 | `structured.js` | chapter-bank exercise derivation, one-to-one observation matching, structured progress | `STRUCTURED_ORDER`, `structuredExercise`, `stepLabel`, `gradeStructured`, `structuredRecord`, `optionLabel`, `describeObservation` | `core.js` |
-| `app.js` | Study SPA: router (`#library`, `#cases`, `#case/:id`, `#practice`, `#exam`, `#progress`, `#settings`), reader layers, differential previews, guided/exam structured rendering and persistence, result tiles headed by case and section label with the chosen and correct answers, the persisted `viewerMode` preference, and the learning reset through `clearLearning` | none | everything above |
+| `app.js` | Study SPA: router (`#library`, `#cases`, `#case/:id`, `#practice`, `#exam`, `#progress`, `#settings`), reader layers, differential previews, guided/exam structured rendering and persistence, result tiles headed by case and section label with the chosen and correct answers, the persisted `viewerMode` preference, the credits entry, and the learning reset through `clearLearning` | none | everything above |
 | `checks/browser.js` | browser integration checks | none | `storage`, `schema`, `archive`, `viewer`, `catalogue`, `core`, `exercises` |
 
 ## `studio`
 
 | File | Purpose |
 |---|---|
-| `studio.js` | Pack Studio SPA, local drafts, case forms, chapter banks, diagnoses, curriculum, questions, Study preview, and pack import/export |
-| `annotation-workbench.js` | drawing and mark editing, binding, selection across the canvas/list/observations, pane layout and viewport controls |
-| `landing.js` | launch actions, saved-draft chooser, and workspace navigation |
+| `studio.js` | Pack Studio SPA, local drafts, sidebar navigation with chapter-grouped collapsible cases, section views, case forms, chapter banks, diagnoses, curriculum, questions, Study preview, and pack import/export |
+| `annotation-workbench.js` | drawing and mark editing, binding, single/multi selection across the canvas/list/observations (select-all and drag marquee), colour swatches, pen/select/hand modes, fill and style editing, pane layout and viewport controls |
+| `landing.js` | launch actions, saved-draft chooser, workspace navigation, and the credits entry |
 | `studio/lib/*` | **GENERATED** shared modules listed in `tools/prepare-studio.mjs` |
 | `studio/base.css` | **GENERATED** copy of `dist/styles.css` — never edit |
 

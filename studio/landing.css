@@ -73,6 +73,19 @@
   font-size: 12px;
 }
 
+.studio-launch-preferences-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.studio-launch-preferences .credits-button {
+  min-height: 36px;
+  padding: 6px 12px;
+  font-size: 12px;
+}
+
 .studio-draft-picker {
   display: grid;
   gap: 8px;
@@ -158,5 +171,10 @@
 @media (max-width: 490px) {
   .studio-launch-actions {
     grid-template-columns: 1fr;
+  }
+
+  .studio-launch-preferences-actions {
+    width: 100%;
+    justify-content: space-between;
   }
 }

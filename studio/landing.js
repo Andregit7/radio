@@ -1,5 +1,6 @@
 import {initAppearance,themeControl} from './lib/appearance.js';
 import {el,button,icon,modal} from './lib/dom.js';
+import {creditsButton} from './lib/credits.js';
 
 initAppearance();
 
@@ -30,7 +31,9 @@ export function studioLanding({drafts,activeId,onNew,onOpenZip,onOpenDraft,onExp
         button([icon('download',18),'Validează și exportă'],onExport,'button secondary',{disabled:!active,'aria-describedby':'studio-launch-pack'}),
         button([icon('refresh',18),el('span',{'aria-live':'polite'},updateLabel)],onUpdate,'button secondary update-check',{disabled:updateChecking})),
       el('p',{class:'studio-launch-current',id:'studio-launch-pack'},active?['Pachet pentru validare și export ',el('strong',{},active.title || 'Pachet fără titlu')]:'Deschide un pachet pentru a-l valida și exporta.'),
-      el('footer',{class:'studio-launch-preferences'},themeControl(),el('span',{class:'studio-launch-status',id:'save-status',role:'status'}))));
+      el('footer',{class:'studio-launch-preferences'},
+        el('div',{class:'studio-launch-preferences-actions'},creditsButton('button secondary'),themeControl()),
+        el('span',{class:'studio-launch-status',id:'save-status',role:'status'}))));
 }
 
 export function studioWorkspaceHeader({title,onMenu,status}){

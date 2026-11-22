@@ -100,6 +100,9 @@ export function annotationWorkbench({ item, pack, files, state, preferences = st
         button([icon('eye', 15), 'Previzualizare'], () => onPreview?.(state.imageId, state.comparisonId), 'chip'), ribbonToggle)), ribbonBody);
   const binding = el('div', { class: 'studio-bind-notice', role: 'status', 'aria-live': 'polite' });
   const list = el('div', { class: 'studio-mark-list' });
+  const selectAll = el('input', { type: 'checkbox', class: 'studio-mark-check studio-select-all',
+    'aria-label': 'Selectează toate reperele', title: 'Selectează toate reperele', onchange: event => toggleAll(event.target.checked) });
+  const marksHeadTools = el('label', { class: 'studio-select-all-wrap' }, selectAll, el('span', {}, 'Toate'));
   const notes = el('div', { class: 'studio-pane-body studio-notes-body' });
   const listBody = el('div', { class: 'studio-pane-body studio-marks-body' }, list);
   const svg = document.createElementNS(SVG, 'svg');
@@ -110,12 +113,13 @@ export function annotationWorkbench({ item, pack, files, state, preferences = st
   const stage = el('div', { class: 'studio-workbench-stage', tabindex: '0', 'aria-label': 'Radiografie. Rotița ajustează zoomul. Tastele [ și ] schimbă stratul. Ține Spațiu și trage pentru deplasare.' }, canvas, missing);
   const zoomLabel = el('output', { class: 'studio-zoom-label', 'aria-live': 'polite' }, '100%');
   const selectTool = button(icon('cursor', 17), () => setTool('select'), 'studio-stage-button', { 'aria-label': 'Selectează reperele', title: 'Selectează reperele' });
+  const penTool = button(icon('pen', 17), () => setTool('draw'), 'studio-stage-button', { 'aria-label': 'Desenează un reper', title: 'Desenează un reper' });
   const panTool = button(icon('hand', 17), () => setTool('pan'), 'studio-stage-button', { 'aria-label': 'Deplasează imaginea', title: 'Deplasează imaginea (Spațiu + tragere)' });
   const viewerControls = el('div', { class: 'studio-view-tools' },
     button('−', () => zoomTo(view.zoom / 1.25), 'studio-stage-button', { 'aria-label': 'Micșorează radiografia' }),
     zoomLabel,
     button('+', () => zoomTo(view.zoom * 1.25), 'studio-stage-button', { 'aria-label': 'Mărește radiografia' }),
-    button('Încadrează', resetView, 'studio-stage-button'), selectTool, panTool);
+    button('Încadrează', resetView, 'studio-stage-button'), selectTool, penTool, panTool);
   const imageSelect = select('Imagine editată', [], state.imageId, value => switchImage(value));
   const layerSelect = select('Strat afișat', [], '', value => setComparison(value || null));
   const imageHeadTools = el('div', { class: 'studio-pane-head-tools' }, imageSelect, layerSelect);
@@ -132,7 +136,7 @@ export function annotationWorkbench({ item, pack, files, state, preferences = st
     return node;
   }
 
-  grid.append(pane('marks', 'Repere', listBody), separator('marks', 'width', 'Redimensionează lista de repere'),
+  grid.append(pane('marks', 'Repere', listBody, marksHeadTools), separator('marks', 'width', 'Redimensionează lista de repere'),
     pane('image', 'Radiografie', imageBody, imageHeadTools, 'Radiografie:'), separator('notes', 'width', 'Redimensionează observațiile'), pane('notes', 'Observații', notes));
   root.append(ribbon, binding, grid);
 
@@ -268,8 +272,9 @@ export function annotationWorkbench({ item, pack, files, state, preferences = st
     const rowsSelected = state.ribbonTab === 'selection' ? selectedRows() : [];
     const multi = rowsSelected.length > 1;
     const row = rowsSelected.length === 1 ? rowsSelected[0] : null;
-    const values = row ? row.style || {} : settings;
-    const shape = row?.shape || settings.shape;
+    const pendingStyle = !rowsSelected.length && state.pending ? state.pending.style || {} : null;
+    const values = row ? row.style || {} : pendingStyle || settings;
+    const shape = row?.shape || (pendingStyle ? state.pending.shape : settings.shape);
     const styleValue = (mark, key) => mark.style?.[key] ?? (key === 'pattern' ? 'none' : key === 'line' ? 'solid' : DEFAULT_LINE_WIDTH);
     const commonValue = key => {
       if (!rowsSelected.length) return settings[key];
@@ -277,8 +282,20 @@ export function annotationWorkbench({ item, pack, files, state, preferences = st
       return rowsSelected.every(candidate => styleValue(candidate, key) === first) ? first : undefined;
     };
     const applyStyle = (key, value) => {
-      if (!rowsSelected.length) { settings[key] = value; return; }
-      if (!multi) { updateAnnotation(mark => { mark.style = { ...mark.style, [key]: value }; }); return; }
+      if (!rowsSelected.length) {
+        settings[key] = value;
+        if (state.pending) {
+          state.pending.style = { ...state.pending.style, [key]: value };
+          paint();
+          renderRibbon();
+        }
+        return;
+      }
+      if (!multi) {
+        updateAnnotation(mark => { mark.style = { ...mark.style, [key]: value }; });
+        renderRibbon();
+        return;
+      }
       remember();
       for (const mark of rowsSelected) mark.style = { ...mark.style, [key]: value };
       ensureV2();
@@ -287,8 +304,20 @@ export function annotationWorkbench({ item, pack, files, state, preferences = st
       renderRibbon();
     };
     const applyFill = value => {
-      if (!rowsSelected.length) { settings.pattern = value; return; }
-      if (!multi) { updateAnnotation(mark => { mark.style = { ...mark.style, pattern: value }; }); return; }
+      settings.pattern = value;
+      if (!rowsSelected.length) {
+        if (state.pending) {
+          state.pending.style = { ...state.pending.style, pattern: value };
+          paint();
+          renderRibbon();
+        }
+        return;
+      }
+      if (!multi) {
+        updateAnnotation(mark => { mark.style = { ...mark.style, pattern: value }; });
+        renderRibbon();
+        return;
+      }
       const targets = rowsSelected.filter(mark => CLOSED.has(mark.shape));
       if (!targets.length) return;
       remember();
@@ -307,19 +336,44 @@ export function annotationWorkbench({ item, pack, files, state, preferences = st
       else { settings.shape = value; setTool('draw'); renderRibbon(); }
     });
     shapeControl.disabled = multi;
-    const currentColour = row ? markColour(row) : settings.color;
-    const colorField = el('input', { type: 'color', value: currentColour === 'auto' ? MARK_PALETTE[0] : currentColour, 'aria-label': 'Culoare personalizată', onchange: event => applyStyle('color', event.target.value) });
-    const colorPreset = select('Paleta de culori', [['auto', 'Automată'], ...MARK_PALETTE.map(color => [color, color]), ['custom', 'Personalizată']],
-      currentColour === 'auto' || MARK_PALETTE.includes(currentColour) ? currentColour : 'custom', value => {
-        if (value === 'custom') { colorField.click(); return; }
-        if (value === 'auto' && row) updateAnnotation(mark => {
+    const currentColour = row ? markColour(row) : state.pending ? markColour(state.pending) : settings.color;
+    const applyColour = value => {
+      if (!rowsSelected.length) {
+        settings.color = value;
+        if (state.pending) {
+          const colour = value === 'auto' ? autoColour(item.annotations, state.imageId) : value;
+          state.pending.style = { ...state.pending.style, color: colour };
+          paint();
+          renderRibbon();
+        }
+        return;
+      }
+      if (multi) return;
+      if (value === 'auto') {
+        updateAnnotation(mark => {
           mark.style = { ...mark.style, color: autoColour(item.annotations.filter(candidate => candidate !== mark), mark.imageId) };
         }, { reselection: true });
-        else { applyStyle('color', value); if (value !== 'auto') colorField.value = value; }
-      });
-    colorField.addEventListener('change', () => { colorPreset.value = MARK_PALETTE.includes(colorField.value) ? colorField.value : 'custom'; });
+      } else {
+        updateAnnotation(mark => { mark.style = { ...mark.style, color: value }; }, { reselection: true });
+      }
+    };
+    const swatch = (value, label, extra = '') => {
+      const node = el('button', { type: 'button', class: `studio-swatch ${extra}`, 'aria-label': label, title: label, disabled: multi });
+      if (value !== 'auto') node.style.backgroundColor = value;
+      const active = value === 'auto' ? currentColour === 'auto' : String(currentColour).toLowerCase() === value.toLowerCase();
+      node.classList.toggle('active', active);
+      node.setAttribute('aria-pressed', String(active));
+      node.addEventListener('click', () => { if (!multi) applyColour(value); });
+      return node;
+    };
+    const colorSwatches = el('span', { class: 'studio-color-swatches', role: 'group', 'aria-label': 'Paletă de culori' },
+      swatch('auto', 'Culoare automată', 'is-auto'),
+      ...MARK_PALETTE.map((color, index) => swatch(color, `Culoare ${index + 1}`)));
+    const colorField = el('input', { type: 'color', value: currentColour === 'auto' ? MARK_PALETTE[0] : currentColour, 'aria-label': 'Culoare personalizată', onchange: event => applyColour(event.target.value) });
+    colorField.classList.toggle('active', currentColour !== 'auto' && !MARK_PALETTE.includes(String(currentColour).toLowerCase()));
     colorField.disabled = multi;
-    colorPreset.disabled = multi;
+    const colourControl = el('div', { class: 'studio-ribbon-control' }, el('span', {}, 'Culoare'),
+      el('span', { class: 'studio-color-controls' }, colorSwatches, colorField));
     const fill = select('Umplere', multi ? [['', 'Diverse'], ...Object.entries(FILLS)] : Object.entries(FILLS),
       multi ? (commonValue('pattern') ?? '') : (values.pattern || 'none'), value => { if (value) applyFill(value); });
     fill.disabled = multi ? !rowsSelected.some(mark => CLOSED.has(mark.shape)) : !CLOSED.has(shape);
@@ -332,7 +386,7 @@ export function annotationWorkbench({ item, pack, files, state, preferences = st
         event.target.value = next;
         applyStyle('width', next);
       } });
-    const attrs = el('div', { class: 'studio-ribbon-group', role: 'group', 'aria-label': 'Aspect' }, control('Culoare', el('span', { class: 'studio-color-controls' }, colorPreset, colorField)),
+    const attrs = el('div', { class: 'studio-ribbon-group', role: 'group', 'aria-label': 'Aspect' }, colourControl,
       control('Grosime (px)', width), control('Stil linie', line), control('Umplere', fill));
     toolControls = null;
     if (row) {
@@ -460,6 +514,10 @@ export function annotationWorkbench({ item, pack, files, state, preferences = st
 
   function syncSelection() {
     const ids = selectedIdSet();
+    const total = ordered?.length || 0;
+    selectAll.checked = total > 0 && ids.size === total;
+    selectAll.indeterminate = ids.size > 0 && ids.size < total;
+    selectAll.disabled = total === 0;
     for (const row of ordered) {
       const select = ids.has(row.id);
       const mark = marks.get(row.id);
@@ -564,6 +622,15 @@ export function annotationWorkbench({ item, pack, files, state, preferences = st
     renderRibbon();
   }
 
+  function toggleAll(checked) {
+    const ids = ordered.map(row => row.id);
+    state.selectedIds = checked ? ids : [];
+    state.annotationId = checked && ids.length === 1 ? ids[0] : null;
+    state.ribbonTab = checked && ids.length ? 'selection' : 'draw';
+    syncSelection();
+    renderRibbon();
+  }
+
   function selectObservation(id, group = false) {
     if (state.pending) { bindObservation(id); return; }
     redrawId = null;
@@ -625,6 +692,7 @@ export function annotationWorkbench({ item, pack, files, state, preferences = st
     state.selectedIds = [row.id];
     state.annotationId = row.id;
     state.selectedObservationId = itemId;
+    state.ribbonTab = 'selection';
     if (state.groupId !== itemId) state.groupId = null;
     relabel();
     ensureV2();
@@ -860,6 +928,8 @@ export function annotationWorkbench({ item, pack, files, state, preferences = st
     stage.classList.toggle('is-drawing', preferences.tool === 'draw' && !spaceHeld && !activeComparison() && !state.pending);
     selectTool.classList.toggle('active', preferences.tool === 'select');
     selectTool.setAttribute('aria-pressed', String(preferences.tool === 'select'));
+    penTool.classList.toggle('active', preferences.tool === 'draw');
+    penTool.setAttribute('aria-pressed', String(preferences.tool === 'draw'));
     panTool.classList.toggle('active', preferences.tool === 'pan');
     panTool.setAttribute('aria-pressed', String(preferences.tool === 'pan'));
   }
