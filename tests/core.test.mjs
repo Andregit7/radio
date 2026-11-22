@@ -14,6 +14,15 @@ test('search hides only groups without query matches and respects declared curri
   assert.equal(searchCatalogue(diagnoses,chapters,'endobronsic')[0].items[0].label,diagnoses[0].label);
   assert.equal(searchCatalogue(diagnoses,chapters,'potcoava',['respiratory']).length,0);
 });
+test('diagnosis name and optional keywords find the same catalogue choice',()=>{
+  const fibroma={id:'fibroma',label:'Fibrom osos',chapterIds:['bone'],keywords:['tumoră','os'],aliases:['legacy']};
+  const bone=[{id:'bone',label:'Osos'}];
+  for(const query of ['fibrom os','Fibrom osos','tumora','tumora fibrom']){
+    assert.deepEqual(searchCatalogue([fibroma],bone,query)[0].items,[fibroma]);
+  }
+  assert.deepEqual(searchCatalogue([fibroma],bone,'legacy'),[]);
+  assert.deepEqual(searchCatalogue([{...fibroma,keywords:[]}],bone,'legacy'),[]);
+});
 test('grading uses IDs, exact sets, and never option position or free text',()=>{
   assert(gradeAnswer(['endo'],['endo']));assert(!gradeAnswer(['Cancer bronhopulmonar endobronșic'],['endo']));
   assert(!gradeAnswer([],[]));assert(!gradeAnswer(['endo','exo'],['endo']));

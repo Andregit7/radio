@@ -2,9 +2,9 @@
 
 ## Verified automatically
 
-- Node tests: diacritics and alias search, curriculum filtering, grading by ID, multiple selection, spaced-review intervals and exam selection.
+- Node tests cover diacritics, diagnosis name and keyword search, migration of legacy search terms, curriculum filtering, grading by ID, multiple selection, spaced-review intervals and exam selection.
 - Detecting a change of the key/prompt without depending on the order of the options.
-- Eligibility of the full interpretation, missing sections, the canonical diagnosis without alias, `reviewed` annotations, exact matching, self-assessment and session transitions.
+- Eligibility of the full interpretation, missing sections, canonical diagnosis labels, `reviewed` annotations, exact matching, self-assessment and session transitions.
 - Structured interpretation: chapter-bank steps, exact choice sets, repeated observation matching, measurement normalization, order-independent signatures, image/key invalidation and one scheduled attempt per case.
 - Authored written questions with their own rubric and self-assessment signature; they stay outside automatic accuracy.
 - Validation of pack v1/v2, mark styles, comparison layers, linked differentials, chapter banks, structured findings, images, hashes, coordinates and learning backups v1/v2.
@@ -16,7 +16,7 @@ The exact commands and the result of the last run are in `verification-results.j
 
 ## Verified in the browser
 
-The project harness `dist/checks.html` passed in a local headless browser against the build IDs recorded in `docs/browser-checks.json`. The same run also exercised Study import, reader comparison layers, the differential preview, a structured guided step, Studio pack creation, chapter-bank creation, mark drawing, comparison-image upload and written-question creation without console errors.
+The project harness `dist/checks.html` passed in headless Chrome against the build IDs recorded in `docs/browser-checks.json`. That file also records the separate Studio authoring and appearance smoke checks.
 
 This is desktop-browser evidence, not a substitute for the manual matrix below. Installation on Windows, Android, iOS and macOS, airplane mode and consumption on modest phones remain to be verified.
 
@@ -25,7 +25,7 @@ This is desktop-browser evidence, not a substitute for the manual matrix below. 
 | Check | Expected result |
 |---|---|
 | Fresh Study launch | Empty library, no account or permission prompts; RadioEasy brand |
-| Course pack import | 80 cases, 4 chapters; images and notes open |
+| Course pack import | Cases and chapters match the starter pack report. Images and notes open |
 | First case, linked observation | Selecting the text highlights the ellipse and vice versa |
 | Zoom and orientation change | The annotation stays on the same region |
 | Viewer Fit/Fill | `Fit` shows the whole film with dark letterbox bars; `Fill` covers the stage and crops the overflowing side; the choice survives a reload and applies to every viewer |
@@ -40,8 +40,9 @@ This is desktop-browser evidence, not a substitute for the manual matrix below. 
 | Interpretare completă (legacy text) | Empty fields for the sections present; missing sections are named, not graded |
 | Written question | The author rubric appears only after submission; self-check stays outside automatic accuracy |
 | Self-assessment | After submission the notes and checks appear; the percentage does not mix in the self-assessment |
-| Displayed diagnosis | Only the canonical name, without aliases or the raw paragraph |
+| Displayed diagnosis | The full canonical name |
 | Catalogue, `cancer`, `endobronsic`, `potcoava` | Filtering without diacritics, full title, only chapters with matches |
+| Search by an author-defined keyword | The matching diagnosis appears under its full name and is selected by its existing ID |
 | A single result in the catalogue | Selection and confirmation are still required |
 | Search with no text | Chapters can be expanded/collapsed; the list stays the same for cases in the same curriculum |
 | MCQs | Shuffling the options does not change the key; a double click does not duplicate the attempt |
@@ -61,12 +62,13 @@ This is desktop-browser evidence, not a substitute for the manual matrix below. 
 | Network | No material, answer or progress uploaded to a server |
 | Studio, create/edit/export | The resulting pack can be imported into Study |
 | Studio, editing a case | The affected questions return to the draft state |
-| Studio, case editor on desktop | Tabs and case title stay fixed; the image column and the notes column scroll independently and keep their offsets after an edit re-renders the tree |
-| Studio, narrow window | Below the single-column breakpoint the page scrolls as a whole, without nested scrollbars |
+| Studio, case editor | The ribbon and each pane can collapse. Dividers resize the panes. The marks list and observations keep their scroll offsets on drawing and binding |
+| Studio, narrow window | Panes stack and can resize vertically. The radiograph fits its viewport and supports zoom and drag panning |
 | Studio, banks | Chapter-specific variants survive rename/reorder; deleting a used variant is blocked |
-| Studio, drawing | Ellipse, rectangle, arrow, open freehand and closed freehand all export and re-import; fills only on closed shapes |
-| Studio, colors | Each new mark gets a distinct automatic color; manual color and reset-to-automatic work per mark |
-| Studio, comparisons | A local comparison image or a referenced case/image survives export, re-import and Study layer toggling |
+| Studio, drawing | Open and closed freehand preserve long strokes. Drawing without a preselected observation requires binding or discarding the mark before the next stroke |
+| Studio, mark editing | A mark, list entry, or observation selection highlights the corresponding elements. Shape, color, line width, line style, and closed-shape fill survive export and import |
+| Studio, comparisons and preview | A local or referenced comparison survives export and import. The layer selector and keyboard shortcuts switch views. Studio preview shows the Study reader with linked notes and marks |
+| Study and Studio, appearance | Each theme persists on reload. System follows the device preference. Christmas decorations remain clear of the work area and honor reduced motion |
 | Studio, differentials | A linked case opens from Study; deleting the target is blocked until the link is removed |
 | Studio, written question | The rubric exports with the bank and is unavailable before submission |
 | Studio, close/reopen | The locally saved project is kept |

@@ -1,8 +1,7 @@
 # Code map
 
 One line per file: what it is, what it exports, what it depends on.
-Read this instead of exploring. It covers the whole hand-written surface of `app/`
-(~3.6k lines). If a file is not listed here, it is data or generated output.
+The map covers the hand-written application surface in `app/`.
 
 ## Entry points
 
@@ -29,20 +28,24 @@ This directory is **source**, not build output. It is served directly.
 | `archive.js` | runs ZIP work in a Worker | `archiveJob(action, payload, onProgress, signal)` — 120 s timeout, AbortSignal | `archive-worker.js` |
 | `archive-worker.js` | worker entry | none (`self.onmessage`) | `zip.js` |
 | `dom.js` | DOM kit | `el`, `button`, `link`, `badge`, `icon`, `toast`, `modal` | none |
-| `annotation-view.js` | shared SVG marks: palette, automatic color, shape, pattern and arrow rendering | `MARK_PALETTE`, `autoColour`, `markColour`, `annotationRenderer` | none |
-| `viewer.js` | image viewer: fit/fill stage, zoom, drag panning, primary tabs, mark toggle and comparison layers | `imageViewer(record, caseData, opts) → {node, selectItem, destroy}`; `opts.mode` is `'fit'` (default) or `'fill'`, `opts.onModeChange` reports a switch | `dom.js`, `storage.js`, `annotation-view.js` |
+| `annotation-view.js` | shared SVG marks, conversion between shapes, observation order, and stroke/fill styling | `annotationRenderer`, `updateAnnotationGeometry`, `convertAnnotationShape`, `annotationsInObservationOrder`, `annotationNumbers`, palette and line options | `schema.js` |
+| `appearance.js` | resolves the local theme preference, installs seasonal decorations, and renders appearance controls | `initAppearance`, `themeControl` | `dom.js` |
+| `case-interpretation.js` | builds the linked observation panel and resolves comparison assets for Study and Studio preview | `caseInterpretation`, `caseComparisonLayers` | `core.js`, `dom.js` |
+| `viewer.js` | image viewer: fit/fill stage, zoom, drag panning, marks, and comparisons | `imageViewer(record, caseData, opts) → {node, selectItem, destroy}`. Provide `opts.loadAsset` when using local Studio draft files | `dom.js`, `annotation-view.js`, Study `storage.js` as the default asset loader |
 | `catalogue.js` | chapter/case selector UI | `catalogueSelector(pack, opts)` | `dom.js`, `core.js` |
 | `exercises.js` | exercise derivation + grading | `EXERCISE_LABELS`, `SECTION_PROMPTS`, `SECTION_ORDER`, `presentSections`, `interpretationExercise`, `regionsExercise`, `matchingExercise`, `availableExercises`, `gradeMatching`, `matchingScore`, `answerSelfChecks`, `selfAssessmentCount`, `selfAssessmentItems`, `recordSelfAssessment`, `sessionAnswer`, `advanceSession`, `finishSessionEarly`, `receivedAnswers`, `exerciseSubject`, `canonicalDiagnosisLabels` | `core.js`, `structured.js` |
 | `structured.js` | chapter-bank exercise derivation, one-to-one observation matching, structured progress | `STRUCTURED_ORDER`, `structuredExercise`, `stepLabel`, `gradeStructured`, `structuredRecord`, `optionLabel`, `describeObservation` | `core.js` |
 | `app.js` | Study SPA: router (`#library`, `#cases`, `#case/:id`, `#practice`, `#exam`, `#progress`, `#settings`), reader layers, differential previews, guided/exam structured rendering and persistence, result tiles headed by case and section label with the chosen and correct answers, the persisted `viewerMode` preference, and the learning reset through `clearLearning` | none | everything above |
-| `checks/browser.js` | 8 browser integration checks | none | `storage`, `schema`, `archive`, `viewer`, `catalogue`, `core`, `exercises` |
+| `checks/browser.js` | browser integration checks | none | `storage`, `schema`, `archive`, `viewer`, `catalogue`, `core`, `exercises` |
 
 ## `studio`
 
 | File | Purpose |
 |---|---|
-| `studio.js` | Pack Studio SPA: IndexedDB `radia-studio-v1` (`drafts`, `meta`), debounced `saveNow` (450 ms), tabs case/banks/catalogue/curriculum/questions, ellipse/rect/arrow/freehand drawing, automatic or manual colors and fills, image comparison layers, linked differentials, structured case forms and written questions; two independently scrolling case-editor panes whose offsets, and the case list's, survive the full-tree re-render; `exportDraft` sanitizes → `validatePack` → `validateQuestions` → `validateFiles` |
-| `studio/lib/*` | **GENERATED** copies of `dist/js/{core,schema,zip,archive,archive-worker,dom,annotation-view}.js` — never edit |
+| `studio.js` | Pack Studio SPA, local drafts, case forms, chapter banks, diagnoses, curriculum, questions, Study preview, and pack import/export |
+| `annotation-workbench.js` | drawing and mark editing, binding, selection across the canvas/list/observations, pane layout and viewport controls |
+| `landing.js` | launch actions, saved-draft chooser, and workspace navigation |
+| `studio/lib/*` | **GENERATED** shared modules listed in `tools/prepare-studio.mjs` |
 | `studio/base.css` | **GENERATED** copy of `dist/styles.css` — never edit |
 
 ## `tools`
@@ -50,7 +53,7 @@ This directory is **source**, not build output. It is served directly.
 | File | npm script | Purpose |
 |---|---|---|
 | `serve.mjs` | `dev`, `studio` | dev server |
-| `prepare-studio.mjs` | `prepare:studio` | copies the seven shared modules + icons + `styles.css` into `studio/` |
+| `prepare-studio.mjs` | `prepare:studio` | copies the shared modules, icons and `styles.css` into `studio/` |
 | `check.mjs` | `check` | static checks: shared-module drift, manifest scope, SW `FILES` exist, `release.json` hashes |
 | `release.mjs` | `release` | stamps `sw.js` `VERSION`, writes `dist/release.json` + `studio/release.json`, builds `releases/` |
 | `deploy.mjs` | `deploy` | publishes; supports `--dry-run` |
@@ -94,16 +97,15 @@ Progress records live in IndexedDB `meta`, split between `progress`
 
 ## The mirror trap
 
-`dist/js/{core,schema,zip,archive,archive-worker,dom,annotation-view}.js` are copied to
-`studio/lib/` byte-for-byte by `prepare:studio`. `dist/styles.css` is copied to
-`studio/base.css`. `check.mjs` fails on drift.
+`prepare:studio` copies the shared modules listed in `tools/prepare-studio.mjs`
+to `studio/lib/` byte-for-byte and copies `dist/styles.css` to `studio/base.css`.
+`check.mjs` fails on drift.
 
 - Authoritative copy: **`dist/js/`** and **`dist/styles.css`**.
 - Editing `studio/lib/*` appears to work, then is silently overwritten.
 - Editing `dist/js/*` breaks `npm run check` until you run `prepare:studio`.
 
-`storage.js`, `viewer.js`, `catalogue.js`, `exercises.js`, and `app.js` are
-Study-only and are **not** mirrored.
+The mirrored viewer uses Studio's draft asset loader when embedded in a preview.
 
 ## Hard contracts enforced by `check.mjs`
 

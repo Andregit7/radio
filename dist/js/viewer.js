@@ -1,13 +1,15 @@
 import { el, button, icon } from './dom.js';
-import { assetBlob } from './storage.js';
-import { annotationRenderer } from './annotation-view.js';
+import { annotationNumbers, annotationRenderer, annotationsInObservationOrder } from './annotation-view.js';
 
 const viewerMode = value => value === 'fill' ? 'fill' : 'fit';
 
-export function imageViewer(record, caseData, { allowAnnotations=true, onSelect=()=>{}, exercise=null, comparisons=[], allowLayers=true, mode='fit', onModeChange=()=>{} }={}) {
+export function imageViewer(record, caseData, { allowAnnotations=true, onSelect=()=>{}, exercise=null, comparisons=[], allowLayers=true,
+  mode='fit', onModeChange=()=>{}, loadAsset=async path=>(await import('./storage.js')).assetBlob(record,path), initialImageId, initialComparisonId }={}) {
   const primary = caseData.images.filter(image => image.role !== 'comparison');
   const images = primary.length ? primary : caseData.images.slice(0, 1);
-  let image=images[0],url,disposed=false,zoom=1,showAll=Boolean(allowAnnotations),activeItem=null,loadId=0;
+  const annotationOrder=annotationsInObservationOrder(caseData), numbers=annotationNumbers(caseData);
+  const notes=new Map(caseData.sections.flatMap(section=>section.items.map(item=>[item.id,item.text])));
+  let image=images.find(row=>row.id===initialImageId) || images[0],url,disposed=false,zoom=1,showAll=Boolean(allowAnnotations),activeItem=null,loadId=0;
   let displayMode=viewerMode(mode),naturalWidth=0,naturalHeight=0,appliedWidth=0,appliedHeight=0,resizeObserver=null,pan=null;
   const marks=[],offUrls=[];
   const picture=el('img',{class:'radiograph',alt:`Radiografie: ${caseData.title}`,draggable:'false'});
@@ -17,6 +19,7 @@ export function imageViewer(record, caseData, { allowAnnotations=true, onSelect=
   const stage=el('div',{class:'image-stage',tabindex:'0','aria-label':'Radiografie. Comută între potrivire și umplere, ajustează zoomul sau trage imaginea pentru a o deplasa.'},canvas);
   const loading=el('div',{class:'image-loading'},'Se încarcă imaginea…');
   stage.append(loading);
+  const stageFrame=el('div',{class:'viewer-stage-frame'},stage);
   const zoomLabel=el('span',{class:'zoom-label'},'100%');
 
   function overflowing(){
@@ -101,21 +104,43 @@ export function imageViewer(record, caseData, { allowAnnotations=true, onSelect=
   const annotationsButton=allowAnnotations && !exercise && caseData.annotations.length?button([icon('eye',17),'Repere'],()=>{showAll=!showAll;annotationsButton.setAttribute('aria-pressed',String(showAll));refresh();},'viewer-tool',{'aria-pressed':String(showAll),title:showAll?'Ascunde reperele':'Afișează reperele'}):null;
   const root=el('section',{class:'viewer','aria-label':'Vizualizator radiografie'},
     el('div',{class:'viewer-top'},el('span',{class:'film-label'},'RADIOGRAFIE'),el('span',{class:'film-index'},exercise?caseData.title:caseData.source.page?`Sursa · p. ${caseData.source.page}`:caseData.title)),
-    stage,
+    stageFrame,
     el('div',{class:'viewer-controls'},
       el('div',{class:'mode-controls',role:'group','aria-label':'Mod de afișare'},fitButton,fillButton),
       el('div',{class:'zoom-controls'},button('−',()=>setZoom(zoom-.25),'viewer-tool',{'aria-label':'Micșorează imaginea'}),zoomLabel,button('+',()=>setZoom(zoom+.25),'viewer-tool',{'aria-label':'Mărește imaginea'}),button('Reset',resetView,'viewer-tool')),
       el('div',{class:'viewer-extra'},allowLayers?annotationsButton:null,
         button(icon('expand',18),async()=>{try{if(document.fullscreenElement)await document.exitFullscreen();else if(root.requestFullscreen)await root.requestFullscreen();}catch{}},'viewer-tool',{'aria-label':'Radiografie pe tot ecranul'}))));
-  if(images.length>1)root.append(el('div',{class:'image-tabs'},...images.map((item,index)=>button(`Imaginea ${index+1}`,()=>load(item),'chip'))));
+  const primaryTabs=images.length>1 ? images.map((item,index)=>button(`Imaginea ${index+1}`,()=>{
+    image=item;
+    selectLayer(0);
+  },'chip',{'aria-pressed':String(item===image)})) : [];
+  if(primaryTabs.length)root.append(el('div',{class:'image-tabs'},...primaryTabs));
 
   const activeComparisons = new Set();
+  const comparisonButtons = new Map();
   const comparisonBar = comparisons.length ? el('div',{class:'viewer-layers','aria-label':'Straturi de comparație'},el('span',{class:'field-label'},'Compară cu')) : null;
   const comparisonPanels = comparisons.length ? el('div',{class:'viewer-comparisons'}) : null;
   const comparisonUrls = new Map();
+  let layerIndex=0;
+  const layerSelect=comparisons.length ? el('select',{'aria-label':'Strat afișat pe radiografie',onchange:event=>selectLayer(Number(event.target.value))},
+    el('option',{value:'0'},'Radiografia principală'),
+    ...comparisons.map((row,index)=>el('option',{value:String(index+1)},row.label))) : null;
   if (comparisons.length) {
     const limit = 2;
-    for (const [index, row] of comparisons.entries()) {
+    const cycle=offset=>selectLayer((layerIndex+offset+comparisons.length+1)%(comparisons.length+1));
+    stageFrame.append(el('div',{class:'viewer-layer-switch',role:'group','aria-label':'Schimbă stratul afișat'},
+      button('‹',()=>cycle(-1),'viewer-tool',{'aria-label':'Stratul anterior',title:'Stratul anterior [','aria-keyshortcuts':'['}),
+      layerSelect,
+      button('›',()=>cycle(1),'viewer-tool',{'aria-label':'Stratul următor',title:'Stratul următor ]','aria-keyshortcuts':']'})));
+    root.addEventListener('keydown',event=>{
+      if (event.altKey || event.ctrlKey || event.metaKey || event.target===layerSelect) return;
+      const previous=event.key==='[' || (event.target===stage && event.key==='ArrowLeft');
+      const next=event.key===']' || (event.target===stage && event.key==='ArrowRight');
+      if (!previous && !next) return;
+      event.preventDefault();
+      cycle(previous ? -1 : 1);
+    });
+    for (const row of comparisons) {
       const toggle = button(row.label, () => {
         if (activeComparisons.has(row)) activeComparisons.delete(row);
         else {
@@ -124,7 +149,8 @@ export function imageViewer(record, caseData, { allowAnnotations=true, onSelect=
         }
         drawComparisons();
       }, 'chip', { 'aria-pressed': 'false' });
-      row.toggle = toggle; comparisonBar.append(toggle);
+      comparisonButtons.set(row,toggle);
+      comparisonBar.append(toggle);
     }
     root.append(comparisonBar, comparisonPanels);
     drawComparisons();
@@ -136,22 +162,25 @@ export function imageViewer(record, caseData, { allowAnnotations=true, onSelect=
       const img = el('img', { class: 'radiograph', alt: `Comparație: ${row.label}` });
       const panel = el('figure', { class: 'comparison-panel' }, img, el('figcaption', {}, row.label));
       comparisonPanels.append(panel);
-      if (comparisonUrls.has(row.path)) { img.src = comparisonUrls.get(row.path); continue; }
-      assetBlob(record, row.path).then(blob => {
-        if (disposed || !blob) return;
-        const objectUrl = URL.createObjectURL(blob);
-        comparisonUrls.set(row.path, objectUrl); offUrls.push(objectUrl);
-        if (activeComparisons.has(row)) img.src = objectUrl;
-      }).catch(() => {});
+      if (!comparisonUrls.has(row.path)) {
+        const loaded=Promise.resolve().then(()=>loadAsset(row.path)).then(blob=>{
+          if (!blob || disposed) return null;
+          const objectUrl=URL.createObjectURL(blob);
+          offUrls.push(objectUrl);
+          return objectUrl;
+        }).catch(()=>null);
+        comparisonUrls.set(row.path,loaded);
+      }
+      comparisonUrls.get(row.path).then(objectUrl=>{if(objectUrl && !disposed && activeComparisons.has(row))img.src=objectUrl;});
     }
   }
   function drawComparisons() {
     if (!comparisonPanels) return;
     comparisonPanels.hidden = activeComparisons.size === 0;
-    for (const row of comparisons) {
+    for (const [row,toggle] of comparisonButtons) {
       const active = activeComparisons.has(row);
-      row.toggle?.classList.toggle('active', active);
-      row.toggle?.setAttribute('aria-pressed', String(active));
+      toggle.classList.toggle('active', active);
+      toggle.setAttribute('aria-pressed', String(active));
     }
     paintComparisons();
   }
@@ -160,12 +189,13 @@ export function imageViewer(record, caseData, { allowAnnotations=true, onSelect=
     for(const {node,row} of marks){const selected=row.itemId===activeItem;node.classList.toggle('active',selected);node.classList.toggle('annotation-hidden',!showAll);}
   }
   function regionRows(){
-    if(!exercise)return caseData.annotations.filter(row=>row.imageId===image.id);
+    const imageId=layerIndex ? comparisons[layerIndex-1].imageId : image.id;
+    if(!exercise)return annotationOrder.filter(row=>row.imageId===imageId);
     const allowed=new Set(exercise.regions.map(region=>region.annotationId));
-    return caseData.annotations.filter(row=>row.imageId===image.id && allowed.has(row.id));
+    return annotationOrder.filter(row=>row.imageId===imageId && allowed.has(row.id));
   }
   function regionLabel(row,index){
-    if(!exercise)return row.label || String(index+1);
+    if(!exercise)return numbers.get(row.id) || String(index+1);
     return exercise.regions.find(region=>region.annotationId===row.id)?.label || String(index+1);
   }
   function draw(){
@@ -174,33 +204,67 @@ export function imageViewer(record, caseData, { allowAnnotations=true, onSelect=
     const render = annotationRenderer(overlay, { neutral: Boolean(exercise) });
     for(const [index,row] of regionRows().entries()){
       const labelNumber=regionLabel(row,index);
-      const group=render(row,{label:labelNumber});
+      const group=render(row,{label:labelNumber,interactive:true});
       group.setAttribute('tabindex','0');group.setAttribute('role','button');
-      const item=caseData.sections.flatMap(section=>section.items).find(item=>item.id===row.itemId);
-      group.setAttribute('aria-label',exercise?`Regiunea ${labelNumber}`:`Marcaj ${labelNumber}: ${item?.text || ''}`);
+      group.setAttribute('aria-label',exercise?`Regiunea ${labelNumber}`:`Marcaj ${labelNumber}: ${notes.get(row.itemId) || ''}`);
       const select=()=>{activeItem=row.itemId;showAll=true;annotationsButton?.setAttribute('aria-pressed','true');refresh();onSelect(exercise?row.id:row.itemId);};
       group.addEventListener('click',select);group.addEventListener('keydown',event=>{if(event.key==='Enter' || event.key===' '){event.preventDefault();select();}});
       overlay.append(group);marks.push({node:group,row});
     }
     refresh();
   }
-  async function load(next){
-    image=next;const current=++loadId;loading.hidden=false;draw();
+  function selectLayer(index){
+    layerIndex=index;
+    if(layerSelect)layerSelect.value=String(index);
+    const comparison=comparisons[index-1];
+    picture.alt=comparison ? `Comparație: ${comparison.label}` : `Radiografie: ${caseData.title}`;
+    for(const [tabIndex,tab] of primaryTabs.entries()){
+      const active=!comparison && images[tabIndex]===image;
+      tab.classList.toggle('active',active);
+      tab.setAttribute('aria-pressed',String(active));
+    }
+    resetView();
+    draw();
+    load(comparison?.path || image.path);
+  }
+  async function load(path){
+    const current=++loadId;
+    loading.textContent='Se încarcă imaginea.';
+    loading.hidden=false;
     try{
-      const blob=await assetBlob(record,image.path);
+      const blob=await loadAsset(path);
       if(disposed || current!==loadId)return;
       if(!blob)throw new Error('Imaginea lipsește. Reimportă pachetul original.');
       if(url)URL.revokeObjectURL(url);url=URL.createObjectURL(blob);
       picture.onload=()=>{
+        if(disposed || current!==loadId)return;
         loading.hidden=true;
         naturalWidth=picture.naturalWidth || 0;naturalHeight=picture.naturalHeight || 0;
         appliedWidth=0;appliedHeight=0;applySize();
       };
-      picture.onerror=()=>{loading.hidden=false;loading.textContent='Imaginea nu poate fi afișată. Reimportă pachetul.';};picture.src=url;
-    }catch(error){loading.textContent=error.message;}
+      picture.onerror=()=>{
+        if(disposed || current!==loadId)return;
+        loading.hidden=false;
+        loading.textContent='Imaginea nu poate fi afișată. Reimportă pachetul.';
+      };
+      picture.src=url;
+    }catch(error){if(!disposed && current===loadId)loading.textContent=error.message;}
   }
   syncMode();
-  load(image);
-  return {node:root,selectItem(id){activeItem=id;showAll=Boolean(allowAnnotations);annotationsButton?.setAttribute('aria-pressed',String(showAll));refresh();},
+  const initialComparison=caseData.images.find(row=>row.id===initialImageId && row.role==='comparison');
+  selectLayer(comparisons.findIndex(row=>initialComparisonId ? row.id===initialComparisonId : initialComparison && row.imageId===initialComparison.id)+1);
+  return {node:root,selectItem(id){
+    activeItem=id;
+    showAll=Boolean(allowAnnotations);
+    annotationsButton?.setAttribute('aria-pressed',String(showAll));
+    if (allowAnnotations && !exercise && !marks.some(({row})=>row.itemId===id)) {
+      const linkedImages=new Set(annotationOrder.filter(row=>row.itemId===id).map(row=>row.imageId));
+      const primaryImage=images.find(row=>linkedImages.has(row.id));
+      const comparisonIndex=comparisons.findIndex(row=>linkedImages.has(row.imageId));
+      if (primaryImage) { image=primaryImage; selectLayer(0); }
+      else if (comparisonIndex>=0) selectLayer(comparisonIndex+1);
+    }
+    refresh();
+  },
     destroy(){disposed=true;resizeObserver?.disconnect();resizeObserver=null;window.removeEventListener('resize',handleResize);endPan();if(url)URL.revokeObjectURL(url);for(const objectUrl of offUrls)URL.revokeObjectURL(objectUrl);offUrls.length=0;}};
 }

@@ -26,7 +26,7 @@ Standard ZIP is accepted, stored or deflate, without encryption, ZIP64, multiple
 
 A chapter has `{id, label}`. A domain has `{id, label, chapterIds}`. Domains may share the same chapters; images are not duplicated. There are no hardcoded assumptions about colloquium I/II or the final exam.
 
-A diagnosis has `{id, label, chapterIds, aliases}`. Aliases are for search only; they do not create separate answers. A concept with a different meaning gets a different ID. A change of spelling does not require a new ID.
+A diagnosis has `{id, label, chapterIds, keywords}`. The full label is displayed and searchable. Optional keywords add search terms for the same diagnosis ID. Import reads legacy `aliases` as keywords when the `keywords` field is absent. Exports write `keywords`. A concept with a different meaning gets a different ID. A spelling change keeps the existing ID.
 
 A case has:
 
@@ -38,7 +38,7 @@ A case has:
 
 The sections are `examination`, `projection`, `findings`, `diagnosis`, `differentials`, `investigations`. A section without text is displayed as unspecified, with no automatic completion. `completeness` can be `full`, `partial` or `diagnosis-only`; it indicates the presence of data, not medical validation.
 
-`diagnosisIds: []` keeps the case for study, without an automatic question. Several IDs represent diagnoses that must be selected together, not synonyms accepted as alternatives. Synonyms appear in the `aliases` of a single concept.
+`diagnosisIds: []` keeps the case for study, without an automatic question. Several IDs represent diagnoses that must be selected together.
 
 ## Annotations
 
@@ -59,9 +59,9 @@ An annotation explicitly references an image and a text element:
 }
 ```
 
-All coordinates are normalised to the 0–1 range. Other accepted shapes: `rect` with `x,y,width,height`, `polygon` with `points:[[x,y],…]`, `arrow` with `x1,y1,x2,y2`, and in v2 `polyline` with 2–100 points for an open freehand stroke. Shapes are reconstructed through DOM/SVG APIs; the pack supplies no markup.
+All coordinates are normalised to the 0–1 range. Other accepted shapes are `rect` with `x,y,width,height`, `polygon` with `points:[[x,y],…]`, `arrow` with `x1,y1,x2,y2`, and in v2 `polyline` with at least two distinct points for an open freehand stroke. Point arrays are covered by the pack's JSON and archive size limits. The renderer constructs shapes through DOM/SVG APIs.
 
-Version 2 marks may carry `style: {color?, pattern?}`. `color` is `#RRGGBB`; `pattern` is `none`, `diagonal`, `dots`, `vertical` or `horizontal` and is valid only on closed shapes (`ellipse`, `rect`, `polygon`). Legacy marks without style keep the default gold appearance. Studio chooses a distinct palette color for each new mark and stores the chosen color; a manual color or pattern remains editable per mark.
+Version 2 marks may carry `style: {color?, pattern?, width?, line?}`. `color` is `#RRGGBB`. `pattern` is `none`, `diagonal`, `dots`, `vertical` or `horizontal`, with fills available for `ellipse`, `rect` and `polygon`. `width` is a stroke thickness from 1 to 12 CSS pixels. `line` is `solid`, `dotted`, `dashed`, `dash-dot` or `double`. Legacy marks keep the default color and stroke. Studio stores the selected style per mark. Both apps number marks across the case images in the order of their linked text items.
 
 `reviewed` means verification assumed by the contributor, not a medical accreditation offered by the application.
 

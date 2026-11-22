@@ -1,5 +1,6 @@
 import { SECTION_LABELS, availableQuestions, shuffled, scheduleReview } from './core.js';
 import { structuredExercise } from './structured.js';
+import { annotationsInObservationOrder } from './annotation-view.js';
 
 export const EXERCISE_LABELS = Object.freeze({
   interpretation: 'Interpretare completă',
@@ -49,7 +50,7 @@ function reviewedFindingRows(caseData) {
   const findings = caseData.sections.find(section => section.id === 'findings');
   if (!findings?.items?.length) return [];
   const itemIds = new Set(findings.items.map(item => item.id));
-  return caseData.annotations.filter(row => row.reviewStatus === 'reviewed' && itemIds.has(row.itemId));
+  return annotationsInObservationOrder(caseData).filter(row => row.reviewStatus === 'reviewed' && itemIds.has(row.itemId));
 }
 
 function oneToOne(rows) {

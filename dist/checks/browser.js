@@ -2,6 +2,7 @@ import {openDatabase,installPacks,listPacks,assetBlob,getMeta,setMeta,mergeLearn
 import {validateFiles} from '../js/schema.js';
 import {archiveJob} from '../js/archive.js';
 import {imageViewer} from '../js/viewer.js';
+import {caseComparisonLayers} from '../js/case-interpretation.js';
 import {catalogueSelector} from '../js/catalogue.js';
 import {scheduleReview,questionSignature,progressKey} from '../js/core.js';
 import {interpretationExercise,regionsExercise,matchingExercise,gradeMatching,selfAssessmentItems} from '../js/exercises.js';
@@ -17,6 +18,30 @@ run.addEventListener('click',async()=>{
     const bytes=new Uint8Array(await (await fetch('./checks/test.png')).arrayBuffer());
     const pack={format:'radiology-study-pack',version:1,id:'check.pack',revision:'1',title:'Test izolat',curriculum:{id:'check',title:'Test',chapters:[{id:'respiratory',label:'Respirator'},{id:'renal',label:'Renal'}]},diagnoses:[{id:'endo',label:'Cancer bronhopulmonar endobronșic',chapterIds:['respiratory'],aliases:[]},{id:'exo',label:'Cancer bronhopulmonar exobronșic',chapterIds:['respiratory'],aliases:[]},{id:'renal',label:'Rinichi în potcoavă',chapterIds:['renal'],aliases:[]}],cases:[{id:'c1',title:'Caz test',chapterId:'respiratory',diagnosisIds:['endo'],images:[{id:'primary',path:'images/test.png',width:8,height:8}],sections:[{id:'findings',label:'Semiologie',items:[{id:'f1',text:'Reper test'}]}],annotations:[{id:'a1',imageId:'primary',itemId:'f1',shape:'ellipse',cx:.4,cy:.5,rx:.1,ry:.2}]}]};
     const prepared=await validateFiles(new Map([['pack.json',encode(pack)],['images/test.png',bytes]]));let original;
+    await check('Straturi de comparație: previzualizare, tastatură și repere locale',async()=>{
+      const item=structuredClone(prepared.pack.cases[0]);
+      item.images.push({id:'local',path:'images/local.png',role:'comparison',width:8,height:8});
+      item.annotations.push({...item.annotations[0],id:'a2',imageId:'local',style:{color:'#ffaa00',width:5,line:'dash-dot'}});
+      item.comparisons=[{id:'local-layer',label:'Comparație locală',caseId:item.id,imageId:'local'},
+        {id:'other-layer',label:'Comparație externă',caseId:'other',imageId:'local'}];
+      const other={id:'other',images:[{id:'local',path:'images/other.png'}]};
+      const loaded=[];
+      const viewer=imageViewer(null,item,{initialComparisonId:'other-layer',comparisons:caseComparisonLayers({cases:[item,other]},item),
+        loadAsset:path=>{loaded.push(path);return new Blob([bytes],{type:'image/png'});}});
+      fixture.append(viewer.node);
+      try{
+        const stage=viewer.node.querySelector('.image-stage');
+        const layers=viewer.node.querySelector('.viewer-layer-switch select');
+        assert(layers.value==='2' && loaded.at(-1)==='images/other.png','Stratul inițial nu a fost deschis');
+        assert(!stage.querySelector('.annotation'),'Repere expuse pe comparația externă');
+        stage.dispatchEvent(new KeyboardEvent('keydown',{key:'ArrowLeft',bubbles:true}));
+        const line=stage.querySelector('[data-annotation-id="a2"] .annotation-stroke');
+        assert(layers.value==='1' && line,'Tasta nu a ales stratul cu repere locale');
+        assert(getComputedStyle(line).strokeWidth==='5px' && line.hasAttribute('stroke-dasharray'),'Stilul reperului nu este vizibil');
+        layers.value='0';layers.dispatchEvent(new Event('change',{bubbles:true}));
+        assert(loaded.at(-1)==='images/test.png' && stage.querySelector('[data-annotation-id="a1"]'),'Revenirea la imaginea principală a eșuat');
+      }finally{viewer.destroy();viewer.node.remove();}
+    });
     await check('IndexedDB: pachet și imagine salvate împreună',async()=>{await installPacks([prepared]);original=(await listPacks())[0];assert((await assetBlob(original,'images/test.png')).size===bytes.length,'Imagine lipsă');});
     await check('Eroarea de scriere anulează întreaga înlocuire',async()=>{
       let rejected=false;try{await installPacks([{...prepared,blobs:[...prepared.blobs,{path:'bad',blob:()=>{}}]}]);}catch{rejected=true;}

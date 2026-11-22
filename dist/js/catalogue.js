@@ -9,7 +9,7 @@ export function catalogueSelector(pack,{chapterIds=[],selected=[],multiple=false
   const clear=button(icon('close',16),()=>{input.value='';render();input.focus();},'icon-button clear-search',{'aria-label':'Șterge căutarea',hidden:true,disabled});
   const root=el('div',{class:'catalogue-selector'},el('label',{for:input.id,class:'field-label'},'Alege din programa selectată'),
     el('div',{class:'catalogue-search'},icon('search',19),input,clear),
-    el('div',{class:'catalogue-hint',id:`${uid}-hint`},el('span',{},'Caută după orice cuvânt sau răsfoiește capitolele.'),count),groups);
+    el('div',{class:'catalogue-hint',id:`${uid}-hint`},el('span',{},'Tastează denumirea sau un cuvânt-cheie ori răsfoiește capitolele.'),count),groups);
   function render(){
     const query=input.value.trim(),results=searchCatalogue(pack.diagnoses,pack.curriculum.chapters,query,chapterIds);
     clear.hidden=!query;groups.replaceChildren();

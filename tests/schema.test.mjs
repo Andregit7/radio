@@ -12,6 +12,20 @@ test('pack validation strips unknown properties and allows study-only cases',()=
   const p=pack();p.execute='evil()';p.cases[0].diagnosisIds=[];const clean=validatePack(p).pack;
   assert.equal(clean.execute,undefined);assert.deepEqual(clean.cases[0].diagnosisIds,[]);assert.equal(clean.curriculum.scopes[0].id,'all');
 });
+test('diagnosis keywords are canonical and legacy aliases migrate on import',()=>{
+  for(const version of [1,2]){
+    const raw=pack();raw.version=version;raw.diagnoses[0].aliases=['termen vechi'];
+    const migrated=validatePack(raw).pack;
+    assert.deepEqual(migrated.diagnoses,[{id:'diagnosis',label:'Diagnostic',chapterIds:['respiratory'],keywords:['termen vechi']}]);
+    assert.deepEqual(validatePack(migrated).pack,migrated);
+    raw.diagnoses[0].keywords=['os'];
+    assert.deepEqual(validatePack(raw).pack.diagnoses[0].keywords,['os']);
+    raw.diagnoses[0].keywords=[];
+    assert.deepEqual(validatePack(raw).pack.diagnoses[0].keywords,[]);
+    raw.diagnoses[0].keywords='os';
+    assert.throws(()=>validatePack(raw),/Cuvinte-cheie invalide/);
+  }
+});
 test('unsafe paths, unresolved diagnoses, duplicate IDs and excessive pixels fail',()=>{
   for(const modify of [p=>p.cases[0].images[0].path='images/../../evil.png',p=>p.cases[0].images[0].path='https://evil/image.png',p=>p.cases[0].diagnosisIds=['missing'],p=>p.cases.push(structuredClone(p.cases[0])),p=>p.cases[0].images[0].width=10000000]){const p=pack();modify(p);assert.throws(()=>validatePack(p));}
 });

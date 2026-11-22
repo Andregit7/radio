@@ -38,7 +38,7 @@ for(const directory of ['dist','studio']){
   }
   if(hasStage){const allowed=new Set(['release.json',...release.files.map(item=>item.path)]);for(const file of await files(staged,false)){const relative=path.relative(staged,file).split(path.sep).join('/');if(!allowed.has(relative))throw new Error(`Unexpected deployment asset: ${relative}`);}}
 }
-for(const name of ['core.js','schema.js','zip.js','archive.js','archive-worker.js','dom.js','annotation-view.js']){
+for(const name of ['core.js','schema.js','zip.js','archive.js','archive-worker.js','dom.js','annotation-view.js','appearance.js','viewer.js','case-interpretation.js']){
   const [study,studio]=await Promise.all([readFile(path.join(root,'dist/js',name)),readFile(path.join(root,'studio/lib',name))]);
   if(!study.equals(studio))throw new Error(`Shared module stale in Studio: ${name}`);checks++;
 }

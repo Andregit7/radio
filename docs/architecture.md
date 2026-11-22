@@ -8,7 +8,7 @@ Study does not offer pack creation or editing. Annotations shipped in the pack a
 
 The Study viewer keeps a single image stage and a single SVG annotation box. `Fit` shows the whole film inside the stage, with dark letterbox bars; `Fill` covers the stage and lets the overflowing side be cropped. Zoom multiplies the base scale of whichever mode is active, dragging moves an image that overflows the stage, and the annotation box always matches the rendered image, so a mark stays on the same region in both modes, at every zoom level and after any resize. The viewer receives the mode as an option, reports a switch back to the application, and disposes of its resize observer and pointer listeners.
 
-The Studio case editor is a fixed-height shell on desktop: tabs and the case title stay in place while the image column and the notes column each scroll on their own. A full-tree re-render restores both offsets and the case list's, and the image pane reapplies its offset once the new image has decoded, unless the author has already scrolled away. Below the single-column breakpoint the page scrolls as a whole again, without nested panes.
+Studio opens to a launch menu. Creating, importing, or choosing a saved draft opens the case workspace. The editor has a collapsible ribbon and separate panes for the radiograph, its marks, and the observations. The image fits the viewport and can be zoomed and panned. Explicit selection can reveal linked items inside their panes. Drawing leaves scroll offsets in place. An unbound stroke stays in editor state until the author ties it to an observation or discards it. Studio preview shares Study's reader modules with a local draft asset loader.
 
 ## Contracts
 
@@ -18,7 +18,7 @@ Course data, questions and algorithms are separate:
 - `questions.json`, optional: MCQs with fixed options and written questions with an author rubric;
 - the application: filtering, presentation, session composition, grading, spaced review.
 
-Each diagnosis has a canonical ID, a full label, search aliases and chapters. Cases reference these IDs. Search normalises diacritics, capitals and punctuation, then requires a match on all words. The available list depends only on the curriculum, search and the chosen filter; the search function does not receive the case or the correct answer.
+Each diagnosis has a canonical ID, a full label, optional search keywords and chapters. Cases reference these IDs. Search normalises diacritics, capitals and punctuation, then matches all query words against the label and keywords. The available list depends only on the curriculum, search and the chosen filter.
 
 An automatic answer is an explicit selection of identifiers or a structured observation whose keyed fields are compared by ID. Typed text is not graded and a single result is not confirmed automatically. Catalogue selection, MCQs and structured interpretation are available. Free text in the legacy `Interpretare completă` (Full interpretation) and authored written questions remain self-assessed with a visible rubric; notes never become answer keys. There is no automatic grading of medical prose, no voice answers, no LLM and no clinical generation at runtime.
 

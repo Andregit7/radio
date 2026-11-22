@@ -20,7 +20,7 @@ export function searchCatalogue(diagnoses, chapters, query = '', allowedChapterI
   const allowed = new Set(allowedChapterIds);
   const results = diagnoses.filter(item =>
     (!allowed.size || item.chapterIds.some(id => allowed.has(id))) &&
-    matches([item.label, ...(item.aliases || [])].join(' '), query));
+    matches([item.label, ...(item.keywords ?? item.aliases ?? [])].join(' '), query));
   return chapters.filter(chapter => !allowed.size || allowed.has(chapter.id)).map(chapter => ({
     ...chapter,
     items: results.filter(item => item.chapterIds.includes(chapter.id))

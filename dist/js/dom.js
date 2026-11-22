@@ -31,6 +31,7 @@ export function icon(name,size=20){
     info:['M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20','M12 11v6','M12 7h.01'],sun:['M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10','M12 2v2','M12 20v2','M2 12h2','M20 12h2'],
     clock:['M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20','M12 6v6l4 2'],image:['M3 3h18v18H3z','m3 16 5-5 4 4 3-3 6 6','M16 7h.01'],
     refresh:['M20 11a8 8 0 1 0-.6 4','M20 4v7h-7'],
+    menu:['M4 5h16v14H4z','M10 5v14'],
   };
   const node=document.createElementNS('http://www.w3.org/2000/svg','svg');
   for(const [k,v] of Object.entries({viewBox:'0 0 24 24',width:size,height:size,fill:'none',stroke:'currentColor','stroke-width':1.7,'stroke-linecap':'round','stroke-linejoin':'round','aria-hidden':'true'}))node.setAttribute(k,v);

@@ -1,0 +1,60 @@
+import { el } from './dom.js';
+
+const themes=[
+  ['system','După sistem'],
+  ['light','Luminoasă'],
+  ['dark','Întunecată'],
+  ['super-dark','Negru profund'],
+  ['cobalt','Cobalt'],
+  ['candy','Dulce'],
+  ['forest','Pădure'],
+  ['beach','Plajă'],
+  ['christmas','Crăciun'],
+];
+const preferenceKey='radioeasy-theme';
+let preference='system';
+let systemTheme;
+let decorations;
+
+function recognizedTheme(value){
+  return themes.some(([theme])=>theme===value)?value:'system';
+}
+
+function applyTheme(){
+  const theme=preference==='system'?(systemTheme.matches?'dark':'light'):preference;
+  const root=document.documentElement;
+  root.dataset.theme=theme;
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content',getComputedStyle(root).getPropertyValue('--chrome').trim());
+  if(theme==='christmas' && !decorations){
+    decorations=el('div',{class:'seasonal-decorations','aria-hidden':'true'},
+      el('div',{class:'seasonal-snow'}),
+      el('div',{class:'seasonal-ornaments'},el('span'),el('span'),el('span')),
+      el('div',{class:'seasonal-landscape'},el('span',{class:'seasonal-sleigh'},'🛷'),el('span',{class:'seasonal-tree'},'🎄'),el('span',{class:'seasonal-presents'},'🎁')));
+    document.body.append(decorations);
+  }
+  if(decorations)decorations.hidden=theme!=='christmas';
+  for(const control of document.querySelectorAll('.theme-control select'))control.value=preference;
+}
+
+export function initAppearance(){
+  if(systemTheme)return;
+  systemTheme=matchMedia('(prefers-color-scheme: dark)');
+  try{preference=recognizedTheme(localStorage.getItem(preferenceKey));}catch{}
+  systemTheme.addEventListener('change',()=>{if(preference==='system')applyTheme();});
+  window.addEventListener('storage',event=>{
+    if(event.key!==preferenceKey && event.key!==null)return;
+    preference=recognizedTheme(event.newValue);
+    applyTheme();
+  });
+  applyTheme();
+}
+
+export function themeControl(){
+  initAppearance();
+  return el('label',{class:'theme-control'},el('span',{},'Temă'),
+    el('select',{onchange:event=>{
+      preference=recognizedTheme(event.target.value);
+      try{localStorage.setItem(preferenceKey,preference);}catch{}
+      applyTheme();
+    }},...themes.map(([value,label])=>el('option',{value,selected:value===preference},label))));
+}
