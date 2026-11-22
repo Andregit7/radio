@@ -229,11 +229,45 @@ const openCaseFile=()=>{
     [button('Renunță',()=>dialog.close(),'button ghost')]);
 };
 
+function captureCaseScroll(root){
+  const list=root.querySelector('.studio-case-list');
+  if(!list)return;
+  const groups={...(editorPreferences.caseListScroll?.groups||{})};
+  for(const body of list.querySelectorAll('.studio-case-group-body'))groups[body.id]={top:body.scrollTop,left:body.scrollLeft};
+  editorPreferences.caseListScroll={top:list.scrollTop,left:list.scrollLeft,groups};
+}
+
+function restoreCaseScroll(root){
+  const saved=editorPreferences.caseListScroll;
+  if(!saved)return;
+  const list=root.querySelector('.studio-case-list');
+  if(!list)return;
+  list.scrollTop=saved.top;list.scrollLeft=saved.left;
+  for(const body of list.querySelectorAll('.studio-case-group-body')){
+    const group=saved.groups?.[body.id];
+    if(group){body.scrollTop=group.top;body.scrollLeft=group.left;}
+  }
+}
+
+function renderCaseList(){
+  const current=document.getElementById('studio-case-list');
+  if(!current)return;
+  captureCaseScroll(document);
+  current.replaceWith(groupedCaseList());
+  restoreCaseScroll(document);
+}
+
+function renderSidebarNav(){
+  const current=document.querySelector('.studio-sidebar-nav');
+  if(!current)return;
+  captureCaseScroll(document);
+  current.replaceWith(sidebarNav());
+  restoreCaseScroll(document);
+}
+
 function render(){
   const root=document.getElementById('studio');
-  const previousList=root.querySelector('.studio-case-list');
-  if(previousList)editorPreferences.caseListScroll={top:previousList.scrollTop,left:previousList.scrollLeft};
-  const caseListScroll=editorPreferences.caseListScroll || {top:0,left:0};
+  captureCaseScroll(root);
   workbench?.destroy();workbench=null;
   if(showStudioMenu||!draft){
     root.replaceChildren(studioLanding({drafts,activeId:draft?.pack.id,onNew:act(newPack),
@@ -258,8 +292,7 @@ function render(){
   if(tab!=='case')work.append(el('div',{class:'studio-section-tools'},undoControl()));
   if(tab==='case')renderCaseEditor(work);else if(tab==='banks')renderBanks(work);else if(tab==='catalogue')renderCatalogue(work);else if(tab==='curriculum')renderCurriculum(work);else renderQuestions(work);
   root.replaceChildren(el('div',{class:`studio-layout studio-layout-compact${sidebarCollapsed?' studio-nav-collapsed':''}`},side,work));
-  const caseList=document.getElementById('studio-case-list');
-  if(caseList){caseList.scrollTop=caseListScroll.top;caseList.scrollLeft=caseListScroll.left;}
+  restoreCaseScroll(root);
   workbench?.restoreScroll();
 }
 
@@ -270,7 +303,7 @@ function sidebarNav(){
     el('span',{class:'studio-section-arrow'},icon(caseListOpen?'chevron-down':'chevron-up',15))],
   ()=>{
     if(tab!=='case'){tab='case';editorPreferences.caseListOpen=true;render();return;}
-    editorPreferences.caseListOpen=!caseListOpen;render();
+    editorPreferences.caseListOpen=!caseListOpen;renderSidebarNav();
   },`studio-section-button${tab==='case'?' active':''}`,{'aria-expanded':String(caseListOpen),'aria-controls':caseListOpen?'studio-case-list':null});
   const sections=[['banks','Bănci de răspunsuri','grid'],['catalogue','Diagnostice','search'],['curriculum','Programă','exam'],['questions','Grile','check']];
   return el('nav',{class:'studio-sidebar-nav','aria-label':'Secțiuni Studio'},
@@ -298,7 +331,7 @@ function groupedCaseList(){
     const open=Boolean(expanded[group.id]),bodyId=`studio-case-group-${group.id || 'orphaned'}`;
     const head=button([icon(open?'chevron-down':'chevron-up',14),el('span',{class:'studio-case-group-label'},group.label),
       el('span',{class:'studio-case-count'},String(group.cases.length))],
-    ()=>{expanded[group.id]=!open;render();},'studio-case-group-head',
+    ()=>{expanded[group.id]=!open;renderCaseList();},'studio-case-group-head',
     {'aria-expanded':String(open),'aria-controls':bodyId,title:`${group.label} · ${group.cases.length} cazuri`});
     head.style.setProperty('--chapter-accent',accents[index%accents.length]);
     list.append(el('section',{class:'studio-case-group'},head,open?el('div',{class:'studio-case-group-body',id:bodyId},...group.cases.map(caseButton)):null));

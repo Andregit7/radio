@@ -227,12 +227,26 @@ button.nav-item:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
   color:var(--ink);
 }
 .theme-control {
-  display:flex;
-  align-items:center;
-  gap:10px;
+  display:grid;
+  gap:6px;
   font-size:12px;
   font-weight:600;
   color:var(--muted);
+}
+.theme-control-row {
+  display:flex;
+  align-items:center;
+  gap:10px;
+}
+.theme-control-animations {
+  gap:7px;
+  font-weight:500;
+}
+.theme-control-animations input {
+  width:16px;
+  height:16px;
+  margin:0;
+  accent-color:var(--teal);
 }
 .theme-control select {
   min-height:36px;
@@ -283,7 +297,8 @@ button.nav-item:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
 .sidebar-pack .pack-select {max-width:100%;min-width:0;font-size:12px;overflow-wrap:anywhere}
 .sidebar-pack select {min-height:34px;border:1px solid var(--line);border-radius:6px}
 .sidebar-version {margin:12px 12px 0}
-.sidebar-bottom .theme-control {justify-content:space-between;margin:0 0 10px;padding:0 8px}
+.sidebar-bottom .theme-control {margin:0 0 10px;padding:0 8px}
+.sidebar-bottom .theme-control > .theme-control-row:first-child {justify-content:space-between}
 .main-shell {margin-left:var(--sidebar);min-width:0}
 .study-mobile-header {display:none}
 @media(max-width:1200px) {
@@ -332,7 +347,7 @@ button.nav-item:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
   .sidebar-menu {display:grid;gap:10px}
   .sidebar-menu .nav-list {grid-template-columns:repeat(2,minmax(0,1fr))}
   .sidebar-menu .nav-item {gap:8px;padding:9px 8px}
-  .sidebar-menu .theme-control {justify-content:flex-start}
+  .sidebar-menu .theme-control-row {justify-content:flex-start}
   .main-shell {margin-left:0}
 }
 
@@ -355,6 +370,8 @@ button.nav-item:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
   filter:drop-shadow(0 0 6px #ffdb8a66);
 }
 .seasonal-decorations {position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden}
+:root[data-animations=off] .seasonal-decorations {display:none}
+:root[data-animations=off] .seasonal-decorations * {animation:none!important}
 .seasonal-snow {position:absolute;inset:0;overflow:hidden}
 .seasonal-snow:before,.seasonal-snow:after {
   position:absolute;
@@ -556,7 +573,7 @@ button.nav-item:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
   color:var(--orange);
   filter:drop-shadow(0 0 5px var(--credits-glow));
 }
-.credits-label { min-width:0; }
+.credits-label { min-width:0; white-space:nowrap; }
 .credits-bow {
   display:none;
   position:absolute;
@@ -597,8 +614,8 @@ button.nav-item:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
 :root[data-theme=christmas] .credits-button,
 :root[data-theme=christmas] .studio-sidebar-nav .credits-button,
 :root[data-theme=christmas] .credits-button.button {
-  justify-content:flex-start;
-  min-width:156px;
+  justify-content:space-between;
+  min-width:168px;
   padding-inline:14px;
   color:#fff4df;
   border-color:#e0b866;

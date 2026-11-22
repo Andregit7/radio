@@ -29,8 +29,11 @@ export function openCredits() {
 }
 
 export function creditsButton(className = 'nav-item') {
-  const button = el('button', { type: 'button', class: `credits-button ${className}`, 'aria-label': 'Credite', title: 'Credite' },
-    sparkleIcon(), el('span', { class: 'credits-label' }, 'Credite'), el('span', { class: 'credits-bow', 'aria-hidden': 'true' }));
+  const button = el('button', { type: 'button', class: `credits-button ${className}`, 'aria-label': 'Autor Credite', title: 'Autor Credite' },
+    sparkleIcon(),
+    el('span', { class: 'credits-label credits-label-start' }, 'Autor'), ' ',
+    el('span', { class: 'credits-bow', 'aria-hidden': 'true' }), ' ',
+    el('span', { class: 'credits-label credits-label-end' }, 'Credite'));
   button.addEventListener('click', () => openCredits());
   return button;
 }
