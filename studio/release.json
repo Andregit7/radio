@@ -1,7 +1,7 @@
 {
   "app": "radioeasy-studio",
   "version": "0.5.0",
-  "buildId": "13d0fb7e11fe",
+  "buildId": "7ff2a0062174",
   "files": [
     {
       "path": ".nojekyll",
@@ -10,8 +10,8 @@
     },
     {
       "path": "annotation-workbench.css",
-      "bytes": 13210,
-      "sha256": "88c4df9971645fe625993af2f24aef33e4e7ea418d2c7034cafe02b4368ba0d4"
+      "bytes": 13271,
+      "sha256": "02d93ff2f1570b676c10fafe010ae3c685780c2375c88fdc8d49f3dec1e21001"
     },
     {
       "path": "annotation-workbench.js",
@@ -136,8 +136,8 @@
     {
       "path": "sw.js",
       "bytes": 1631,
-      "sha256": "59fb20e9a9c3d084551558ae4fe117761ff7fca8f100c686190d53fa9a32fa8e"
+      "sha256": "179fc54941ad60608461c0c6fc676cd569d44030a3c8251a56d1419270cd36e7"
     }
   ],
-  "totalBytes": 291027
+  "totalBytes": 291088
 }
