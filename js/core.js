@@ -1,4 +1,4 @@
-export const APP_VERSION = '0.4.0';
+export const APP_VERSION = '0.5.0';
 export const DAY = 86_400_000;
 export const SECTION_LABELS = Object.freeze({
   examination: 'Tipul examinării', projection: 'Incidență', findings: 'Semiologie',

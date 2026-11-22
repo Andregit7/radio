@@ -5,6 +5,7 @@ import { openDatabase, listPacks, assetBlob, packAssets, getMeta, setMeta, setMe
   learningSnapshot, validateLearning, mergeLearning, restoreLearningFile, clearLearning } from './storage.js';
 import { archiveJob } from './archive.js';
 import { el, button, link, badge, icon, toast, modal } from './dom.js';
+import { creditsButton } from './credits.js';
 import { initAppearance, themeControl } from './appearance.js';
 import { imageViewer } from './viewer.js';
 import {caseComparisonLayers,caseInterpretation} from './case-interpretation.js';
@@ -72,6 +73,7 @@ function shell(){
       el('div',{class:'sidebar-bottom'},themeControl(),
         button([icon('refresh'),el('span',{'aria-live':'polite'},updateCheckLabel())],act(()=>checkForUpdates()),'nav-item update-check',{disabled:state.updateChecking,title:'Verifică actualizările'}),
         navLink('settings','Date & instalare','settings'),
+        creditsButton(),
         el('div',{class:'sidebar-version'},`v${APP_VERSION}`))));
   const mobileToggle=button(icon('menu',21),()=>setMobileMenu(mobileToggle.getAttribute('aria-expanded')!=='true'),'icon-button mobile-menu-toggle',{'aria-controls':'study-sidebar','aria-expanded':'false','aria-label':'Deschide meniul'});
   const top=el('header',{class:'study-mobile-header'},mobileToggle,link([el('img',{src:'./icons/icon.svg',alt:''}),'RadioEasy'],'#library','mobile-brand'));
