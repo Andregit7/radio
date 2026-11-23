@@ -1,7 +1,7 @@
 {
   "app": "radioeasy-studio",
   "version": "0.5.1",
-  "buildId": "01e9618acf85",
+  "buildId": "3d67524bab8e",
   "files": [
     {
       "path": ".nojekyll",
@@ -10,8 +10,8 @@
     },
     {
       "path": "annotation-workbench.css",
-      "bytes": 15789,
-      "sha256": "5c4e03871cd31eed8a5f2f29a974a0468bbaea935140cb56acf17aa60e0a9340"
+      "bytes": 15665,
+      "sha256": "4742c83697d3dbd3da53096f5bbf0812dba0e1feb83db3a0ff18eafffa3271e5"
     },
     {
       "path": "annotation-workbench.js",
@@ -20,8 +20,8 @@
     },
     {
       "path": "base.css",
-      "bytes": 73660,
-      "sha256": "b988b3f71d9ea32f34b3d42b30363e3abe38b2cd97ed818cc2de2d73e3262976"
+      "bytes": 73634,
+      "sha256": "4c95e5ee17b8d13f1efa84555ca6d8e1ef76366c2331dc5434d7388fd1843cc0"
     },
     {
       "path": "icons/apple-touch-icon.png",
@@ -65,8 +65,8 @@
     },
     {
       "path": "lib/annotation-view.js",
-      "bytes": 17695,
-      "sha256": "7fb0b9acaa7e4762bf8003e127006a0cd8974ccd87e164438bfa9635518a565f"
+      "bytes": 18064,
+      "sha256": "e2fb7ff4c78cec6622d5f8040fd8ea150018bf10ad4770e3ed5bf2be3d36d97a"
     },
     {
       "path": "lib/appearance.js",
@@ -136,8 +136,8 @@
     {
       "path": "sw.js",
       "bytes": 1631,
-      "sha256": "4bd6b32e17b75cdd6b0da7025bf246462b2dd576d99c64c3730453b79c1e89a6"
+      "sha256": "5ff2d460c6ef20bda7c131fb82174dd21b3e01a8d4722168dc01dc33be59eafb"
     }
   ],
-  "totalBytes": 356930
+  "totalBytes": 357149
 }

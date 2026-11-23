@@ -370,10 +370,9 @@
 .studio-workbench-overlay .studio-workbench-mark { cursor: pointer; }
 .is-pannable .studio-workbench-mark { cursor: inherit; }
 .studio-comparison-mark { pointer-events: none; }
-.studio-workbench-overlay text { fill: #fff; font: 700 26px/1 system-ui, sans-serif; stroke: none; }
-.studio-workbench-overlay .annotation-number { fill: #182122; stroke: #fff; stroke-width: 2; vector-effect: non-scaling-stroke; }
-.studio-workbench-mark:is(:hover, :focus-visible, .is-selected) .annotation-number { fill: #fff; stroke: #111; }
-.studio-workbench-mark:is(:hover, :focus-visible, .is-selected) text { fill: #111; }
+.studio-workbench-overlay text { font: 700 26px/1 system-ui, sans-serif; stroke: none; }
+.studio-workbench-overlay .annotation-number { stroke: #fff; stroke-width: 2; vector-effect: non-scaling-stroke; }
+.studio-workbench-mark:is(:hover, :focus-visible, .is-selected) .annotation-number { stroke: #111; }
 .studio-workbench-mark:is(:hover, :focus-visible, .is-selected) { filter: drop-shadow(0 0 3px #fff9); }
 .studio-workbench-overlay:has(.is-selected) .studio-workbench-mark:not(.is-selected, :hover, :focus-visible) { opacity: .46; }
 .studio-workbench-missing { position: absolute; inset: 0; display: grid; place-content: center; padding: 10px; color: #f3f7f8; text-align: center; }

@@ -23,6 +23,16 @@ function rgb(hex) {
   return [(value >> 16) & 255, (value >> 8) & 255, value & 255];
 }
 
+function labelInk(colour) {
+  const [r, g, b] = rgb(colour).map(value => {
+    const channel = value / 255;
+    return channel <= .04045 ? channel / 12.92 : ((channel + .055) / 1.055) ** 2.4;
+  });
+  const luminance = .2126 * r + .7152 * g + .0722 * b;
+  // Where black and white have equal contrast against the badge.
+  return luminance > .179 ? '#000' : '#fff';
+}
+
 function distance(a, b) {
   const [ar, ag, ab] = rgb(a), [br, bg, bb] = rgb(b);
   return Math.sqrt((ar - br) ** 2 * .3 + (ag - bg) ** 2 * .59 + (ab - bb) ** 2 * .11);
@@ -357,9 +367,10 @@ export function annotationRenderer(svg, { prefix = `marks-${++rendererNumber}`, 
         'vector-effect': 'non-scaling-stroke', stroke: colour, 'stroke-width': 1.5, 'stroke-dasharray': '3 4' });
       const circle = node('circle');
       const radius = Math.max(24, Math.ceil(String(label).length * 7.5 + 5));
-      attributes(circle, { cx: x, cy: y, r: radius, class: 'annotation-number' });
+      attributes(circle, { cx: x, cy: y, r: radius, class: 'annotation-number', fill: colour });
       const text = node('text');
-      text.setAttribute('x', x); text.setAttribute('y', y + 8); text.setAttribute('text-anchor', 'middle'); text.textContent = label;
+      attributes(text, { x, y: y + 8, 'text-anchor': 'middle', fill: labelInk(colour) });
+      text.textContent = label;
       group.append(leader, circle, text);
     }
     return group;

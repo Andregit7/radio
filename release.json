@@ -1,7 +1,7 @@
 {
   "app": "radioeasy-study",
   "version": "0.5.1",
-  "buildId": "1607e640256b",
+  "buildId": "a7694456ec3f",
   "files": [
     {
       "path": ".nojekyll",
@@ -40,8 +40,8 @@
     },
     {
       "path": "js/annotation-view.js",
-      "bytes": 17695,
-      "sha256": "7fb0b9acaa7e4762bf8003e127006a0cd8974ccd87e164438bfa9635518a565f"
+      "bytes": 18064,
+      "sha256": "e2fb7ff4c78cec6622d5f8040fd8ea150018bf10ad4770e3ed5bf2be3d36d97a"
     },
     {
       "path": "js/app.js",
@@ -125,14 +125,14 @@
     },
     {
       "path": "styles.css",
-      "bytes": 73660,
-      "sha256": "b988b3f71d9ea32f34b3d42b30363e3abe38b2cd97ed818cc2de2d73e3262976"
+      "bytes": 73634,
+      "sha256": "4c95e5ee17b8d13f1efa84555ca6d8e1ef76366c2331dc5434d7388fd1843cc0"
     },
     {
       "path": "sw.js",
       "bytes": 1864,
-      "sha256": "f70b365f234a76428b9980bfe5cd1d29abcd58da77f4107a4ffe3aaa5a44067f"
+      "sha256": "15c3e6018b948e26b8754854ae40625ebb6913e9176eb2427727f7a5855b6597"
     }
   ],
-  "totalBytes": 317713
+  "totalBytes": 318056
 }
