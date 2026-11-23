@@ -76,7 +76,7 @@ function findingsStep(pack, caseData, structured) {
     if (!fieldIds) continue;
     const values = {};
     for (const [fieldId, value] of Object.entries(row.values || {})) {
-      if (fieldIds.has(fieldId) && (!Array.isArray(value) || value.length)) values[fieldId] = value;
+      if (fieldIds.has(fieldId) && (Array.isArray(value) ? value.length > 0 : Number.isFinite(value))) values[fieldId] = value;
     }
     if (Object.keys(values).length) expected.push({ itemId: row.itemId, typeId: row.typeId, values: normaliseValues(values) });
   }
@@ -86,6 +86,52 @@ function findingsStep(pack, caseData, structured) {
     types: types.filter(type => scoreableFields.has(type.id)),
     expected: expected.sort((a, b) => `${a.typeId}:${JSON.stringify(a.values)}`.localeCompare(`${b.typeId}:${JSON.stringify(b.values)}`)),
   };
+}
+
+function profileId(row) {
+  return [row.typeId, ...Object.keys(row.values).sort()].join('|');
+}
+
+function keyedFields(fields, fieldIds) {
+  return fields.flatMap(field => {
+    const groups = keyedFields(field.groups || [], fieldIds);
+    if (fieldIds.has(field.id)) return [{ ...field, groups }];
+    if (groups.length) return [{ id: field.id, label: field.label, kind: field.kind, scoreable: false, groups }];
+    return [];
+  });
+}
+
+function keyedLabels(fields, parent = '') {
+  return fields.flatMap(field => {
+    const label = parent ? `${parent} / ${field.label}` : field.label;
+    return [...(field.scoreable ? [label] : []), ...keyedLabels(field.groups, label)];
+  });
+}
+
+export function observationProfiles(step) {
+  return step.types.flatMap(type => {
+    const fieldSets = new Map();
+    for (const row of step.expected) {
+      if (row.typeId === type.id) fieldSets.set(profileId(row), new Set(Object.keys(row.values)));
+    }
+    return [...fieldSets].map(([id, fieldIds]) => {
+      const fields = keyedFields(type.fields, fieldIds);
+      const label = fieldSets.size === 1 ? type.label : `${type.label} (${keyedLabels(fields).join(', ')})`;
+      return { id, typeId: type.id, label, fieldIds, fields };
+    });
+  });
+}
+
+export function selectedObservationProfile(profiles, row) {
+  const selected = profiles.find(profile => profile.id === row.profileId && profile.typeId === row.typeId);
+  if (selected) return selected;
+
+  // Saved answers can predate the field-set selector.
+  const keys = Object.keys(row.values || {});
+  return profiles.filter(profile => profile.typeId === row.typeId).map(profile => ({
+    profile,
+    matched: keys.filter(key => profile.fieldIds.has(key)).length,
+  })).sort((a, b) => b.matched - a.matched || a.profile.fieldIds.size - b.profile.fieldIds.size)[0]?.profile;
 }
 
 export function structuredExercise(pack, caseData) {
@@ -140,7 +186,11 @@ function valuesMatch(expected = {}, submitted = {}) {
 }
 
 function maximumMatching(expected, submitted) {
-  const edges = expected.map(row => submitted.map((other, index) => valuesMatch(row.values, other.values) && row.typeId === other.typeId ? index : -1));
+  const edges = expected.map(row => {
+    const id = profileId(row);
+    return submitted.map((other, index) =>
+      row.typeId === other.typeId && (!other.profileId || other.profileId === id) && valuesMatch(row.values, other.values) ? index : -1);
+  });
   const match = new Array(submitted.length).fill(-1);
   const pairs = [];
   function assign(left, seen) {

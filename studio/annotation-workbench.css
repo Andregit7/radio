@@ -394,6 +394,9 @@
 .awaiting-binding .studio-pane-marks { filter: saturate(.72); }
 .awaiting-binding .studio-observation-bind { font-weight: 700; border-color: var(--selected-line, var(--teal)); color: var(--teal); }
 .studio-binding-dialog { display: grid; gap: 9px; color: var(--ink); }
+.studio-annotation-link-options { display: grid; gap: 8px; max-height: 36vh; overflow: auto; }
+.studio-annotation-link-options label { display: flex; gap: 7px; align-items: baseline; overflow-wrap: anywhere; }
+.studio-annotation-link-options input { flex: none; accent-color: var(--teal); }
 .studio-comparison-entries { display: grid; gap: 4px; max-height: 220px; overflow: auto; }
 .studio-comparison-entry { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 5px; align-items: center; }
 .studio-comparison-entry span { overflow-wrap: anywhere; }

@@ -13,7 +13,8 @@ import { catalogueSelector } from './catalogue.js';
 import { EXERCISE_LABELS, SECTION_PROMPTS, SECTION_ORDER, availableExercises, gradeMatching, matchingScore,
   recordSelfAssessment, sessionAnswer, advanceSession, finishSessionEarly, receivedAnswers, selfAssessmentItems,
   canonicalDiagnosisLabels } from './exercises.js';
-import { gradeStructured, structuredRecord, describeObservation, stepLabel, optionLabel as structuredOptionLabel } from './structured.js';
+import { gradeStructured, structuredRecord, describeObservation, observationProfiles, selectedObservationProfile,
+  stepLabel, optionLabel as structuredOptionLabel } from './structured.js';
 
 const state={packs:[],activeId:null,progress:{},selfAssessments:{},bookmarks:[],visited:[],session:null,starter:null,offlineReady:false,registration:null,prompt:null,route:'library',page:0,chapter:'all',query:'',onlyBookmarks:false,updateChecking:false,viewerMode:'fit'};
 const navPreferenceKey='radioeasy-study-nav-collapsed';
@@ -585,23 +586,37 @@ function structuredChoiceInput(step,sectionAnswer,onChange){
 function structuredFindingsInput(step,sectionAnswer,onChange){
   const root=el('div',{class:'structured-findings'});
   sectionAnswer.observations=sectionAnswer.observations||[];
-  const types=step.types||[];
+  const profiles=observationProfiles(step);
   function draw(){
     root.replaceChildren();
-    if(!types.length)root.append(el('p',{class:'field-help'},'Banca capitolului nu are tipuri de observații.'));
+    if(!profiles.length)return;
     for(const [index,row] of sectionAnswer.observations.entries()){
       row.values=row.values||{};
-      const type=types.find(item=>item.id===row.typeId);
-      const select=el('select',{class:'select','aria-label':'Tipul observației'},...types.map(item=>el('option',{value:item.id,selected:item.id===row.typeId},item.label)));
-      select.addEventListener('change',()=>{row.typeId=select.value;row.values={};draw();});
+      const profile=selectedObservationProfile(profiles,row);
+      const select=el('select',{class:'select','aria-label':'Tipul observației'},
+        profile ? null : el('option',{value:'',disabled:true,selected:true},'Alege tipul'),
+        ...profiles.map(item=>el('option',{value:item.id,selected:item.id===profile?.id},item.label)));
+      select.addEventListener('change',()=>{
+        const next=profiles.find(item=>item.id===select.value);
+        row.values=next.typeId===row.typeId
+          ? Object.fromEntries(Object.entries(row.values).filter(([key])=>next.fieldIds.has(key)))
+          : {};
+        row.typeId=next.typeId;
+        row.profileId=next.id;
+        draw();
+      });
       const card=el('div',{class:'structured-observation'},el('div',{class:'structured-observation-head'},el('strong',{},`Observația ${index+1}`),select,button(icon('close',13),()=>{sectionAnswer.observations.splice(index,1);draw();onChange(sectionAnswer.observations.length>0);},'icon-button',{'aria-label':'Elimină observația'})));
-      card.append(...observationFieldControls(type?.fields || [], row.values, (fieldId, value) => {
+      card.append(...observationFieldControls(profile?.fields || [], row.values, (fieldId, value) => {
         if(value === undefined) delete row.values[fieldId];
         else row.values[fieldId] = value;
       }, { scoreableOnly: true }));
       root.append(card);
     }
-    const add=button([icon('plus',13),'Adaugă observație'],()=>{if(!types[0])return;sectionAnswer.observations.push({typeId:types[0].id,values:{}});draw();onChange(true);},'button ghost');
+    const add=button([icon('plus',13),'Adaugă observație'],()=>{
+      const [profile]=profiles;
+      sectionAnswer.observations.push({typeId:profile.typeId,profileId:profile.id,values:{}});
+      draw();onChange(true);
+    },'button ghost');
     root.append(add);
   }
   draw();onChange(sectionAnswer.observations.length>0);

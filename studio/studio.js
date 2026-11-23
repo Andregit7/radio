@@ -541,10 +541,19 @@ async function deleteDraft(entry){
   render();toast('Pachetul a fost șters.');
 }
 
+function findingTypeLabels(item,types){
+  const labels=new Map(types.map(type=>[type.id,type.label]));
+  return new Map((item.structured?.observations || []).map(row=>[row.itemId,labels.get(row.typeId) || 'Observație']));
+}
+
 function showCasePreview(item,initialImageId,initialComparisonId){
   const files=draft.files;
-  const notes=caseInterpretation(item,itemId=>viewer.selectItem(itemId));
-  const viewer=imageViewer(null,item,{initialImageId,initialComparisonId,loadAsset:path=>files.get(path),comparisons:caseComparisonLayers(draft.pack,item),
+  const labels=findingTypeLabels(item,findChapterBank(item.chapterId)?.sections?.findings?.types || []);
+  const preview={...item,sections:item.sections.map(section=>section.id!=='findings'?section:{...section,
+    items:section.items.map(row=>!row.text.trim() && labels.has(row.id)?{...row,text:labels.get(row.id)}:row),
+  })};
+  const notes=caseInterpretation(preview,itemId=>viewer.selectItem(itemId));
+  const viewer=imageViewer(null,preview,{initialImageId,initialComparisonId,loadAsset:path=>files.get(path),comparisons:caseComparisonLayers(draft.pack,item),
     onSelect:itemId=>notes.select(itemId,true),
   });
   const dialog=modal(`Previzualizare Study · ${item.title}`,el('div',{class:'reader-grid studio-study-preview'},viewer.node,notes.node),[
@@ -568,7 +577,8 @@ function renderCaseNotes(item,{observationControls,removeObservation}){
     let section=item.sections.find(s=>s.id===sectionId);if(!section){section={id:sectionId,label:labelText,items:[],status:'missing'};item.sections.push(section);}
     const group=el('section',{class:'studio-form-section'},el('h2',{},labelText));
     for(const entry of section.items){
-      const input=el('textarea',{value:entry.text,'aria-label':labelText,oninput:event=>changeCase(()=>{entry.text=event.target.value;})});
+      const input=el('textarea',{value:entry.text,'aria-label':labelText,'data-finding-text':sectionId==='findings'?'':null,
+        oninput:event=>changeCase(()=>{entry.text=event.target.value;})});
       const toolsRow=el('div',{class:'studio-item-tools'});
       if(sectionId==='differentials'){
         const target=el('select',{class:'select','aria-label':'Cazul diagnosticului diferențial',onchange:event=>{changeCase(()=>{if(event.target.value)entry.targetCaseId=event.target.value;else delete entry.targetCaseId;});}},el('option',{value:''},'Fără legătură către un caz'),...draft.pack.cases.filter(row=>row.id!==item.id).map(row=>el('option',{value:row.id,selected:row.targetCaseId===row.id},row.title)));
@@ -588,12 +598,12 @@ function renderCaseNotes(item,{observationControls,removeObservation}){
     }
     group.append(button([icon('plus',13),'Adaugă observație'],()=>{changeCase(()=>section.items.push({id:uid('point'),text:''}));render();},'button ghost'));notes.append(group);
   }
-  notes.append(structuredEditor(item),notesEditor(item));
+  notes.append(structuredEditor(item,observationControls),notesEditor(item));
   if(item.referenceText)notes.append(el('details',{class:'studio-source'},el('summary',{},'Transcrierea sursă păstrată'),item.referenceText));
   return notes;
 }
 
-function structuredEditor(item){
+function structuredEditor(item,observationControls){
   const wrapper=el('section',{class:'studio-form-section'},el('h2',{},'Observații structurate & note'));
   if(!item.structured){
     wrapper.append(el('p',{class:'studio-note'},'Observațiile scrise liber rămân pentru studiu. Pentru notare automată, creează tipuri de observații în fila „Bănci de răspunsuri” și mapează aici observațiile acestui caz. Notele nu generează întrebări automat.'),button('Creează observații structurate',()=>{remember();ensureStructured(item);changed();render();},'button secondary'));
@@ -610,15 +620,22 @@ function structuredEditor(item){
     wrapper.append(group);
   }
   const bank=findChapterBank(item.chapterId),types=bank?.sections?.findings?.types || [];
+  const findings=item.sections.find(section=>section.id==='findings');
   const observations=el('div',{class:'studio-observations'},el('h3',{},'Observații'));
   if(!types.length)observations.append(el('p',{class:'field-help'},'Creează mai întâi tipuri de observații pentru acest capitol.'));
   for(const [index,row] of (structured.observations||[]).entries()){
-    const type=types.find(itemType=>itemType.id===row.typeId),finding=item.sections.find(s=>s.id==='findings')?.items.find(p=>p.id===row.itemId);
-    const typeSelect=el('select',{class:'select','aria-label':'Tipul observației',onchange:event=>{remember();const next=types.find(itemType=>itemType.id===event.target.value);row.typeId=event.target.value;row.values={};if(next && finding)finding.text=finding.text||next.label;changed();render();}},...types.map(itemType=>el('option',{value:itemType.id,selected:itemType.id===row.typeId},itemType.label)));
-    const card=el('div',{class:'studio-observation'},el('div',{class:'studio-observation-head'},el('strong',{},`Observația ${index+1}`),typeSelect,button(icon('close',13),()=>{remember();structured.observations=structured.observations.filter(candidate=>candidate!==row);changed();render();},'icon-button',{'aria-label':'Șterge observația'})));
-    card.append(el('p',{class:'field-help'},`Text sursă: ${finding?.text || row.itemId}`));
+    const type=types.find(itemType=>itemType.id===row.typeId),finding=findings?.items.find(point=>point.id===row.itemId);
+    const typeSelect=el('select',{class:'select','aria-label':'Tipul observației',onchange:event=>{remember();row.typeId=event.target.value;row.values={};changed();render();}},...types.map(itemType=>el('option',{value:itemType.id,selected:itemType.id===row.typeId},itemType.label)));
+    const card=el('div',{class:'studio-observation','data-observation-id':finding?.id},el('div',{class:'studio-observation-head'},el('strong',{},`Observația ${index+1}`),typeSelect,button(icon('close',13),()=>{remember();structured.observations=structured.observations.filter(candidate=>candidate!==row);changed();render();},'icon-button',{'aria-label':'Șterge observația'})));
+    if(finding){
+      card.append(el('label',{class:'studio-field'},el('span',{},'Descrierea din Semiologie'),
+        el('textarea',{value:finding.text,'data-finding-text':'',placeholder:type?.label || 'Observație',
+          oninput:event=>changeCase(()=>{finding.text=event.target.value;})}),
+        el('small',{class:'field-help'},'Study afișează numele tipului când descrierea lipsește și observația are răspunsuri, note sau repere.')),
+      observationControls(finding,{allowRelink:true}));
+    }else card.append(el('p',{class:'field-help'},'Constatarea asociată lipsește din Semiologie.'));
     row.values ||= {};
-    card.append(...observationFieldControls(type?.fields || [], row.values, (fieldId,value)=>{
+    card.append(...observationFieldControls(labelledObservationFields(type?.fields || []), row.values, (fieldId,value)=>{
       remember();
       if(value===undefined)delete row.values[fieldId];
       else row.values[fieldId]=value;
@@ -627,11 +644,24 @@ function structuredEditor(item){
     card.append(field('Notă de studiu pentru această observație',row.note||'',value=>{remember();row.note=value;changed();},{textarea:true,help:'Nota nu este folosită automat în întrebări sau notare.'}));
     observations.append(card);
   }
-  observations.append(button([icon('plus',13),'Adaugă observație'],()=>{
-    const type=types[0];if(!type){toast('Creează un tip de observație în fila „Bănci de răspunsuri”.',true);return;}
-    remember();ensureStructured(item);const findingSection=item.sections.find(s=>s.id==='findings') || (item.sections.push({id:'findings',label:SECTION_LABELS.findings,items:[],status:'missing'}),item.sections.find(s=>s.id==='findings'));
-    const point={id:uid('point'),text:type.label};findingSection.items.push(point);structured.observations.push({itemId:point.id,typeId:type.id,values:{}});changed();render();
-  },'button secondary'));
+  if(types.length){
+    const linked=new Set(structured.observations.map(row=>row.itemId));
+    const available=(findings?.items || []).filter(row=>!linked.has(row.id));
+    const target=el('select',{class:'select'},el('option',{value:''},'Constatare nouă'),...available.map(row=>{
+      const emptyLabel=`Constatarea ${findings.items.indexOf(row)+1} (fără descriere)`;
+      return el('option',{value:row.id,'data-finding-empty-label':emptyLabel},row.text.trim() || emptyLabel);
+    }));
+    if(available.length)observations.append(el('label',{class:'studio-field'},el('span',{},'Constatare din Semiologie'),target));
+    observations.append(button([icon('plus',13),'Adaugă observație'],()=>{
+      remember();ensureStructured(item);
+      let point=available.find(row=>row.id===target.value);
+      if(!point){
+        point={id:uid('point'),text:''};
+        findings.items.push(point);
+      }
+      structured.observations.push({itemId:point.id,typeId:types[0].id,values:{}});changed();render();
+    },'button secondary'));
+  }
   wrapper.append(observations);
   return wrapper;
 }
@@ -647,6 +677,13 @@ function notesEditor(item){
 }
 
 const observationKinds=[['single','O singură variantă'],['multiple','Mai multe variante'],['measurementMm','Măsurare în mm']];
+
+function labelledObservationFields(fields){
+  return fields.map(field=>({...field,
+    options:field.options?.filter(option=>option.label.trim()),
+    groups:field.groups && labelledObservationFields(field.groups),
+  }));
+}
 
 function bankFieldDestinations(fields,parents=[]){
   return fields.flatMap(field=>{
@@ -940,19 +977,47 @@ async function addCaseImage(file,upload){
 
 function sanitiseBankFields(fields,observations,nested=false){
   return (fields || []).filter(field=>{
-    const used=observations.some(row=>observationHasValue(row,field.id) || row.fieldNotes?.[field.id]);
-    if(field.kind!=='measurementMm'){
+    const fallback=nested?'Subgrup fără nume':'Câmp fără nume';
+    if(field.kind==='measurementMm'){
+      if(!field.label.trim() && !observations.some(row=>observationHasValue(row,field.id) || row.fieldNotes?.[field.id]?.trim()))return false;
+    }else{
       if(field.groups){
         field.groups=sanitiseBankFields(field.groups,observations,true);
         if(!field.groups.length)delete field.groups;
       }
       if(field.options){
-        field.options=field.options.filter(option=>option.label.trim() ||
-          observations.some(row=>Array.isArray(row.values?.[field.id]) && row.values[field.id].includes(option.id)));
+        const unlabelled=new Set(field.options.filter(option=>!option.label.trim()).map(option=>option.id));
+        field.options=field.options.filter(option=>!unlabelled.has(option.id));
+        if(unlabelled.size)for(const row of observations){
+          const value=row.values?.[field.id];
+          if(Array.isArray(value))row.values[field.id]=value.filter(optionId=>!unlabelled.has(optionId));
+        }
         if(!field.options.length)delete field.options;
       }
+      if(!field.options && !field.groups){
+        for(const row of observations){
+          const note=row.fieldNotes?.[field.id];
+          if(!note?.trim())continue;
+          row.note=[row.note,`${field.label.trim() || fallback} — ${note}`].filter(part=>part?.trim()).join('\n\n');
+          delete row.fieldNotes[field.id];
+        }
+        return false;
+      }
     }
-    return used || field.groups?.length || field.options?.length || (!nested && field.label.trim());
+    if(!field.label.trim())field.label=fallback;
+    return true;
+  });
+}
+
+function sanitiseObservations(item){
+  const described=new Set(item.sections.find(section=>section.id==='findings')?.items.filter(row=>row.text.trim()).map(row=>row.id));
+  const marked=new Set((item.annotations || []).map(row=>row.itemId));
+  item.structured.observations=(item.structured.observations || []).filter(row=>{
+    row.values ||= {};
+    for(const id of Object.keys(row.values))if(!observationHasValue(row,id))delete row.values[id];
+    if(row.fieldNotes)row.fieldNotes=Object.fromEntries(Object.entries(row.fieldNotes).filter(([,note])=>note.trim()));
+    if(!row.note?.trim())delete row.note;
+    return described.has(row.itemId) || marked.has(row.itemId) || Object.keys(row.values).length || row.note || Object.keys(row.fieldNotes || {}).length;
   });
 }
 
@@ -962,17 +1027,22 @@ function sanitiseForExport(pack,questionBank){
   for(const bank of pack.curriculum.chapterBanks||[]){
     for(const section of Object.values(bank.sections||{})){
       if(section.options)section.options=section.options.filter(option=>(option.label||'').trim());
-      if(!section.types)continue;
-      section.types=section.types.filter(type=>{
+      for(const type of section.types || []){
         const observations=observationCases(pack.cases,bank.chapterId,type.id).flat();
         type.fields=sanitiseBankFields(type.fields,observations);
-        return type.label.trim() || observations.length || type.fields.length;
-      });
+      }
     }
   }
+  for(const item of pack.cases)if(item.structured)sanitiseObservations(item);
   if(pack.curriculum.chapterBanks){
     for(const bank of pack.curriculum.chapterBanks){
       for(const [sectionId,section] of Object.entries(bank.sections||{})){
+        if(section.types)section.types=section.types.filter(type=>{
+          if(type.label.trim())return true;
+          if(!type.fields.length && !observationCases(pack.cases,bank.chapterId,type.id).length)return false;
+          type.label='Tip de observație fără nume';
+          return true;
+        });
         if((section.options && !section.options.length) || (section.types && !section.types.length))delete bank.sections[sectionId];
       }
     }
@@ -983,23 +1053,16 @@ function sanitiseForExport(pack,questionBank){
   const caseIndex=new Map(pack.cases.map(row=>[row.id,new Set(row.images.map(image=>image.id))]));
   for(const item of pack.cases){
     const referenced=new Set([...(item.annotations||[]).map(row=>row.itemId),...(item.structured?.observations||[]).map(row=>row.itemId)]);
-    const types=new Map((pack.curriculum.chapterBanks?.find(bank=>bank.chapterId===item.chapterId)?.sections?.findings?.types||[]).map(type=>[type.id,type]));
+    const labels=findingTypeLabels(item,pack.curriculum.chapterBanks?.find(bank=>bank.chapterId===item.chapterId)?.sections?.findings?.types || []);
     for(const section of item.sections){
       section.items=section.items.filter(row=>row.text.trim() || referenced.has(row.id));
-      for(const row of section.items)if(!row.text.trim() && section.id==='findings'){
-        const type=types.get(item.structured?.observations?.find(observation=>observation.itemId===row.id)?.typeId);
-        row.text=type?.label || 'Observație';
-      }
+      if(section.id==='findings')for(const row of section.items)if(!row.text.trim())row.text=labels.get(row.id) || 'Observație';
       section.status=section.items.length?'present':'missing';
     }
     const itemIds=new Set(item.sections.flatMap(section=>section.items.map(row=>row.id)));
     item.annotations=(item.annotations||[]).filter(row=>itemIds.has(row.itemId));
     if(item.structured){
       item.structured.observations=(item.structured.observations||[]).filter(row=>itemIds.has(row.itemId));
-      for(const row of item.structured.observations){
-        for(const [id,value] of Object.entries(row.values || {}))if(Array.isArray(value) && !value.length)delete row.values[id];
-        if(row.fieldNotes)row.fieldNotes=Object.fromEntries(Object.entries(row.fieldNotes).filter(([,note])=>note));
-      }
       for(const sectionId of ['examination','projection','differentials','investigations']){
         const choices=new Set((pack.curriculum.chapterBanks?.find(bank=>bank.chapterId===item.chapterId)?.sections?.[sectionId]?.options||[]).map(option=>option.id));
         item.structured.choices={...(item.structured.choices||{}),[sectionId]:(item.structured.choices?.[sectionId]||[]).filter(id=>choices.has(id))};
