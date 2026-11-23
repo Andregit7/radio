@@ -592,29 +592,23 @@ button.nav-item:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
 @media(max-width:1000px) {.lightrope li:nth-child(n+22){display:none}}
 
 .seasonal-snow {position:absolute;inset:0;overflow:hidden}
-.seasonal-snow:before,.seasonal-snow:after {
+.seasonal-flake {
   position:absolute;
-  inset:-160px -116px 0;
-  content:'';
-  background-image:radial-gradient(circle at 18% 30%,#fff9edb3 0 1.1px,transparent 2.2px),radial-gradient(circle at 75% 72%,#d6efe899 0 1px,transparent 1.65px);
-  background-size:116px 160px;
-  opacity:.62;
-  animation:seasonal-snowfall 14s linear infinite;
-}
-.seasonal-snow:after {
-  opacity:.33;
-  background-image:radial-gradient(circle at 44% 78%,#e2f5fff0 0 1.3px,transparent 2.5px),radial-gradient(circle at 85% 25%,#f6fffad9 0 .8px,transparent 1.6px);
-  background-position:61px 13px;
-  animation-duration:23s;
-  animation-direction:reverse;
-  animation-delay:-8s;
+  top:var(--snow-y);
+  left:var(--snow-x);
+  width:var(--snow-size);
+  height:var(--snow-size);
+  border-radius:50%;
+  background:#fff9ed;
+  opacity:var(--snow-opacity);
+  animation:seasonal-snowfall var(--snow-duration) linear var(--snow-delay) infinite;
 }
 @keyframes seasonal-snowfall {
-  0% {transform:translate3d(0,0,0)}
-  33% {transform:translate3d(14px,52.8px,0)}
-  66% {transform:translate3d(-8px,105.6px,0)}
-  100% {transform:translate3d(0,160px,0)}
+  /* Start and finish outside the viewport; top supplies the resting position. */
+  from {transform:translate3d(0,calc(-8px - var(--snow-y)),0)}
+  to {transform:translate3d(var(--snow-drift),calc(100dvh - var(--snow-y) + 8px),0)}
 }
+@media (max-width:600px) {.seasonal-flake:nth-child(even){display:none}}
 .seasonal-ornaments {
   position:absolute;
   top:10px;

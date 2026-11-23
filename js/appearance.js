@@ -30,9 +30,29 @@ const ornament=variant=>el('span',{class:`seasonal-ball ${variant}`},
   el('span',{class:'seasonal-cap'}),
   el('span',{class:'seasonal-globe'}));
 
+function christmasSnow(){
+  const snow=el('div',{class:'seasonal-snow'});
+  const flakeCount=42;
+  for(let index=0;index<flakeCount;index++){
+    const depth=Math.random();
+    const phase=(index+Math.random())/flakeCount;
+    const duration=40-16*depth+5*Math.random();
+    const flake=el('span',{class:'seasonal-flake'});
+    flake.style.setProperty('--snow-x',`${Math.random()*100}%`);
+    flake.style.setProperty('--snow-y',`${phase*100}dvh`);
+    flake.style.setProperty('--snow-size',`${1.5+2*depth}px`);
+    flake.style.setProperty('--snow-opacity',.3+.45*depth);
+    flake.style.setProperty('--snow-drift',`${44*(Math.random()-.5)}px`);
+    flake.style.setProperty('--snow-duration',`${duration}s`);
+    flake.style.setProperty('--snow-delay',`${-phase*duration}s`);
+    snow.append(flake);
+  }
+  return snow;
+}
+
 function christmasScene(){
   return el('div',{class:'theme-scene christmas-scene','aria-hidden':'true'},
-    el('div',{class:'seasonal-snow'}),
+    christmasSnow(),
     el('div',{class:'seasonal-ornaments'},ornament('is-red'),ornament('is-green'),ornament('is-blue'),ornament('is-white')),
     el('div',{class:'seasonal-landscape'},
       el('span',{class:'seasonal-shadow'}),

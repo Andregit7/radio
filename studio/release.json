@@ -1,7 +1,7 @@
 {
   "app": "radioeasy-studio",
   "version": "0.5.1",
-  "buildId": "1ffa8146e028",
+  "buildId": "01e9618acf85",
   "files": [
     {
       "path": ".nojekyll",
@@ -20,8 +20,8 @@
     },
     {
       "path": "base.css",
-      "bytes": 73908,
-      "sha256": "d81d3f83b355dba83b319108d9447b7027a41b93af423362c8b5a8eccec4eb47"
+      "bytes": 73660,
+      "sha256": "b988b3f71d9ea32f34b3d42b30363e3abe38b2cd97ed818cc2de2d73e3262976"
     },
     {
       "path": "icons/apple-touch-icon.png",
@@ -70,8 +70,8 @@
     },
     {
       "path": "lib/appearance.js",
-      "bytes": 6845,
-      "sha256": "0ab46c7b7bad627e6d70fc6fa126994b7b194198c066ffd93ece8ac969c6b185"
+      "bytes": 7648,
+      "sha256": "10df2674fb61b4e17b80e63175b69dfed2ee5c75ff0481e0305a423458fb1bf8"
     },
     {
       "path": "lib/archive-worker.js",
@@ -136,8 +136,8 @@
     {
       "path": "sw.js",
       "bytes": 1631,
-      "sha256": "2789b6262b23052c949518717387bbe3265687ccdef2dbfb56e0efb1598ea30a"
+      "sha256": "4bd6b32e17b75cdd6b0da7025bf246462b2dd576d99c64c3730453b79c1e89a6"
     }
   ],
-  "totalBytes": 356375
+  "totalBytes": 356930
 }
