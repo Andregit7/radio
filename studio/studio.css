@@ -99,4 +99,10 @@
 .studio-danger-icon{color:var(--red);flex:none}
 .studio-danger-icon:hover{background:var(--danger-surface);color:var(--red)}
 .studio-danger-text{color:var(--red)}
-.studio-catalogue-tools{grid-column:1/-1;display:flex;justify-content:flex-end}
+.studio-catalogue-tools{grid-column:1/-1;align-items:center;row-gap:6px;min-width:0}
+.studio-catalogue-tools>.button{margin-inline-start:auto;flex:none}
+.studio-bank-field-panel{min-width:0}
+.studio-bank-field-panel .studio-bank-options{padding-inline-start:clamp(6px,1.4vw,12px)}
+.studio-bank-count{line-height:1.35}
+.studio-bank-move.select{width:min(180px,100%);min-height:34px;padding:5px 7px;font-size:11px}
+.studio-bank-actions{gap:4px;flex-wrap:wrap}

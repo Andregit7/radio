@@ -4,7 +4,7 @@ import { LIMITS, parseJSON, requireThat, validateFiles, safePath } from './schem
 import { openDatabase, listPacks, assetBlob, packAssets, getMeta, setMeta, setMetas, installPacks, removePack,
   learningSnapshot, validateLearning, mergeLearning, restoreLearningFile, clearLearning } from './storage.js';
 import { archiveJob } from './archive.js';
-import { el, button, link, badge, icon, toast, modal } from './dom.js';
+import { el, button, link, badge, icon, toast, modal, observationFieldControls } from './dom.js';
 import { creditsButton } from './credits.js';
 import { initAppearance, themeControl } from './appearance.js';
 import { imageViewer } from './viewer.js';
@@ -44,14 +44,6 @@ function imageThumb(record,item,className='',onCleanup=registerCleanup){
   const primary=item.images.find(row=>row.role!=='comparison') || item.images[0];
   assetBlob(record,primary.path).then(blob=>{if(!disposed && blob){url=URL.createObjectURL(blob);img.src=url;}}).catch(()=>{});
   onCleanup(()=>{disposed=true;if(url)URL.revokeObjectURL(url);});return img;
-}
-
-async function toggleFullscreen(target){
-  try{if(document.fullscreenElement)await document.exitFullscreen();else if(target.requestFullscreen)await target.requestFullscreen();else target.classList.toggle('image-zoomed');}
-  catch{target.classList.toggle('image-zoomed');}
-}
-function fullscreenButton(target,label='Vezi imaginea pe tot ecranul'){
-  return button([icon('expand',15),label],()=>toggleFullscreen(target),'button secondary');
 }
 
 function shell(){
@@ -196,18 +188,15 @@ async function renderReader(main,id){
 }
 
 function openCasePreview(record,target){
-  let disposed=false,url;
-  const image=el('img',{class:'explanation-image',alt:`Radiografie: ${target.title}`});
-  const picture=target.images.find(row=>row.role!=='comparison') || target.images[0];
-  assetBlob(record,picture.path).then(blob=>{if(!disposed && blob){url=URL.createObjectURL(blob);image.src=url;}}).catch(()=>{});
+  const viewer=imageViewer(record,target,{mode:state.viewerMode});
   const body=el('div',{class:'case-preview'},
-    el('div',{class:'case-preview-head'},image,badge(chapterLabel(record.pack,target.chapterId),'green')),
+    el('div',{class:'case-preview-head'},viewer.node,badge(chapterLabel(record.pack,target.chapterId),'green')),
     el('p',{class:'case-preview-note'},'Previzualizare comparativă. Cazul principal rămâne deschis; închide fereastra pentru a reveni.'),
     el('div',{class:'diagnosis-line'},el('span',{},'Diagnostic pozitiv'),el('strong',{},canonicalDiagnosisLabels(record,target.id).join('; ') || 'Neprecizat în sursă')),
     ...SECTION_ORDER.map(sectionId=>{const section=target.sections.find(row=>row.id===sectionId);return el('section',{class:'explanation-section'},el('h3',{},SECTION_LABELS[sectionId]),section?.items.length?el('ul',{},...section.items.map(item=>el('li',{},item.text))):el('p',{class:'missing'},'Nu este precizat în notițele sursă.'));}));
   const dialog=modal(target.title,body,[button('Înapoi la caz',()=>dialog.close(),'button secondary')]);
   dialog.classList.add('explanation-modal');
-  const cleanup=()=>{disposed=true;if(url)URL.revokeObjectURL(url);dialog.classList.remove('explanation-modal');dialog.removeEventListener('close',cleanup);};
+  const cleanup=()=>{viewer.destroy();dialog.classList.remove('explanation-modal');dialog.removeEventListener('close',cleanup);};
   dialog.addEventListener('close',cleanup);
 }
 
@@ -521,6 +510,7 @@ function renderQuestion(main,record,session){
       textarea.value=values[region.annotationId] || '';
       if(!stored)textarea.addEventListener('input',()=>{submit.disabled=!([...fieldNodes.values()].some(node=>node.value.trim()));});
       fieldNodes.set(region.annotationId,textarea);
+      textarea.addEventListener('focus',()=>viewer.selectAnnotation(region.annotationId));
       panel.append(el('label',{class:'interpretation-field'},el('span',{class:'field-label'},`Regiunea ${region.label}`),textarea));
     }
   }else if(q.kind==='matching'){
@@ -531,6 +521,7 @@ function renderQuestion(main,record,session){
       const select=el('select',{class:'select',disabled:Boolean(stored),'aria-label':`Potrivire pentru regiunea ${pair.label}`},el('option',{value:''},'Alege descrierea…'),...q.options.map((option,index)=>el('option',{value:option.id,selected:checksDraft.mapping[pair.regionId]===option.id},`${String.fromCharCode(65+index)}. ${option.text}`)));
       select.addEventListener('change',()=>{checksDraft.mapping[pair.regionId]=select.value;submit.disabled=Object.keys(checksDraft.mapping).filter(key=>checksDraft.mapping[key]).length!==q.pairs.length;});
       fieldNodes.set(pair.regionId,select);
+      select.addEventListener('focus',()=>viewer.selectAnnotation(pair.regionId));
       panel.append(el('label',{class:'interpretation-field'},el('span',{class:'field-label'},`Regiunea ${pair.label}`),select));
     }
   }else if(q.kind==='catalogue'){
@@ -604,21 +595,10 @@ function structuredFindingsInput(step,sectionAnswer,onChange){
       const select=el('select',{class:'select','aria-label':'Tipul observației'},...types.map(item=>el('option',{value:item.id,selected:item.id===row.typeId},item.label)));
       select.addEventListener('change',()=>{row.typeId=select.value;row.values={};draw();});
       const card=el('div',{class:'structured-observation'},el('div',{class:'structured-observation-head'},el('strong',{},`Observația ${index+1}`),select,button(icon('close',13),()=>{sectionAnswer.observations.splice(index,1);draw();onChange(sectionAnswer.observations.length>0);},'icon-button',{'aria-label':'Elimină observația'})));
-      for(const field of (type?.fields||[]).filter(item=>item.scoreable!==false)){
-        const value=row.values?.[field.id];
-        if(field.kind==='measurementMm'){
-          const input=el('input',{type:'number',min:'0',step:'0.1',value:value??'','aria-label':field.label,class:'select'});
-          input.addEventListener('input',()=>{const number=Number(input.value);if(Number.isFinite(number)&&number>0)row.values[field.id]=Math.round(number*10)/10;else delete row.values[field.id];});
-          card.append(el('label',{class:'structured-field'},el('span',{},`${field.label} (mm)`),input));
-        }else if(field.kind==='single'){
-          const control=el('select',{class:'select','aria-label':field.label},el('option',{value:''},'Necompletat'),...field.options.map(option=>el('option',{value:option.id,selected:(value||[])[0]===option.id},option.label)));
-          control.addEventListener('change',()=>{row.values[field.id]=control.value?[control.value]:[];});
-          card.append(el('label',{class:'structured-field'},el('span',{},field.label),control));
-        }else{
-          const checks=el('div',{class:'studio-checks structured-checks'},...field.options.map(option=>{const input=el('input',{type:'checkbox',checked:(value||[]).includes(option.id)});input.addEventListener('change',()=>{const set=new Set(row.values[field.id]||[]);if(input.checked)set.add(option.id);else set.delete(option.id);row.values[field.id]=[...set];});return el('label',{},input,option.label);}));
-          card.append(el('div',{class:'structured-field'},el('span',{},field.label),checks));
-        }
-      }
+      card.append(...observationFieldControls(type?.fields || [], row.values, (fieldId, value) => {
+        if(value === undefined) delete row.values[fieldId];
+        else row.values[fieldId] = value;
+      }, { scoreableOnly: true }));
       root.append(card);
     }
     const add=button([icon('plus',13),'Adaugă observație'],()=>{if(!types[0])return;sectionAnswer.observations.push({typeId:types[0].id,values:{}});draw();onChange(true);},'button ghost');
@@ -822,12 +802,8 @@ async function saveResultWrittenAssessment(record,q,index,checked){
 function openExplanation(record,session,index){
   const q=session.questions[index],answer=session.answers[index],source=record.pack.cases.find(item=>item.id===q.caseId);
   if(!source)return;
-  const urls=[];
-  const image=el('img',{class:'explanation-image',alt:`Radiografie: ${source.title}`});
-  image.addEventListener('click',()=>toggleFullscreen(image));
-  let disposed=false,url;
-  assetBlob(record,source.images.find(row=>row.role!=='comparison')?.path || source.images[0].path).then(blob=>{if(!disposed && blob){url=URL.createObjectURL(blob);image.src=url;}}).catch(()=>{});
-  urls.push(()=>{disposed=true;if(url)URL.revokeObjectURL(url);});
+  const exercise=q.kind==='regions'||q.kind==='matching' ? q : null;
+  const viewer=imageViewer(record,source,{exercise,mode:state.viewerMode});
   const labels=canonicalDiagnosisLabels(record,q.caseId),selfKind=q.kind==='interpretation'||q.kind==='regions',writtenKind=q.kind==='written';
   let checks={...(answer?.selfChecks || {})},writtenChecked=Boolean(answer?.selfChecked);
   const reference=q.kind==='structured'?structuredExplanation(q,answer)
@@ -836,8 +812,7 @@ function openExplanation(record,session,index){
     ? selfCheckPanel(record,q,{...answer,selfChecks:checks},(id,on,sectionId)=>{const set=new Set(checks[sectionId]||[]);if(on)set.add(id);else set.delete(id);checks[sectionId]=[...set];})
     : q.kind==='matching'?matchingFeedback(record,q,answer):answerFeedback(record,q,answer);
   const body=el('div',{class:'explanation-body'},
-    el('div',{class:'explanation-figure'},image),
-    fullscreenButton(image),
+    el('div',{class:'explanation-figure'},viewer.node),
     el('div',{class:'diagnosis-line'},el('span',{},'Diagnostic pozitiv'),el('strong',{},labels.join('; ') || 'Neprecizat în sursă')),
     el('div',{class:'learner-answer'},el('span',{},'Răspunsul tău'),learnerAnswerBlock(record,q,answer)),
     reference,
@@ -851,7 +826,7 @@ function openExplanation(record,session,index){
   actions.push(button('Înapoi la rezultate',()=>dialog.close(),'button secondary'));
   const dialog=modal(`${source.title} · ${exerciseLabel(q)}`,body,actions);
   dialog.classList.add('explanation-modal');
-  const cleanup=()=>{urls.forEach(fn=>fn());dialog.classList.remove('explanation-modal');dialog.removeEventListener('close',cleanup);};
+  const cleanup=()=>{viewer.destroy();dialog.classList.remove('explanation-modal');dialog.removeEventListener('close',cleanup);};
   dialog.addEventListener('close',cleanup);
 }
 

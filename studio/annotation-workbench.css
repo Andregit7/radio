@@ -358,6 +358,7 @@
 
 .studio-image-body { display: flex; flex-direction: column; position: relative; background: #162122; border-radius: 0 0 7px 7px; }
 .studio-workbench-stage { position: relative; flex: 1; min-height: 0; overflow: hidden; background: #0c1213; touch-action: none; }
+.studio-workbench.marks-hidden .studio-workbench-overlay { display: none; }
 .studio-workbench-stage.is-drawing { cursor: crosshair; }
 .studio-workbench-stage.is-drawing .studio-workbench-mark { cursor: crosshair; }
 .studio-workbench-stage.is-pannable { cursor: grab; }

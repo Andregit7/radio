@@ -1,6 +1,6 @@
-import {el,button,icon,badge,toast,modal} from './lib/dom.js';
+import {el,button,icon,badge,toast,modal,observationFieldControls} from './lib/dom.js';
 import {SECTION_LABELS,normalise,shuffled} from './lib/core.js';
-import {LIMITS,validatePack,validateQuestions,validateFiles,imageDimensions,requireThat} from './lib/schema.js';
+import {LIMITS,OBSERVATION_FIELD_LIMITS,observationFields,validatePack,validateQuestions,validateFiles,imageDimensions,requireThat} from './lib/schema.js';
 import {archiveJob} from './lib/archive.js';
 import {imageViewer} from './lib/viewer.js';
 import {caseComparisonLayers,caseInterpretation} from './lib/case-interpretation.js';
@@ -41,8 +41,17 @@ function ensureStructured(item=currentCase()){
 function bankOptionUsage(chapterId,sectionId,optionId){
   return (draft?.pack.cases||[]).filter(item=>item.chapterId===chapterId && item.structured?.choices?.[sectionId]?.includes(optionId)).length;
 }
-function observationTypeUsage(chapterId,typeId){
-  return (draft?.pack.cases||[]).filter(item=>item.chapterId===chapterId && item.structured?.observations?.some(row=>row.typeId===typeId)).length;
+function observationCases(cases,chapterId,typeId){
+  return cases.filter(item=>item.chapterId===chapterId)
+    .map(item=>(item.structured?.observations || []).filter(row=>row.typeId===typeId))
+    .filter(rows=>rows.length);
+}
+function observationHasValue(row,fieldId){
+  const value=row.values?.[fieldId];
+  return Array.isArray(value) ? value.length>0 : value!=null;
+}
+function countLabel(count,singular,plural){
+  return `${count}${count>=20 && (count%100>=20 || count%100===0)?' de':''} ${count===1?singular:plural}`;
 }
 function findChapterBank(chapterId){return draft?.pack.curriculum.chapterBanks?.find(row=>row.chapterId===chapterId) || null;}
 function bankChoiceRows(chapterId,sectionId){
@@ -608,19 +617,13 @@ function structuredEditor(item){
     const typeSelect=el('select',{class:'select','aria-label':'Tipul observației',onchange:event=>{remember();const next=types.find(itemType=>itemType.id===event.target.value);row.typeId=event.target.value;row.values={};if(next && finding)finding.text=finding.text||next.label;changed();render();}},...types.map(itemType=>el('option',{value:itemType.id,selected:itemType.id===row.typeId},itemType.label)));
     const card=el('div',{class:'studio-observation'},el('div',{class:'studio-observation-head'},el('strong',{},`Observația ${index+1}`),typeSelect,button(icon('close',13),()=>{remember();structured.observations=structured.observations.filter(candidate=>candidate!==row);changed();render();},'icon-button',{'aria-label':'Șterge observația'})));
     card.append(el('p',{class:'field-help'},`Text sursă: ${finding?.text || row.itemId}`));
-    for(const fieldDef of type?.fields || []){
-      const value=row.values?.[fieldDef.id];
-      if(fieldDef.kind==='measurementMm'){
-        const input=el('input',{type:'number',min:'0',step:'0.1',value:value??'','aria-label':fieldDef.label,oninput:event=>{remember();const number=Number(event.target.value);if(Number.isFinite(number)&&number>0)row.values={...(row.values||{}),[fieldDef.id]:Math.round(number*10)/10};else delete (row.values||{})[fieldDef.id];changed();}});
-        card.append(el('label',{class:'studio-field'},el('span',{},`${fieldDef.label} (mm)`),input));
-      }else if(fieldDef.kind==='single'){
-        const select=el('select',{class:'select','aria-label':fieldDef.label,onchange:event=>{remember();const set=event.target.value?[event.target.value]:[];row.values={...(row.values||{}),[fieldDef.id]:set};changed();}},el('option',{value:''},'Necompletat'),...fieldDef.options.map(option=>el('option',{value:option.id,selected:(value||[])[0]===option.id},option.label)));
-        card.append(el('label',{class:'studio-field'},el('span',{},fieldDef.label),select));
-      }else{
-        const checks=el('div',{class:'studio-checks'},...fieldDef.options.map(option=>{const input=el('input',{type:'checkbox',checked:(value||[]).includes(option.id),onchange:()=>{remember();const set=new Set(row.values?.[fieldDef.id]||[]);if(input.checked)set.add(option.id);else set.delete(option.id);row.values={...(row.values||{}),[fieldDef.id]:[...set]};changed();}});return el('label',{},input,option.label);}));
-        card.append(el('div',{class:'studio-field'},el('span',{},fieldDef.label),checks));
-      }
-    }
+    row.values ||= {};
+    card.append(...observationFieldControls(type?.fields || [], row.values, (fieldId,value)=>{
+      remember();
+      if(value===undefined)delete row.values[fieldId];
+      else row.values[fieldId]=value;
+      changed();
+    }));
     card.append(field('Notă de studiu pentru această observație',row.note||'',value=>{remember();row.note=value;changed();},{textarea:true,help:'Nota nu este folosită automat în întrebări sau notare.'}));
     observations.append(card);
   }
@@ -643,12 +646,140 @@ function notesEditor(item){
   return details;
 }
 
+const observationKinds=[['single','O singură variantă'],['multiple','Mai multe variante'],['measurementMm','Măsurare în mm']];
+
+function bankFieldDestinations(fields,parents=[]){
+  return fields.flatMap(field=>{
+    if(field.kind==='measurementMm')return [];
+    const path=[...parents,field];
+    return [{field,path,controls:[]},...bankFieldDestinations(field.groups || [],path)];
+  });
+}
+
+function bankFieldPath(path){
+  return path.map(field=>field.label.trim() || 'Câmp fără nume').join(' / ');
+}
+
+function moveBankVariant(option,source,target,observations){
+  const targetOptions=target.options || [];
+  if(targetOptions.length>=OBSERVATION_FIELD_LIMITS.options || targetOptions.some(row=>row.id===option.id)){
+    toast('Varianta nu încape în câmpul ales sau este deja acolo.',true);
+    return false;
+  }
+  const selected=observations.filter(row=>Array.isArray(row.values?.[source.id]) && row.values[source.id].includes(option.id));
+  if(target.kind==='single' && selected.some(row=>observationHasValue(row,target.id))){
+    toast('Mutarea ar crea două răspunsuri într-un câmp cu o singură variantă. Verifică selecțiile din cazuri.',true);
+    return false;
+  }
+  remember();
+  source.options=source.options.filter(row=>row!==option);
+  target.options=[...targetOptions,option];
+  for(const row of selected){
+    const remaining=row.values[source.id].filter(id=>id!==option.id);
+    if(remaining.length)row.values[source.id]=remaining;
+    else delete row.values[source.id];
+    row.values[target.id]=[...(row.values[target.id] || []),option.id];
+  }
+  focusField(option.id);
+  changed();render();
+  return true;
+}
+
+function renderBankField(field, siblings, context, level=1, updateParentUsage=()=>{}){
+  const {cases,observations,destinations,allFields}=context;
+  const {perLevel,perType,levels,options:optionLimit}=OBSERVATION_FIELD_LIMITS;
+  const nested=observationFields([field]);
+  const used=cases.filter(rows=>rows.some(row=>nested.some(item=>observationHasValue(row,item.id) || row.fieldNotes?.[item.id]))).length;
+  const measurement=field.kind==='measurementMm';
+  const usage=el('small',{class:'field-help studio-bank-count'});
+  function updateUsage(){
+    const groups=field.groups?.length || 0;
+    const variants=nested.reduce((count,item)=>count+(item.options || []).filter(option=>option.label.trim()).length,0);
+    usage.textContent=[
+      !measurement && `${countLabel(variants,'variantă','variante')}${groups?' în total':''}`,
+      groups>0 && countLabel(groups,'subgrup','subgrupuri'),
+      used>0 && `Folosit în ${countLabel(used,'caz','cazuri')}`,
+    ].filter(Boolean).join(' · ');
+  }
+  function refreshUsage(){updateUsage();updateParentUsage();}
+  updateUsage();
+  const kinds=level===1 ? observationKinds : observationKinds.slice(0,2);
+  const kind=el('select',{class:'select','aria-label':'Tipul câmpului',onchange:event=>{
+    const next=event.target.value;
+    const hasChoices=field.options?.some(option=>option.label.trim()) || field.groups?.length;
+    const incompatible=(measurement || next==='measurementMm') && (used || hasChoices);
+    const tooMany=next==='single' && observations.some(row=>Array.isArray(row.values?.[field.id]) && row.values[field.id].length>1);
+    if(incompatible || tooMany){
+      event.target.value=field.kind;
+      toast(tooMany?'Unele cazuri au mai multe răspunsuri. Păstrează câte unul înainte de schimbare.':'Elimină variantele, subgrupurile și răspunsurile din acest câmp înainte de a-i schimba tipul.',true);
+      return;
+    }
+    remember();field.kind=next;
+    if(next==='measurementMm'){delete field.options;delete field.groups;}
+    else field.options ||= [];
+    changed();render();
+  }},...kinds.map(([value,label])=>el('option',{value,selected:field.kind===value},label)));
+  const name=level===1?'câmpul':'subgrupul';
+  const row=el('div',{class:'studio-bank-field'},
+    el('input',{type:'text',value:field.label,placeholder:level===1?'Numele câmpului':'Numele subgrupului','aria-label':level===1?'Numele câmpului':'Numele subgrupului',
+      'data-field-id':field.id,oninput:event=>{
+        field.label=event.target.value;
+        for(const destination of destinations)if(destination.path.includes(field)){
+          for(const control of destination.controls)control.textContent=bankFieldPath(destination.path);
+        }
+        changed();
+      }}),
+    kind,usage,
+    button(icon('close',13),()=>{
+      if(used){toast('Acest câmp este folosit în cazuri. Golește răspunsurile înainte de a-l șterge.',true);return;}
+      remember();siblings.splice(siblings.indexOf(field),1);changed();render();
+    },'icon-button',{'aria-label':`Șterge ${name}`}));
+  const panel=el('div',{class:'studio-bank-field-panel'},row);
+  if(measurement)return panel;
+
+  const choices=el('div',{class:'studio-bank-options'});
+  const targets=destinations.filter(row=>row.field!==field);
+  for(const option of field.options || []){
+    const move=targets.length ? el('select',{class:'select studio-bank-move','aria-label':`Mută varianta ${option.label}`,onchange:event=>{
+      const target=targets.find(row=>row.field.id===event.target.value)?.field;
+      if(target && !moveBankVariant(option,field,target,observations))event.target.value='';
+    }},el('option',{value:''},'Mută în…'),...targets.map(target=>{
+      const control=el('option',{value:target.field.id},bankFieldPath(target.path));
+      target.controls.push(control);
+      return control;
+    })) : null;
+    choices.append(el('div',{class:'studio-bank-row'},
+      el('input',{type:'text',value:option.label,placeholder:'Numele variantei','aria-label':'Numele variantei','data-field-id':option.id,
+        oninput:event=>{option.label=event.target.value;move?.setAttribute('aria-label',`Mută varianta ${option.label}`);refreshUsage();changed();}}),
+      move,button(icon('close',13),()=>{
+        const selected=observations.some(row=>Array.isArray(row.values?.[field.id]) && row.values[field.id].includes(option.id));
+        if(selected){toast('Varianta este folosită într-un caz.',true);return;}
+        remember();field.options=field.options.filter(row=>row!==option);changed();render();
+      },'icon-button',{'aria-label':'Șterge varianta'})));
+  }
+  const canAddGroup=level<levels && (field.groups?.length || 0)<perLevel && allFields.length<perType;
+  choices.append(el('div',{class:'button-row studio-bank-actions'},
+    button([icon('plus',13),'Adaugă variantă'],()=>{
+      remember();field.options ||= [];
+      const option={id:uid('option'),label:''};
+      field.options.push(option);focusField(option.id);changed();render();
+    },'button ghost',{disabled:(field.options?.length || 0)>=optionLimit}),
+    button([icon('plus',13),'Adaugă subgrup'],()=>{
+      remember();field.groups ||= [];
+      const group={id:uid('field'),label:'',kind:'single',options:[]};
+      field.groups.push(group);focusField(group.id);changed();render();
+    },'button ghost',{disabled:!canAddGroup})));
+  for(const group of field.groups || [])choices.append(renderBankField(group,field.groups,context,level+1,refreshUsage));
+  panel.append(choices);
+  return panel;
+}
+
 function renderBanks(work){
   const chapters=draft.pack.curriculum.chapters;
   const selected=selectedChapters.bank && chapters.some(row=>row.id===selectedChapters.bank)?selectedChapters.bank:chapters[0]?.id;
   selectedChapters.bank=selected;
   work.append(el('div',{class:'studio-title'},el('h1',{},'Bănci de răspunsuri'),badge('VARIANTE PE CAPITOL')));
-  work.append(el('p',{class:'studio-note'},'Fiecare capitol are propriile variante. Observațiile au tipuri și câmpuri; celelalte secțiuni au liste de variante. Identificatorii sunt stabili, deci poți redenumi fără să strici cazurile. Notele nu se transformă automat în întrebări.'));
+  work.append(el('p',{class:'studio-note'},'Fiecare capitol are propriile variante. Într-un câmp de observație, adaugă subgrupuri pentru alegeri independente. Poți muta variantele existente din meniul „Mută în…”, iar răspunsurile din cazuri se mută împreună cu ele.'));
   work.append(selectField('Capitolul',chapters,selected,value=>{selectedChapters.bank=value;render();}));
   const bank=findChapterBank(selected);
   if(!bank){
@@ -669,23 +800,17 @@ function renderBanks(work){
   const findings=bank.sections?.findings || {types:[]};
   const findingsCard=el('section',{class:'studio-form-section'},el('h2',{},'Tipuri de observații (Semiologie)'),el('p',{class:'field-help'},'Tipurile sunt specifice capitolului: opacitate, hipertransparență etc. pentru Respirator; nișă, imagine de adiție etc. pentru Digestiv.'));
   for(const type of findings.types || []){
-    const usage=observationTypeUsage(selected,type.id);
-    const typeCard=el('div',{class:'studio-bank-type'},el('div',{class:'studio-bank-row'},el('strong',{},'Tip'),el('input',{type:'text',value:type.label,'data-field-id':type.id,oninput:event=>{type.label=event.target.value;changed();}}),el('small',{class:'field-help'},usage?`${usage} observații`:''),button(icon('close',13),()=>{if(usage){toast('Tipul este folosit de un caz. Elimină mai întâi observațiile.',true);return;}remember();findings.types=findings.types.filter(row=>row.id!==type.id);changed();render();},'icon-button',{'aria-label':'Șterge tipul'})));
+    const cases=observationCases(draft.pack.cases,selected,type.id),allFields=observationFields(type.fields);
+    const usage=cases.length;
+    const typeCard=el('div',{class:'studio-bank-type'},el('div',{class:'studio-bank-row'},el('strong',{},'Tip'),el('input',{type:'text',value:type.label,'data-field-id':type.id,oninput:event=>{type.label=event.target.value;changed();}}),el('small',{class:'field-help'},usage?`Folosit în ${countLabel(usage,'caz','cazuri')}`:''),button(icon('close',13),()=>{if(usage){toast('Tipul este folosit de un caz. Elimină mai întâi observațiile.',true);return;}remember();findings.types=findings.types.filter(row=>row.id!==type.id);changed();render();},'icon-button',{'aria-label':'Șterge tipul'})));
+    const observations=cases.flat();
     for(const fieldDef of type.fields){
-      const fieldUsage=(draft.pack.cases||[]).filter(item=>item.chapterId===selected && item.structured?.observations?.some(row=>row.typeId===type.id && row.values?.[fieldDef.id]!==undefined)).length;
-      const kind=el('select',{class:'select','aria-label':'Tipul câmpului',onchange:event=>{remember();fieldDef.kind=event.target.value;if(fieldDef.kind==='measurementMm')delete fieldDef.options;else if(!fieldDef.options)fieldDef.options=[{id:uid('option'),label:''}];changed();render();}},...[['single','O singură variantă'],['multiple','Mai multe variante'],['measurementMm','Măsurare în mm']].map(([value,text])=>el('option',{value,selected:fieldDef.kind===value},text)));
-      const row=el('div',{class:'studio-bank-field'},el('input',{type:'text',value:fieldDef.label,'data-field-id':fieldDef.id,oninput:event=>{fieldDef.label=event.target.value;changed();}}),kind,el('small',{class:'field-help'},fieldUsage?`${fieldUsage} valori`:''),button(icon('close',13),()=>{if(fieldUsage){toast('Câmpul are valori într-un caz. Golește-le mai întâi.',true);return;}remember();type.fields=type.fields.filter(row=>row.id!==fieldDef.id);changed();render();},'icon-button',{'aria-label':'Șterge câmpul'}));
-      typeCard.append(row);
-      if(fieldDef.kind!=='measurementMm'){
-        const choices=el('div',{class:'studio-bank-options'});
-        for(const option of fieldDef.options || []){
-          choices.append(el('div',{class:'studio-bank-row'},el('input',{type:'text',value:option.label,'data-field-id':option.id,oninput:event=>{option.label=event.target.value;changed();}}),button(icon('close',13),()=>{const used=(draft.pack.cases||[]).filter(item=>item.chapterId===selected && item.structured?.observations?.some(observation=>observation.typeId===type.id && (observation.values?.[fieldDef.id]||[]).includes(option.id))).length;if(used){toast('Varianta este folosită într-un caz.',true);return;}remember();fieldDef.options=fieldDef.options.filter(row=>row.id!==option.id);changed();render();},'icon-button',{'aria-label':'Șterge varianta'})));
-        }
-        choices.append(button([icon('plus',13),'Adaugă variantă'],()=>{remember();const option={id:uid('option'),label:''};fieldDef.options.push(option);focusField(option.id);changed();render();},'button ghost'));
-        typeCard.append(choices);
-      }
+      const destinations=bankFieldDestinations([fieldDef]);
+      typeCard.append(renderBankField(fieldDef,type.fields,{cases,observations,destinations,allFields}));
     }
-    typeCard.append(button([icon('plus',13),'Adaugă câmp'],()=>{remember();const fieldDef={id:uid('field'),label:'',kind:'single',options:[{id:uid('option'),label:''}]};type.fields.push(fieldDef);focusField(fieldDef.id);changed();render();},'button ghost'));
+    typeCard.append(button([icon('plus',13),'Adaugă câmp'],()=>{remember();const fieldDef={id:uid('field'),label:'',kind:'single',options:[{id:uid('option'),label:''}]};type.fields.push(fieldDef);focusField(fieldDef.id);changed();render();},'button ghost',{
+      disabled:type.fields.length>=OBSERVATION_FIELD_LIMITS.perLevel || allFields.length>=OBSERVATION_FIELD_LIMITS.perType,
+    }));
     findingsCard.append(typeCard);
   }
   findingsCard.append(button([icon('plus',13),'Adaugă tip de observație'],()=>{remember();const type={id:uid('type'),label:'',fields:[]};bankSection(selected,'findings').types.push(type);focusField(type.id);changed();render();},'button secondary'));
@@ -712,8 +837,8 @@ function renderCatalogue(work){
     field(keywordLabel,(diagnosis.keywords ?? diagnosis.aliases ?? []).join(', '),value=>{
       diagnosis.keywords=parseKeywords(value);delete diagnosis.aliases;changed();
     }),
-    el('div',{class:'studio-checks'},...draft.pack.curriculum.chapters.map(c=>{const input=el('input',{type:'checkbox',checked:diagnosis.chapterIds.includes(c.id),onchange:()=>{if(!input.checked&&diagnosis.chapterIds.length<=1){input.checked=true;toast('Diagnosticul are nevoie de cel puțin un capitol.',true);return;}if(input.checked)diagnosis.chapterIds=[...new Set([...diagnosis.chapterIds,c.id])];else diagnosis.chapterIds=diagnosis.chapterIds.filter(id=>id!==c.id);changed();}});return el('label',{},input,c.label);})),
-    el('div',{class:'studio-catalogue-tools'},button([icon('trash',14),'Șterge diagnosticul'],()=>deleteDiagnosis(diagnosis),'button ghost studio-danger-text'))));
+    el('div',{class:'studio-checks studio-catalogue-tools'},...draft.pack.curriculum.chapters.map(c=>{const input=el('input',{type:'checkbox',checked:diagnosis.chapterIds.includes(c.id),onchange:()=>{if(!input.checked&&diagnosis.chapterIds.length<=1){input.checked=true;toast('Diagnosticul are nevoie de cel puțin un capitol.',true);return;}if(input.checked)diagnosis.chapterIds=[...new Set([...diagnosis.chapterIds,c.id])];else diagnosis.chapterIds=diagnosis.chapterIds.filter(id=>id!==c.id);changed();}});return el('label',{},input,c.label);}),
+      button([icon('trash',14),'Șterge diagnosticul'],()=>deleteDiagnosis(diagnosis),'button ghost studio-danger-text'))));
   work.append(list);
 }
 
@@ -813,21 +938,36 @@ async function addCaseImage(file,upload){
   changed();await saveNow();render();toast(role==='comparison'?'Imaginea de comparație a fost adăugată.':'Imaginea a fost adăugată cazului.');
 }
 
-function sanitiseForExport(){
-  const pack=draft.pack;
-  if(draft.bank?.version===2 || draft.bank?.items?.some(row=>row.kind==='written')){pack.version=2;if(draft.bank)draft.bank.version=2;}
-  if(draft.bank?.items)draft.bank.items=draft.bank.items.filter(row=>(row.prompt||'').trim());
+function sanitiseBankFields(fields,observations,nested=false){
+  return (fields || []).filter(field=>{
+    const used=observations.some(row=>observationHasValue(row,field.id) || row.fieldNotes?.[field.id]);
+    if(field.kind!=='measurementMm'){
+      if(field.groups){
+        field.groups=sanitiseBankFields(field.groups,observations,true);
+        if(!field.groups.length)delete field.groups;
+      }
+      if(field.options){
+        field.options=field.options.filter(option=>option.label.trim() ||
+          observations.some(row=>Array.isArray(row.values?.[field.id]) && row.values[field.id].includes(option.id)));
+        if(!field.options.length)delete field.options;
+      }
+    }
+    return used || field.groups?.length || field.options?.length || (!nested && field.label.trim());
+  });
+}
+
+function sanitiseForExport(pack,questionBank){
+  if(questionBank?.version===2 || questionBank?.items?.some(row=>row.kind==='written')){pack.version=2;questionBank.version=2;}
+  if(questionBank?.items)questionBank.items=questionBank.items.filter(row=>(row.prompt||'').trim());
   for(const bank of pack.curriculum.chapterBanks||[]){
-    const usedTypes=new Set(pack.cases.flatMap(item=>(item.structured?.observations||[]).map(row=>row.typeId)));
     for(const section of Object.values(bank.sections||{})){
       if(section.options)section.options=section.options.filter(option=>(option.label||'').trim());
       if(!section.types)continue;
-      section.types=section.types.filter(type=>(type.label||'').trim()||usedTypes.has(type.id));
-      for(const type of section.types){
-        const usedFields=new Set(pack.cases.flatMap(item=>(item.structured?.observations||[]).filter(row=>row.typeId===type.id).flatMap(row=>Object.keys(row.values||{}))));
-        type.fields=(type.fields||[]).filter(field=>(field.label||'').trim()||usedFields.has(field.id));
-        for(const field of type.fields)if(field.kind!=='measurementMm')field.options=(field.options||[]).filter(option=>(option.label||'').trim());
-      }
+      section.types=section.types.filter(type=>{
+        const observations=observationCases(pack.cases,bank.chapterId,type.id).flat();
+        type.fields=sanitiseBankFields(type.fields,observations);
+        return type.label.trim() || observations.length || type.fields.length;
+      });
     }
   }
   if(pack.curriculum.chapterBanks){
@@ -856,6 +996,10 @@ function sanitiseForExport(){
     item.annotations=(item.annotations||[]).filter(row=>itemIds.has(row.itemId));
     if(item.structured){
       item.structured.observations=(item.structured.observations||[]).filter(row=>itemIds.has(row.itemId));
+      for(const row of item.structured.observations){
+        for(const [id,value] of Object.entries(row.values || {}))if(Array.isArray(value) && !value.length)delete row.values[id];
+        if(row.fieldNotes)row.fieldNotes=Object.fromEntries(Object.entries(row.fieldNotes).filter(([,note])=>note));
+      }
       for(const sectionId of ['examination','projection','differentials','investigations']){
         const choices=new Set((pack.curriculum.chapterBanks?.find(bank=>bank.chapterId===item.chapterId)?.sections?.[sectionId]?.options||[]).map(option=>option.id));
         item.structured.choices={...(item.structured.choices||{}),[sectionId]:(item.structured.choices?.[sectionId]||[]).filter(id=>choices.has(id))};
@@ -881,11 +1025,13 @@ async function importDraft(file){
 }
 
 async function exportDraft(){
-  requireThat(draft,'Nu există un pachet deschis.');await saveNow();sanitiseForExport();
-  const {pack}=validatePack(draft.pack);
-  const bank=validateQuestions({...draft.bank,revision:pack.revision},pack),used=new Set(pack.cases.flatMap(item=>item.images.map(image=>image.path)));
+  requireThat(draft,'Nu există un pachet deschis.');await saveNow();
+  const packSnapshot=structuredClone(draft.pack),bankSnapshot=structuredClone(draft.bank),assets=draft.files;
+  sanitiseForExport(packSnapshot,bankSnapshot);
+  const {pack}=validatePack(packSnapshot);
+  const bank=validateQuestions({...bankSnapshot,revision:pack.revision},pack),used=new Set(pack.cases.flatMap(item=>item.images.map(image=>image.path)));
   const files=[{name:'pack.json',data:JSON.stringify(pack,null,2)}];if(bank.items.length)files.push({name:'questions.json',data:JSON.stringify(bank,null,2)});
-  for(const path of used){requireThat(draft.files.has(path),`Imagine lipsă: ${path}`);files.push({name:path,data:draft.files.get(path)});}
+  for(const path of used){requireThat(assets.has(path),`Imagine lipsă: ${path}`);files.push({name:path,data:assets.get(path)});}
   // Validate exactly the data which will be exported, including hashes and links.
   const check=await validateFiles(new Map(await Promise.all(files.map(async f=>[f.name,typeof f.data==='string'?new TextEncoder().encode(f.data):new Uint8Array(await f.data.arrayBuffer())]))));
   modal('Pachet valid pentru Study',el('div',{class:'studio-validate'},`${check.pack.cases.length} cazuri · ${check.pack.diagnoses.length} diagnostice · ${bank.items.length} grile\n${check.pack.cases.reduce((n,c)=>n+c.annotations.length,0)} repere vizuale\n\nImaginile și referințele au fost verificate. Exportul nu include progresul niciunui student.`),[

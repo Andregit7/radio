@@ -12,6 +12,11 @@ export const DEFAULT_LINE_WIDTH = 2.6;
 const DEFAULT_COLOUR = '#e8c777';
 const CLOSED = new Set(['ellipse', 'rect', 'polygon']);
 const NS = 'http://www.w3.org/2000/svg';
+const LABEL_GRID = 64;
+const LABEL_DIRECTIONS = Array.from({ length: 16 }, (_, index) => {
+  const angle = index * Math.PI / 8;
+  return [Math.cos(angle), Math.sin(angle)];
+});
 
 function rgb(hex) {
   const value = parseInt(hex.slice(1), 16);
@@ -108,10 +113,128 @@ export function convertAnnotationShape(row, shape) {
 }
 
 function anchor(row) {
-  if (row.shape === 'ellipse') return [row.cx * 1000, Math.max(30, (row.cy - row.ry) * 1000)];
-  if (row.shape === 'rect') return [row.x * 1000, Math.max(30, row.y * 1000)];
-  if (row.shape === 'arrow') return [row.x1 * 1000, Math.max(30, row.y1 * 1000)];
-  return [row.points[0][0] * 1000, Math.max(30, row.points[0][1] * 1000)];
+  if (row.shape === 'ellipse') return [row.cx * 1000, (row.cy - row.ry) * 1000];
+  if (row.shape === 'rect') return [row.x * 1000, row.y * 1000];
+  if (row.shape === 'arrow') return [row.x1 * 1000, row.y1 * 1000];
+  return row.points[0].map(value => value * 1000);
+}
+
+function segmentDistanceSquared(x, y, segment) {
+  const { x1, y1, dx, dy, lengthSquared } = segment;
+  const fraction = lengthSquared ? Math.max(0, Math.min(1, ((x - x1) * dx + (y - y1) * dy) / lengthSquared)) : 0;
+  return (x - x1 - fraction * dx) ** 2 + (y - y1 - fraction * dy) ** 2;
+}
+
+export function annotationLabelPositions(entries, width, height, { neutral = false } = {}) {
+  if (!entries.length || !width || !height) return [];
+  const cells = new Map();
+  const pixel = 1000 / Math.min(width, height);
+  const lastCell = Math.floor(1000 / LABEL_GRID);
+  const cell = n => Math.max(0, Math.min(lastCell, Math.floor(n / LABEL_GRID)));
+  function indexSegment(x1, y1, x2, y2, padding) {
+    const dx = x2 - x1, dy = y2 - y1;
+    const segment = { x1, y1, dx, dy, lengthSquared: dx ** 2 + dy ** 2, padding };
+    const left = cell(Math.min(x1, x2) - padding), right = cell(Math.max(x1, x2) + padding);
+    const top = cell(Math.min(y1, y2) - padding), bottom = cell(Math.max(y1, y2) + padding);
+    for (let cy = top; cy <= bottom; cy++) {
+      for (let cx = left; cx <= right; cx++) {
+        // Skip cells that are inside the bounds of a long diagonal but away from the line.
+        if (segmentDistanceSquared((cx + .5) * LABEL_GRID, (cy + .5) * LABEL_GRID, segment) > (padding + LABEL_GRID / Math.SQRT2) ** 2) continue;
+        const key = cx + cy * (lastCell + 1);
+        if (!cells.has(key)) cells.set(key, []);
+        cells.get(key).push(segment);
+      }
+    }
+  }
+
+  for (const { row } of entries) {
+    const points = geometryPoints(row);
+    const { strokeWidth } = strokeMetrics(row, neutral);
+    const padding = (strokeWidth / 2 + 4) * pixel + (row.shape === 'ellipse' ? 2 : 0);
+    const end = CLOSED.has(row.shape) ? points.length : points.length - 1;
+    for (let index = 0; index < end; index++) {
+      const [x1, y1] = points[index], [x2, y2] = points[(index + 1) % points.length];
+      indexSegment(x1 * 1000, y1 * 1000, x2 * 1000, y2 * 1000, padding);
+    }
+    if (row.shape === 'arrow') {
+      const tipX = row.x2 * 1000, tipY = row.y2 * 1000;
+      indexSegment(tipX, tipY, tipX, tipY, Math.max(22, (7 * Math.sqrt(DEFAULT_LINE_WIDTH * strokeWidth) + 3) * pixel));
+    }
+  }
+
+  return entries.map(({ row, radius = 24 }) => {
+    if (!radius) return null;
+    const [ax, ay] = anchor(row);
+    const margin = radius + 3;
+    const within = n => Math.max(margin, Math.min(1000 - margin, n));
+    let best = [within(ax), within(ay)], fewest = Infinity;
+    const tested = new Set();
+    function tryPosition(x, y) {
+      const px = Math.round(within(x)), py = Math.round(within(y));
+      const key = px + 1001 * py;
+      if (tested.has(key)) return false;
+      tested.add(key);
+      const nearby = new Set();
+      for (let cy = cell(py - margin); cy <= cell(py + margin); cy++) {
+        for (let cx = cell(px - margin); cx <= cell(px + margin); cx++) {
+          for (const segment of cells.get(cx + cy * (lastCell + 1)) || []) nearby.add(segment);
+        }
+      }
+      let overlaps = 0;
+      for (const segment of nearby) {
+        if (segmentDistanceSquared(px, py, segment) < (margin + segment.padding) ** 2) overlaps++;
+        if (overlaps >= fewest) return false;
+      }
+      best = [px, py];
+      fewest = overlaps;
+      return !overlaps;
+    }
+    // Prefer a position beside the mark. Widen the search only in crowded areas.
+    for (let distance = margin; distance <= 170 && fewest; distance += 16) {
+      for (const [dx, dy] of LABEL_DIRECTIONS) {
+        if (tryPosition(ax + dx * distance, ay + dy * distance)) break;
+      }
+    }
+    if (fewest) {
+      const interior = [];
+      for (let y = margin; y <= 1000 - margin; y += 28) {
+        for (let x = margin; x <= 1000 - margin; x += 28) interior.push([x, y, (x - ax) ** 2 + (y - ay) ** 2]);
+      }
+      interior.sort((a, b) => a[2] - b[2]);
+      interior.some(([x, y]) => tryPosition(x, y));
+    }
+    indexSegment(...best, ...best, radius + 2);
+    return best;
+  });
+}
+
+export function placeAnnotationLabels(entries, width, height, options) {
+  const labels = entries.map(({ node }) => node.querySelector('.annotation-number'));
+  const positions = annotationLabelPositions(entries.map(({ row }, index) => ({
+    row, radius: Number(labels[index]?.getAttribute('r')) || 0,
+  })), width, height, options);
+  for (const [index, position] of positions.entries()) {
+    if (!position) continue;
+    const [x, y] = position;
+    setLabelPosition(labels[index], x, y, entries[index].row);
+  }
+}
+
+export function raiseAnnotations(nodes, isSelected) {
+  if (!nodes.length) return;
+  const active = new Set(nodes.filter(isSelected));
+  const parent = nodes[0].parentNode;
+  const focused = document.activeElement;
+  let next = null;
+  const order = [...nodes.filter(node => !active.has(node)), ...active];
+  for (const node of order.reverse()) {
+    if (node.nextSibling !== next) {
+      if (typeof parent.moveBefore === 'function') parent.moveBefore(node, next);
+      else parent.insertBefore(node, next);
+    }
+    next = node;
+  }
+  if (focused !== document.activeElement && nodes.includes(focused)) focused.focus({ preventScroll: true });
 }
 
 function points(row) { return row.points.map(point => point.map(value => value * 1000).join(',')).join(' '); }
@@ -155,6 +278,15 @@ function attributes(element, values) {
   for (const [key, value] of Object.entries(values)) element.setAttribute(key, value);
 }
 
+function setLabelPosition(label, x, y, row) {
+  const [x1, y1] = anchor(row);
+  const leader = label.previousElementSibling;
+  attributes(leader, { x1, y1, x2: x, y2: y });
+  leader.classList.toggle('annotation-leader-offset', Math.hypot(x - x1, y - y1) > 80);
+  attributes(label, { cx: x, cy: y });
+  attributes(label.nextElementSibling, { x, y: y + 8 });
+}
+
 export function updateAnnotationGeometry(group, row, {appendPoints = false} = {}) {
   const svg = group.ownerSVGElement;
   if (appendPoints && row.points && svg?.createSVGPoint) {
@@ -172,11 +304,7 @@ export function updateAnnotationGeometry(group, row, {appendPoints = false} = {}
     for (const child of group.children) if (child.localName === tag) attributes(child, attrs);
   }
   const label = group.querySelector('.annotation-number');
-  if (label) {
-    const [x, y] = anchor(row);
-    attributes(label, {cx: x, cy: y});
-    attributes(label.nextElementSibling, {x, y: y + 8});
-  }
+  if (label) setLabelPosition(label, ...anchor(row), row);
 }
 
 function dashArray(line, width) {
@@ -186,14 +314,19 @@ function dashArray(line, width) {
   return null;
 }
 
+function strokeMetrics(row, neutral) {
+  const line = neutral ? 'solid' : row.style?.line || 'solid';
+  const width = neutral ? DEFAULT_LINE_WIDTH : row.style?.width ?? DEFAULT_LINE_WIDTH;
+  const separation = line === 'double' ? Math.max(1.5, width * .55) : 0;
+  const strokeWidth = line === 'double' ? width * 2 + separation : width;
+  return { line, width, separation, strokeWidth };
+}
+
 export function annotationRenderer(svg, { prefix = `marks-${++rendererNumber}`, neutral = false } = {}) {
   return function draw(row, { label = '', className = 'annotation', interactive = false } = {}) {
     const colour = neutral ? DEFAULT_COLOUR : markColour(row);
     const pattern = neutral ? 'none' : row.style?.pattern || 'none';
-    const line = neutral ? 'solid' : row.style?.line || 'solid';
-    const width = neutral ? DEFAULT_LINE_WIDTH : row.style?.width ?? DEFAULT_LINE_WIDTH;
-    const separation = line === 'double' ? Math.max(1.5, width * .55) : 0;
-    const strokeWidth = line === 'double' ? width * 2 + separation : width;
+    const { line, width, separation, strokeWidth } = strokeMetrics(row, neutral);
     const dashes = dashArray(line, width);
     const group = node('g');
     group.setAttribute('class', className);
@@ -219,11 +352,15 @@ export function annotationRenderer(svg, { prefix = `marks-${++rendererNumber}`, 
     if (interactive) add('annotation-hit', { stroke: 'transparent', 'stroke-width': Math.max(16, strokeWidth + 7), 'pointer-events': 'stroke' });
     if (label) {
       const [x, y] = anchor(row);
+      const leader = node('line');
+      attributes(leader, { class: 'annotation-leader', x1: x, y1: y, x2: x, y2: y, 'pointer-events': 'none',
+        'vector-effect': 'non-scaling-stroke', stroke: colour, 'stroke-width': 1.5, 'stroke-dasharray': '3 4' });
       const circle = node('circle');
-      circle.setAttribute('cx', x); circle.setAttribute('cy', y); circle.setAttribute('r', '24'); circle.setAttribute('class', 'annotation-number');
+      const radius = Math.max(24, Math.ceil(String(label).length * 7.5 + 5));
+      attributes(circle, { cx: x, cy: y, r: radius, class: 'annotation-number' });
       const text = node('text');
       text.setAttribute('x', x); text.setAttribute('y', y + 8); text.setAttribute('text-anchor', 'middle'); text.textContent = label;
-      group.append(circle, text);
+      group.append(leader, circle, text);
     }
     return group;
   };

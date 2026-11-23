@@ -24,6 +24,11 @@ const HEX_COLOUR = /^#[0-9a-f]{6}$/i;
 export const LINE_STYLES = Object.freeze(['solid', 'dotted', 'dashed', 'dash-dot', 'double']);
 export const MIN_LINE_WIDTH = 1;
 export const MAX_LINE_WIDTH = 12;
+export const OBSERVATION_FIELD_LIMITS = Object.freeze({ perLevel: 24, perType: 256, levels: 8, options: 64 });
+
+export function observationFields(fields = []) {
+  return fields.flatMap(field => [field, ...observationFields(field.groups)]);
+}
 
 export function parseJSON(value, max = LIMITS.json) {
   requireThat(typeof value === 'string' && new TextEncoder().encode(value).length <= max, 'Fișierul JSON depășește limita permisă.');
@@ -72,23 +77,38 @@ export function validateAnnotation(row, imageIds, itemIds, version = 1) {
     label: text(row.label, 80) ? row.label : '' };
 }
 
+function validateObservationFields(fields, ids = new Set(), level = 1) {
+  const { perLevel, perType, levels, options: optionLimit } = OBSERVATION_FIELD_LIMITS;
+  requireThat(level <= levels && list(fields, perLevel), 'Sunt prea multe niveluri sau câmpuri de observație.');
+  return fields.map(field => {
+    requireThat(object(field) && id(field.id) && text(field.label, 400) && field.label.trim() &&
+      oneOf(field.kind, level === 1 ? ['single', 'multiple', 'measurementMm'] : ['single', 'multiple']), 'Câmp de observație invalid.');
+    requireThat(!ids.has(field.id) && ids.size < perType, 'Câmpuri de observație duplicate sau prea numeroase.');
+    ids.add(field.id);
+    const { id: fieldId, label, kind } = field;
+    if (kind === 'measurementMm') {
+      requireThat(field.options === undefined && field.groups === undefined, 'Un câmp numeric nu are variante sau subgrupuri.');
+      return { id: fieldId, label, kind };
+    }
+    const options = field.options === undefined ? [] : field.options;
+    requireThat(list(options, optionLimit) &&
+      options.every(option => object(option) && id(option.id) && text(option.label, 400) && option.label.trim()) &&
+      unique(options), 'Variantele câmpului sunt invalide.');
+    const groups = field.groups === undefined ? [] : validateObservationFields(field.groups, ids, level + 1);
+    requireThat(options.length || groups.length, 'Câmpul are nevoie de cel puțin o variantă sau un subgrup.');
+    return { id: fieldId, label, kind,
+      ...(options.length ? { options: options.map(option => ({ id: option.id, label: option.label })) } : {}),
+      ...(groups.length ? { groups } : {}),
+    };
+  });
+}
+
 function validateBankSection(chapterId, sectionId, raw) {
   if (sectionId === 'findings') {
     requireThat(object(raw) && list(raw.types, 40) && unique(raw.types), `Tipurile de observații pentru ${chapterId} sunt invalide.`);
     const types = raw.types.map(type => {
-      requireThat(object(type) && id(type.id) && text(type.label, 400) && type.label.trim() && list(type.fields, 24) && unique(type.fields), 'Tip de observație invalid.');
-      const fields = type.fields.map(field => {
-        requireThat(object(field) && id(field.id) && text(field.label, 400) && field.label.trim() &&
-          oneOf(field.kind, ['single', 'multiple', 'measurementMm']), 'Câmp de observație invalid.');
-        if (field.kind === 'measurementMm') {
-          requireThat(field.options === undefined, 'Un câmp numeric nu are variante.');
-          return { id: field.id, label: field.label, kind: field.kind };
-        }
-        requireThat(list(field.options, 64) && field.options.length && unique(field.options) &&
-          field.options.every(option => object(option) && id(option.id) && text(option.label, 400) && option.label.trim()), 'Variantele câmpului sunt invalide.');
-        return { id: field.id, label: field.label, kind: field.kind, options: field.options.map(option => ({ id: option.id, label: option.label })) };
-      });
-      return { id: type.id, label: type.label, fields };
+      requireThat(object(type) && id(type.id) && text(type.label, 400) && type.label.trim(), 'Tip de observație invalid.');
+      return { id: type.id, label: type.label, fields: validateObservationFields(type.fields) };
     });
     return { types };
   }
@@ -105,7 +125,7 @@ function bankIndex(bank) {
   }
   const types = new Map();
   for (const type of bank.sections.findings?.types || []) {
-    types.set(type.id, { ...type, fieldsById: new Map(type.fields.map(field => [field.id, field])) });
+    types.set(type.id, { ...type, fieldsById: new Map(observationFields(type.fields).map(field => [field.id, field])) });
   }
   return { choices: index, types };
 }
@@ -216,7 +236,8 @@ export function validatePack(raw) {
             requireThat(Number.isFinite(value) && value > 0 && value <= 2000, 'Măsurarea este invalidă.');
             values[fieldId] = Math.round(value * 10) / 10;
           } else {
-            requireThat(list(value, 64) && value.length && new Set(value).size === value.length && value.every(optionId => field.options.some(option => option.id === optionId)), 'Selecțiile câmpului sunt invalide.');
+            requireThat(list(value, OBSERVATION_FIELD_LIMITS.options) && value.length && new Set(value).size === value.length &&
+              field.options && value.every(optionId => field.options.some(option => option.id === optionId)), 'Selecțiile câmpului sunt invalide.');
             if (field.kind === 'single') requireThat(value.length === 1, 'Câmpul admite o singură variantă.');
             values[fieldId] = [...value];
           }

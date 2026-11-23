@@ -60,8 +60,16 @@ run.addEventListener('click',async()=>{
       assert(selector.querySelectorAll('.catalogue-group').length===1,'Capitol nerelevant afișat');assert(selector.querySelectorAll('.diagnosis-option').length===1,'Filtru incorect');assert(!selector.querySelector('.diagnosis-option input').checked,'Răspuns selectat automat');selector.remove();
     });
     await check('Repere: coordonate relative și ascundere în teste',async()=>{
-      const viewer=imageViewer(original,prepared.pack.cases[0]);fixture.append(viewer.node);const ellipse=viewer.node.querySelector('ellipse');assert(ellipse.getAttribute('cx')==='400','Coordonate greșite');viewer.selectItem('f1');assert(!ellipse.parentNode.classList.contains('annotation-hidden'),'Reper ascuns');viewer.destroy();viewer.node.remove();
-      const exam=imageViewer(original,prepared.pack.cases[0],{allowAnnotations:false});assert(exam.node.querySelectorAll('.annotation').length===0,'Indicii vizibile în test');exam.destroy();
+      const viewer=imageViewer(original,prepared.pack.cases[0]);fixture.append(viewer.node);
+      const ellipse=viewer.node.querySelector('ellipse'),overlay=viewer.node.querySelector('.annotation-layer');
+      const toggle=[...viewer.node.querySelectorAll('.viewer-tool')].find(node=>node.textContent==='Repere');
+      assert(ellipse.getAttribute('cx')==='400','Coordonate greșite');
+      toggle.click();assert(overlay.classList.contains('annotation-hidden'),'Repere vizibile după ascundere');
+      viewer.selectItem('f1');assert(!overlay.classList.contains('annotation-hidden'),'Reper ascuns');viewer.destroy();viewer.node.remove();
+      const exam=imageViewer(original,prepared.pack.cases[0],{allowAnnotations:false});
+      assert(exam.node.querySelectorAll('.annotation').length===0,'Indicii vizibile în test');
+      assert([...exam.node.querySelectorAll('.viewer-tool')].some(node=>node.textContent==='Repere' && node.disabled),'Comutatorul fără repere trebuie păstrat și dezactivat');
+      exam.destroy();
     });
     await check('Interpretare: secțiuni prezente și diagnostic canonic fără alias',async()=>{
       const c={id:'px',title:'Caz interpretare',chapterId:'respiratory',diagnosisIds:['endo'],source:{page:1},images:[{id:'primary',path:'images/test.png',width:8,height:8}],
@@ -74,8 +82,39 @@ run.addEventListener('click',async()=>{
       const viewer=imageViewer(original,c,{exercise:regions});fixture.append(viewer.node);
       assert(viewer.node.querySelectorAll('.annotation').length===3,'Repere neașteptate');
       assert(viewer.node.querySelector('.annotation').getAttribute('aria-label')==='Regiunea 1','Etichetă care expune răspunsul');
-      assert(!viewer.node.textContent.includes('Opacitate'),'Textul observației apare în exercițiu');viewer.destroy();viewer.node.remove();
+      assert(!viewer.node.textContent.includes('Opacitate'),'Textul observației apare în exercițiu');
+      const overlay=viewer.node.querySelector('.annotation-layer');
+      const toggle=[...viewer.node.querySelectorAll('.viewer-tool')].find(node=>node.textContent==='Repere');
+      viewer.selectAnnotation('a1');
+      assert(overlay.lastElementChild.dataset.annotationId==='a1','Reperul selectat trebuie să fie în prim-plan');
+      toggle.click();assert(overlay.classList.contains('annotation-hidden'),'Reperele rămân vizibile în exercițiu');
+      viewer.selectAnnotation('a2');
+      assert(overlay.classList.contains('annotation-hidden'),'Selectarea răspunsului dezvăluie reperele ascunse');
+      toggle.click();
+      assert(overlay.lastElementChild.dataset.annotationId==='a2' && !overlay.classList.contains('annotation-hidden'),'Reperul selectat nu a fost reafişat');
+      viewer.destroy();viewer.node.remove();
       const match=matchingExercise(c,()=>.5);assert(match?.pairs.length===3,'Potrivire incompletă');assert(gradeMatching(match.correctMapping,match.correctMapping),'Cheia potrivirii nu se notează');
+    });
+    await check('Radiografii: zoom cu rotița și deplasare după mărire',async()=>{
+      const viewer=imageViewer(null,prepared.pack.cases[0],{loadAsset:()=>new Blob([bytes],{type:'image/png'})});
+      fixture.append(viewer.node);
+      try{
+        const stage=viewer.node.querySelector('.image-stage'),image=stage.querySelector('.radiograph');
+        await new Promise((resolve,reject)=>{
+          image.addEventListener('load',resolve,{once:true});
+          image.addEventListener('error',reject,{once:true});
+        });
+        const box=stage.getBoundingClientRect(),x=box.left+box.width/2,y=box.top+box.height/2;
+        stage.dispatchEvent(new WheelEvent('wheel',{deltaY:-200,clientX:x,clientY:y,cancelable:true}));
+        assert(viewer.node.querySelector('.zoom-label').textContent==='125%','Rotița nu mărește imaginea');
+        assert(stage.classList.contains('pannable'),'Radiografia mărită nu este deplasabilă');
+        const before=stage.scrollLeft+stage.scrollTop;
+        const pointer=(kind,shift)=>stage.dispatchEvent(new PointerEvent(kind,{
+          isPrimary:true,pointerId:10,pointerType:'mouse',clientX:x-shift,clientY:y-shift,bubbles:true,cancelable:true,
+        }));
+        pointer('pointerdown',0);pointer('pointermove',32);pointer('pointerup',32);
+        assert(stage.scrollLeft+stage.scrollTop>before,'Tragerea nu deplasează radiografia');
+      }finally{viewer.destroy();viewer.node.remove();}
     });
     await check('Înlocuirea reușită curăță imaginile versiunii precedente',async()=>{await installPacks([prepared]);const after=(await listPacks())[0];assert(after.token!==original.token,'Versiune neschimbată');assert(!await assetBlob(original,'images/test.png'),'Imagini orfane');});
     output.textContent+=`\n${passed} verificări trecute.\nInstalarea PWA și pornirea în mod avion necesită verificare manuală pe fiecare platformă.`;

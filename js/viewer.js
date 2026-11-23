@@ -1,22 +1,49 @@
 import { el, button, icon } from './dom.js';
-import { annotationNumbers, annotationRenderer, annotationsInObservationOrder } from './annotation-view.js';
+import { annotationNumbers, annotationRenderer, annotationsInObservationOrder, placeAnnotationLabels, raiseAnnotations } from './annotation-view.js';
 
 const viewerMode = value => value === 'fill' ? 'fill' : 'fit';
 
-export function imageViewer(record, caseData, { allowAnnotations=true, onSelect=()=>{}, exercise=null, comparisons=[], allowLayers=true,
-  mode='fit', onModeChange=()=>{}, loadAsset=async path=>(await import('./storage.js')).assetBlob(record,path), initialImageId, initialComparisonId }={}) {
+export function radiographTools(stage, { canZoom, zoom, onMarksChange, buttonClass = 'viewer-tool' }) {
+  let visible = false;
+  const marksButton = button([icon('eye', 17), 'Repere'], () => onMarksChange(!visible), buttonClass, { 'aria-pressed': 'false' });
+  stage.addEventListener('wheel', event => {
+    if (!event.deltaY || !canZoom()) return;
+    event.preventDefault();
+    const delta = event.deltaY * (event.deltaMode === 1 ? 16 : event.deltaMode === 2 ? 100 : 1);
+    zoom(Math.min(1.25, Math.max(.8, Math.exp(-delta * .0015))), event);
+  }, { passive: false });
+  return {
+    marksButton,
+    syncMarks(hasMarks, showMarks) {
+      visible = hasMarks && showMarks;
+      marksButton.disabled = !hasMarks;
+      marksButton.classList.toggle('active', visible);
+      marksButton.setAttribute('aria-pressed', String(visible));
+      marksButton.title = !hasMarks ? 'Nu există repere pe această imagine' : visible ? 'Ascunde reperele' : 'Afișează reperele';
+    },
+  };
+}
+
+export function imageViewer(record, caseData, { allowAnnotations=true, onSelect=()=>{}, exercise=null, comparisons=[], compact=false,
+  mode='fit', onModeChange=()=>{}, loadAsset=async path=>(await import('./storage.js')).assetBlob(record,path),
+  initialImageId, initialComparisonId, singleImageId, initiallyHidden=false }={}) {
   const primary = caseData.images.filter(image => image.role !== 'comparison');
-  const images = primary.length ? primary : caseData.images.slice(0, 1);
-  const annotationOrder=annotationsInObservationOrder(caseData), numbers=annotationNumbers(caseData);
-  const notes=new Map(caseData.sections.flatMap(section=>section.items.map(item=>[item.id,item.text])));
-  let image=images.find(row=>row.id===initialImageId) || images[0],url,disposed=false,zoom=1,showAll=Boolean(allowAnnotations),activeItem=null,loadId=0;
+  const singleImage=caseData.images.find(row=>row.id===singleImageId);
+  const images=singleImage ? [singleImage] : primary.length ? primary : caseData.images.slice(0, 1);
+  const annotationOrder=allowAnnotations ? annotationsInObservationOrder(caseData) : [];
+  const numbers=allowAnnotations && !exercise ? annotationNumbers(caseData) : new Map();
+  const notes=new Map((caseData.sections || []).flatMap(section=>section.items.map(item=>[item.id,item.text])));
+  const regionLabels=new Map((exercise?.regions || []).map(region=>[region.annotationId,region.label]));
+  let image=images.find(row=>row.id===initialImageId) || images[0],url,disposed=false,zoom=1,showAll=allowAnnotations&&!initiallyHidden,loadId=0;
+  let activeItem=null,activeAnnotation=null;
   let displayMode=viewerMode(mode),naturalWidth=0,naturalHeight=0,appliedWidth=0,appliedHeight=0,resizeObserver=null,pan=null;
-  const marks=[],offUrls=[];
+  let labelWidth=0,labelHeight=0;
+  const marks=[];
   const picture=el('img',{class:'radiograph',alt:`Radiografie: ${caseData.title}`,draggable:'false'});
   const overlay=document.createElementNS('http://www.w3.org/2000/svg','svg');
   overlay.setAttribute('viewBox','0 0 1000 1000');overlay.setAttribute('preserveAspectRatio','none');overlay.setAttribute('class','annotation-layer');overlay.setAttribute('aria-label','Marcaje pe radiografie');
   const canvas=el('div',{class:'image-canvas'},picture,overlay);
-  const stage=el('div',{class:'image-stage',tabindex:'0','aria-label':'Radiografie. Comută între potrivire și umplere, ajustează zoomul sau trage imaginea pentru a o deplasa.'},canvas);
+  const stage=el('div',{class:'image-stage',tabindex:'0','aria-label':'Radiografie. Rotița ajustează zoomul, trage imaginea pentru a o deplasa, comută între potrivire și umplere.'},canvas);
   const loading=el('div',{class:'image-loading'},'Se încarcă imaginea…');
   stage.append(loading);
   const stageFrame=el('div',{class:'viewer-stage-frame'},stage);
@@ -25,8 +52,10 @@ export function imageViewer(record, caseData, { allowAnnotations=true, onSelect=
   function overflowing(){
     return stage.scrollWidth-stage.clientWidth>1 || stage.scrollHeight-stage.clientHeight>1;
   }
-  function syncPannable(){
-    canvas.classList.toggle('pannable',overflowing());
+  function layoutLabels(){
+    if(!showAll || (appliedWidth===labelWidth && appliedHeight===labelHeight))return;
+    labelWidth=appliedWidth;labelHeight=appliedHeight;
+    placeAnnotationLabels(marks,appliedWidth,appliedHeight,{neutral:Boolean(exercise)});
   }
   function stageFocus(){
     const box=stage.getBoundingClientRect(),area=canvas.getBoundingClientRect();
@@ -42,17 +71,29 @@ export function imageViewer(record, caseData, { allowAnnotations=true, onSelect=
     const width=naturalWidth*scale*zoom,height=naturalHeight*scale*zoom;
     if(Math.abs(width-appliedWidth)>.01 || Math.abs(height-appliedHeight)>.01){
       canvas.style.width=`${width}px`;canvas.style.height=`${height}px`;appliedWidth=width;appliedHeight=height;
+      layoutLabels();
     }
     if(focus){
       stage.scrollLeft=focus.x*width-boxWidth/2;
       stage.scrollTop=focus.y*height-boxHeight/2;
     }
-    syncPannable();
+    stage.classList.toggle('pannable',overflowing());
   }
   function setZoom(value){
     const next=Math.max(1,Math.min(3,Math.round(value*4)/4));
     if(next===zoom)return;
     zoom=next;zoomLabel.textContent=`${Math.round(zoom*100)}%`;applySize(true);
+  }
+  function zoomAt(clientX,clientY,factor){
+    const next=Math.max(1,Math.min(3,Math.round(zoom*factor*100)/100));
+    if(next===zoom)return;
+    const before=canvas.getBoundingClientRect();
+    if(!before.width || !before.height)return;
+    const anchor={x:(clientX-before.left)/before.width,y:(clientY-before.top)/before.height};
+    zoom=next;zoomLabel.textContent=`${Math.round(zoom*100)}%`;applySize();
+    const after=canvas.getBoundingClientRect();
+    stage.scrollLeft+=anchor.x*after.width+after.left-clientX;
+    stage.scrollTop+=anchor.y*after.height+after.top-clientY;
   }
   function resetView(){
     zoom=1;zoomLabel.textContent='100%';applySize();stage.scrollTo(0,0);
@@ -74,42 +115,52 @@ export function imageViewer(record, caseData, { allowAnnotations=true, onSelect=
 
   function endPan(event){
     if(!pan || (event && event.pointerId!==pan.id))return;
-    const id=pan.id;pan=null;canvas.classList.remove('panning');
-    try{if(canvas.hasPointerCapture(id))canvas.releasePointerCapture(id);}catch{}
+    const id=pan.id;pan=null;stage.classList.remove('panning');
+    try{if(stage.hasPointerCapture(id))stage.releasePointerCapture(id);}catch{}
   }
-  canvas.addEventListener('pointerdown',event=>{
+  stage.addEventListener('pointerdown',event=>{
     if(!event.isPrimary || event.button!==0 || disposed)return;
     if(event.target?.closest?.('.annotation'))return;
     if(!overflowing())return;
     pan={id:event.pointerId,x:event.clientX,y:event.clientY,left:stage.scrollLeft,top:stage.scrollTop};
-    canvas.classList.add('panning');
-    try{canvas.setPointerCapture(event.pointerId);}catch{}
+    stage.classList.add('panning');
+    try{stage.setPointerCapture(event.pointerId);}catch{}
     event.preventDefault();
   });
-  canvas.addEventListener('pointermove',event=>{
+  stage.addEventListener('pointermove',event=>{
     if(!pan || event.pointerId!==pan.id)return;
     stage.scrollLeft=pan.left-(event.clientX-pan.x);
     stage.scrollTop=pan.top-(event.clientY-pan.y);
     event.preventDefault();
   });
-  canvas.addEventListener('pointerup',endPan);
-  canvas.addEventListener('pointercancel',endPan);
-  canvas.addEventListener('lostpointercapture',endPan);
+  stage.addEventListener('pointerup',endPan);
+  stage.addEventListener('pointercancel',endPan);
+  stage.addEventListener('lostpointercapture',endPan);
   canvas.addEventListener('dragstart',event=>event.preventDefault());
 
   const handleResize=()=>{if(!disposed)applySize(true);};
   if(typeof ResizeObserver==='function'){resizeObserver=new ResizeObserver(handleResize);resizeObserver.observe(stage);}
-  window.addEventListener('resize',handleResize);
+  else window.addEventListener('resize',handleResize);
 
-  const annotationsButton=allowAnnotations && !exercise && caseData.annotations.length?button([icon('eye',17),'Repere'],()=>{showAll=!showAll;annotationsButton.setAttribute('aria-pressed',String(showAll));refresh();},'viewer-tool',{'aria-pressed':String(showAll),title:showAll?'Ascunde reperele':'Afișează reperele'}):null;
-  const root=el('section',{class:'viewer','aria-label':'Vizualizator radiografie'},
-    el('div',{class:'viewer-top'},el('span',{class:'film-label'},'RADIOGRAFIE'),el('span',{class:'film-index'},exercise?caseData.title:caseData.source.page?`Sursa · p. ${caseData.source.page}`:caseData.title)),
+  const tools=radiographTools(stage,{
+    canZoom:()=>!disposed && Boolean(naturalWidth),
+    zoom:(factor,event)=>zoomAt(event.clientX,event.clientY,factor),
+    onMarksChange:visible=>{showAll=visible;refresh();layoutLabels();},
+  });
+  const fullscreen=button(icon('expand',18),async()=>{
+    try{
+      if(document.fullscreenElement)await document.exitFullscreen();
+      else if(root.requestFullscreen)await root.requestFullscreen();
+      else root.classList.toggle('viewer-expanded');
+    }catch{root.classList.toggle('viewer-expanded');}
+  },'viewer-tool',{'aria-label':'Radiografie pe tot ecranul'});
+  const root=el('section',{class:compact?'viewer viewer-compact':'viewer','aria-label':`Vizualizator radiografie: ${caseData.title}`},
+    compact?null:el('div',{class:'viewer-top'},el('span',{class:'film-label'},'RADIOGRAFIE'),el('span',{class:'film-index'},exercise?caseData.title:caseData.source?.page?`Sursa · p. ${caseData.source.page}`:caseData.title)),
     stageFrame,
     el('div',{class:'viewer-controls'},
-      el('div',{class:'mode-controls',role:'group','aria-label':'Mod de afișare'},fitButton,fillButton),
-      el('div',{class:'zoom-controls'},button('−',()=>setZoom(zoom-.25),'viewer-tool',{'aria-label':'Micșorează imaginea'}),zoomLabel,button('+',()=>setZoom(zoom+.25),'viewer-tool',{'aria-label':'Mărește imaginea'}),button('Reset',resetView,'viewer-tool')),
-      el('div',{class:'viewer-extra'},allowLayers?annotationsButton:null,
-        button(icon('expand',18),async()=>{try{if(document.fullscreenElement)await document.exitFullscreen();else if(root.requestFullscreen)await root.requestFullscreen();}catch{}},'viewer-tool',{'aria-label':'Radiografie pe tot ecranul'}))));
+      compact?null:el('div',{class:'mode-controls',role:'group','aria-label':'Mod de afișare'},fitButton,fillButton),
+      compact?null:el('div',{class:'zoom-controls'},button('−',()=>setZoom(zoom-.25),'viewer-tool',{'aria-label':'Micșorează imaginea'}),zoomLabel,button('+',()=>setZoom(zoom+.25),'viewer-tool',{'aria-label':'Mărește imaginea'}),button('Reset',resetView,'viewer-tool')),
+      el('div',{class:'viewer-extra'},tools.marksButton,compact?null:fullscreen)));
   const primaryTabs=images.length>1 ? images.map((item,index)=>button(`Imaginea ${index+1}`,()=>{
     image=item;
     selectLayer(0);
@@ -120,7 +171,7 @@ export function imageViewer(record, caseData, { allowAnnotations=true, onSelect=
   const comparisonButtons = new Map();
   const comparisonBar = comparisons.length ? el('div',{class:'viewer-layers','aria-label':'Straturi de comparație'},el('span',{class:'field-label'},'Compară cu')) : null;
   const comparisonPanels = comparisons.length ? el('div',{class:'viewer-comparisons'}) : null;
-  const comparisonUrls = new Map();
+  const comparisonViewers = new Map();
   let layerIndex=0;
   const layerSelect=comparisons.length ? el('select',{'aria-label':'Strat afișat pe radiografie',onchange:event=>selectLayer(Number(event.target.value))},
     el('option',{value:'0'},'Radiografia principală'),
@@ -157,21 +208,22 @@ export function imageViewer(record, caseData, { allowAnnotations=true, onSelect=
   }
 
   function paintComparisons() {
-    comparisonPanels.replaceChildren();
+    for (const [row,{ viewer,panel }] of comparisonViewers) {
+      if (activeComparisons.has(row)) continue;
+      viewer.destroy();
+      panel.remove();
+      comparisonViewers.delete(row);
+    }
     for (const row of activeComparisons) {
-      const img = el('img', { class: 'radiograph', alt: `Comparație: ${row.label}` });
-      const panel = el('figure', { class: 'comparison-panel' }, img, el('figcaption', {}, row.label));
+      if (comparisonViewers.has(row)) continue;
+      const subject = row.imageId ? caseData : {
+        title: row.label, images: [{ id: row.id, path: row.path }], sections: [], annotations: [],
+      };
+      const viewer=imageViewer(record,subject,{loadAsset,compact:true,singleImageId:row.imageId,
+        initiallyHidden:true,allowAnnotations:allowAnnotations&&!exercise});
+      const panel=el('figure',{class:'comparison-panel'},viewer.node,el('figcaption',{},row.label));
+      comparisonViewers.set(row,{viewer,panel});
       comparisonPanels.append(panel);
-      if (!comparisonUrls.has(row.path)) {
-        const loaded=Promise.resolve().then(()=>loadAsset(row.path)).then(blob=>{
-          if (!blob || disposed) return null;
-          const objectUrl=URL.createObjectURL(blob);
-          offUrls.push(objectUrl);
-          return objectUrl;
-        }).catch(()=>null);
-        comparisonUrls.set(row.path,loaded);
-      }
-      comparisonUrls.get(row.path).then(objectUrl=>{if(objectUrl && !disposed && activeComparisons.has(row))img.src=objectUrl;});
     }
   }
   function drawComparisons() {
@@ -186,32 +238,49 @@ export function imageViewer(record, caseData, { allowAnnotations=true, onSelect=
   }
 
   function refresh(){
-    for(const {node,row} of marks){const selected=row.itemId===activeItem;node.classList.toggle('active',selected);node.classList.toggle('annotation-hidden',!showAll);}
-  }
-  function regionRows(){
-    const imageId=layerIndex ? comparisons[layerIndex-1].imageId : image.id;
-    if(!exercise)return annotationOrder.filter(row=>row.imageId===imageId);
-    const allowed=new Set(exercise.regions.map(region=>region.annotationId));
-    return annotationOrder.filter(row=>row.imageId===imageId && allowed.has(row.id));
-  }
-  function regionLabel(row,index){
-    if(!exercise)return numbers.get(row.id) || String(index+1);
-    return exercise.regions.find(region=>region.annotationId===row.id)?.label || String(index+1);
+    for(const {node,row} of marks){
+      const selected=activeAnnotation ? row===activeAnnotation : row.itemId===activeItem;
+      node.classList.toggle('active',selected);
+      node.setAttribute('aria-pressed',String(selected));
+    }
+    overlay.classList.toggle('annotation-hidden',!showAll);
+    tools.syncMarks(marks.length>0,showAll);
+    raiseAnnotations(marks.map(({node})=>node),node=>node.classList.contains('active'));
   }
   function draw(){
     overlay.replaceChildren();marks.length=0;
-    if(!allowAnnotations)return;
-    const render = annotationRenderer(overlay, { neutral: Boolean(exercise) });
-    for(const [index,row] of regionRows().entries()){
-      const labelNumber=regionLabel(row,index);
-      const group=render(row,{label:labelNumber,interactive:true});
-      group.setAttribute('tabindex','0');group.setAttribute('role','button');
-      group.setAttribute('aria-label',exercise?`Regiunea ${labelNumber}`:`Marcaj ${labelNumber}: ${notes.get(row.itemId) || ''}`);
-      const select=()=>{activeItem=row.itemId;showAll=true;annotationsButton?.setAttribute('aria-pressed','true');refresh();onSelect(exercise?row.id:row.itemId);};
-      group.addEventListener('click',select);group.addEventListener('keydown',event=>{if(event.key==='Enter' || event.key===' '){event.preventDefault();select();}});
-      overlay.append(group);marks.push({node:group,row});
+    labelWidth=labelHeight=0;
+    if(allowAnnotations){
+      const comparison=comparisons[layerIndex-1];
+      const imageId=comparison ? comparison.imageId : image.id;
+      const render=annotationRenderer(overlay,{neutral:Boolean(exercise)});
+      const visible=annotationOrder.filter(row=>row.imageId===imageId && (!exercise || regionLabels.has(row.id)));
+      for(const [index,row] of visible.entries()){
+        const labelNumber=(exercise ? regionLabels : numbers).get(row.id) || String(index+1);
+        const group=render(row,{label:labelNumber,interactive:true});
+        group.setAttribute('tabindex','0');group.setAttribute('role','button');
+        group.setAttribute('aria-label',exercise?`Regiunea ${labelNumber}`:`Marcaj ${labelNumber}: ${notes.get(row.itemId) || ''}`);
+        const select=()=>{
+          activeAnnotation=row;activeItem=null;refresh();
+          onSelect(exercise ? row.id : row.itemId);
+        };
+        group.addEventListener('click',select);
+        group.addEventListener('keydown',event=>{
+          if(event.key==='Enter' || event.key===' '){event.preventDefault();select();}
+        });
+        overlay.append(group);marks.push({node:group,row});
+      }
     }
     refresh();
+    layoutLabels();
+  }
+  function showLinkedImage(matches){
+    if(marks.some(({row})=>matches(row)))return;
+    const linkedImages=new Set(annotationOrder.filter(matches).map(row=>row.imageId));
+    const primaryImage=images.find(row=>linkedImages.has(row.id));
+    const comparisonIndex=comparisons.findIndex(row=>linkedImages.has(row.imageId));
+    if(primaryImage){image=primaryImage;selectLayer(0);}
+    else if(comparisonIndex>=0)selectLayer(comparisonIndex+1);
   }
   function selectLayer(index){
     layerIndex=index;
@@ -253,18 +322,26 @@ export function imageViewer(record, caseData, { allowAnnotations=true, onSelect=
   syncMode();
   const initialComparison=caseData.images.find(row=>row.id===initialImageId && row.role==='comparison');
   selectLayer(comparisons.findIndex(row=>initialComparisonId ? row.id===initialComparisonId : initialComparison && row.imageId===initialComparison.id)+1);
-  return {node:root,selectItem(id){
-    activeItem=id;
-    showAll=Boolean(allowAnnotations);
-    annotationsButton?.setAttribute('aria-pressed',String(showAll));
-    if (allowAnnotations && !exercise && !marks.some(({row})=>row.itemId===id)) {
-      const linkedImages=new Set(annotationOrder.filter(row=>row.itemId===id).map(row=>row.imageId));
-      const primaryImage=images.find(row=>linkedImages.has(row.id));
-      const comparisonIndex=comparisons.findIndex(row=>linkedImages.has(row.imageId));
-      if (primaryImage) { image=primaryImage; selectLayer(0); }
-      else if (comparisonIndex>=0) selectLayer(comparisonIndex+1);
-    }
-    refresh();
-  },
-    destroy(){disposed=true;resizeObserver?.disconnect();resizeObserver=null;window.removeEventListener('resize',handleResize);endPan();if(url)URL.revokeObjectURL(url);for(const objectUrl of offUrls)URL.revokeObjectURL(objectUrl);offUrls.length=0;}};
+  return {
+    node:root,
+    selectItem(id){
+      if(!allowAnnotations || exercise)return;
+      activeItem=id;activeAnnotation=null;showAll=true;
+      showLinkedImage(row=>row.itemId===id);
+      refresh();layoutLabels();
+    },
+    selectAnnotation(id){
+      if(!allowAnnotations)return;
+      activeAnnotation=annotationOrder.find(row=>row.id===id);
+      activeItem=null;
+      if(activeAnnotation)showLinkedImage(row=>row===activeAnnotation);
+      refresh();
+    },
+    destroy(){
+      disposed=true;resizeObserver?.disconnect();resizeObserver=null;window.removeEventListener('resize',handleResize);endPan();
+      if(url)URL.revokeObjectURL(url);
+      for(const {viewer} of comparisonViewers.values())viewer.destroy();
+      comparisonViewers.clear();
+    },
+  };
 }

@@ -2,8 +2,9 @@ import { button, el, icon, modal, toast } from './lib/dom.js';
 import {
   annotationNumbers, annotationRenderer, annotationsInObservationOrder, autoColour,
   convertAnnotationShape, DEFAULT_LINE_WIDTH, LINE_STYLES, MARK_PALETTE, markColour,
-  MAX_LINE_WIDTH, MIN_LINE_WIDTH, updateAnnotationGeometry,
+  MAX_LINE_WIDTH, MIN_LINE_WIDTH, placeAnnotationLabels, raiseAnnotations, updateAnnotationGeometry,
 } from './lib/annotation-view.js';
+import { radiographTools } from './lib/viewer.js';
 
 const SVG = 'http://www.w3.org/2000/svg';
 const SHAPES = {
@@ -96,7 +97,7 @@ export function annotationWorkbench({ item, pack, files, state, preferences = st
   }
 
   let objectUrl, displayedPath, redrawId, frame = 0, gesture = null, liveMark = null, spaceHeld = false, suppressMarkClick = false;
-  let annotationLabels, ordered;
+  let annotationLabels, ordered, visibleMarks = [], layoutWidth, layoutHeight;
   const view = { zoom: 1, x: 0, y: 0 };
   const root = el('div', { class: 'studio-workbench' });
   const ribbonBody = el('div', { class: 'studio-ribbon-body', id: 'studio-ribbon-body' });
@@ -136,11 +137,23 @@ export function annotationWorkbench({ item, pack, files, state, preferences = st
   const selectTool = button(icon('cursor', 17), () => setTool('select'), 'studio-stage-button', { 'aria-label': 'Selectează reperele', title: 'Selectează reperele' });
   const penTool = button(icon('pen', 17), () => setTool('draw'), 'studio-stage-button', { 'aria-label': 'Desenează un reper', title: 'Desenează un reper' });
   const panTool = button(icon('hand', 17), () => setTool('pan'), 'studio-stage-button', { 'aria-label': 'Deplasează imaginea', title: 'Deplasează imaginea (Spațiu + tragere)' });
+  const radiograph = radiographTools(stage, {
+    buttonClass: 'studio-stage-button',
+    canZoom: () => !gesture && Boolean(objectUrl),
+    zoom: (factor, event) => zoomTo(view.zoom * factor, event),
+    onMarksChange: visible => { preferences.marksHidden = !visible; syncMarks(); },
+  });
+  function syncMarks() {
+    const hidden = Boolean(preferences.marksHidden);
+    root.classList.toggle('marks-hidden', hidden);
+    radiograph.syncMarks(visibleMarks.length > 0, !hidden);
+    if (!hidden) layoutLabels(...fitSize());
+  }
   const viewerControls = el('div', { class: 'studio-view-tools' },
     button('−', () => zoomTo(view.zoom / 1.25), 'studio-stage-button', { 'aria-label': 'Micșorează radiografia' }),
     zoomLabel,
     button('+', () => zoomTo(view.zoom * 1.25), 'studio-stage-button', { 'aria-label': 'Mărește radiografia' }),
-    button('Încadrează', resetView, 'studio-stage-button'), selectTool, penTool, panTool);
+    button('Încadrează', resetView, 'studio-stage-button'), selectTool, penTool, panTool, radiograph.marksButton);
   const imageSelect = select('Imagine editată', [], state.imageId, value => switchImage(value));
   const layerSelect = select('Strat afișat', [], '', value => setComparison(value || null));
   const imageHeadTools = el('div', { class: 'studio-pane-head-tools' }, imageSelect, layerSelect);
@@ -486,15 +499,18 @@ export function annotationWorkbench({ item, pack, files, state, preferences = st
   function paintMarks() {
     svg.replaceChildren();
     marks.clear();
+    visibleMarks = [];
+    layoutWidth = layoutHeight = 0;
     const renderer = annotationRenderer(svg);
     const comparison = activeComparison();
-    if (comparison && comparison.caseId !== item.id) return;
+    if (comparison && comparison.caseId !== item.id) { syncMarks(); return; }
     const imageId = comparison?.imageId || state.imageId;
     for (const row of ordered.filter(row => row.imageId === imageId)) {
       const number = annotationLabels.get(row.id);
       const className = comparison ? 'studio-comparison-mark' : 'studio-workbench-mark';
       const node = renderer(row, { label: number, interactive: !comparison, className });
       svg.append(node);
+      visibleMarks.push({ row, node });
       if (comparison) continue;
       node.setAttribute('tabindex', '0');
       node.setAttribute('role', 'button');
@@ -507,7 +523,12 @@ export function annotationWorkbench({ item, pack, files, state, preferences = st
       });
       marks.set(row.id, node);
     }
-    if (!comparison && state.pending?.imageId === state.imageId) svg.append(renderer(state.pending, { className: 'studio-draft-mark' }));
+    if (!comparison && state.pending?.imageId === state.imageId) {
+      const node = renderer(state.pending, { className: 'studio-draft-mark' });
+      svg.append(node);
+      visibleMarks.push({ row: state.pending, node });
+    }
+    syncMarks();
   }
 
   function paintList() {
@@ -581,6 +602,7 @@ export function annotationWorkbench({ item, pack, files, state, preferences = st
         entry.checkbox.checked = select;
       }
     }
+    raiseAnnotations([...marks.values()], mark => ids.has(mark.dataset.annotationId));
     for (const [id, { select, bind, chips }] of observations) {
       const active = id === state.selectedObservationId;
       const pinned = id === state.preboundId;
@@ -937,6 +959,13 @@ export function annotationWorkbench({ item, pack, files, state, preferences = st
     return [image.width * scale, image.height * scale];
   }
 
+  function layoutLabels(width, height) {
+    if (preferences.marksHidden || (width === layoutWidth && height === layoutHeight)) return;
+    layoutWidth = width;
+    layoutHeight = height;
+    placeAnnotationLabels(visibleMarks, width, height);
+  }
+
   function sizeCanvas() {
     const [width, height] = fitSize();
     if (!width || !height) return;
@@ -948,6 +977,7 @@ export function annotationWorkbench({ item, pack, files, state, preferences = st
     canvas.style.height = `${height}px`;
     canvas.style.left = `${(stage.clientWidth - width) / 2 + view.x}px`;
     canvas.style.top = `${(stage.clientHeight - height) / 2 + view.y}px`;
+    layoutLabels(width, height);
     syncCursor();
   }
 
@@ -970,10 +1000,14 @@ export function annotationWorkbench({ item, pack, files, state, preferences = st
     zoomTo(1);
   }
 
+  function canPan() {
+    const [width, height] = fitSize();
+    return width > stage.clientWidth + 1 || height > stage.clientHeight + 1;
+  }
+
   function syncCursor() {
-    const pannable = view.zoom > 1;
     const handMode = preferences.tool === 'pan' || spaceHeld || Boolean(activeComparison());
-    stage.classList.toggle('is-pannable', pannable && handMode);
+    stage.classList.toggle('is-pannable', canPan() && handMode);
     stage.classList.toggle('is-panning', gesture?.kind === 'pan');
     stage.classList.toggle('is-drawing', preferences.tool === 'draw' && !spaceHeld && !activeComparison() && !state.pending);
     selectTool.classList.toggle('active', preferences.tool === 'select');
@@ -1022,7 +1056,7 @@ export function annotationWorkbench({ item, pack, files, state, preferences = st
     if (gesture || !event.isPrimary || (event.button !== 0 && event.button !== 1) || !objectUrl) return;
     const onShape = event.target.closest?.('.studio-workbench-mark');
     const pan = preferences.tool === 'pan' || spaceHeld || event.button === 1 || Boolean(activeComparison());
-    if (pan && view.zoom > 1) {
+    if (pan && canPan()) {
       gesture = { kind: 'pan', id: event.pointerId, x: event.clientX, y: event.clientY, baseX: view.x, baseY: view.y };
     } else {
       if (pan || (onShape && !redrawId) || preferences.tool !== 'draw' || !canvas.contains(event.target)) return;
@@ -1070,11 +1104,6 @@ export function annotationWorkbench({ item, pack, files, state, preferences = st
   });
   stage.addEventListener('pointercancel', clearGesture);
   stage.addEventListener('lostpointercapture', clearGesture);
-  stage.addEventListener('wheel', event => {
-    if (gesture || !event.deltaY) return;
-    event.preventDefault();
-    zoomTo(view.zoom * (event.deltaY < 0 ? 1.15 : 1 / 1.15), event);
-  }, { passive: false });
   imageBody.addEventListener('keydown', event => {
     if (event.key === '[' || event.key === ']') {
       cycleLayer(event.key === '[' ? -1 : 1);

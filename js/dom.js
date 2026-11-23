@@ -48,3 +48,47 @@ export function modal(title,body,actions=[]){
   dialog.replaceChildren(el('div',{class:'modal-head'},el('h2',{},title),button(icon('close'),()=>dialog.close(),'icon-button',{'aria-label':'Închide'})),body,el('div',{class:'modal-actions'},...actions));
   if(!dialog.open)dialog.showModal();return dialog;
 }
+
+export function observationFieldControls(fields, values, setValue, { scoreableOnly = false } = {}) {
+  return fields.flatMap(field => {
+    const groups = observationFieldControls(field.groups || [], values, setValue, { scoreableOnly });
+    const control = scoreableOnly && field.scoreable === false
+      ? null
+      : observationFieldControl(field, values, setValue, groups.length ? 'Variante directe' : field.label);
+    if (!groups.length) return control ? [control] : [];
+    return [el('fieldset', { class: 'observation-answer-group' },
+      el('legend', {}, field.label), control, ...groups)];
+  });
+}
+
+function observationFieldControl(field, values, setValue, label) {
+  const value = values[field.id];
+  const options = field.options || [];
+  if (field.kind === 'measurementMm') {
+    const input = el('input', { class: 'select', type: 'number', min: '0.1', max: '2000', step: '0.1', value: value ?? '',
+      oninput: event => {
+        const number = Math.round(Number(event.target.value) * 10) / 10;
+        setValue(field.id, number > 0 && number <= 2000 ? number : undefined);
+      },
+    });
+    return el('label', { class: 'observation-answer-field' }, el('span', {}, `${label} (mm)`), input);
+  }
+  if (!options.length) return null;
+  const selectedIds = Array.isArray(value) ? value : [];
+  if (field.kind === 'single') {
+    const select = el('select', { class: 'select', onchange: event => setValue(field.id, event.target.value ? [event.target.value] : undefined) },
+      el('option', { value: '' }, 'Necompletat'),
+      ...options.map(option => el('option', { value: option.id, selected: selectedIds[0] === option.id }, option.label)));
+    return el('label', { class: 'observation-answer-field' }, el('span', {}, label), select);
+  }
+  const checks = options.map(option => el('label', {},
+    el('input', { type: 'checkbox', checked: selectedIds.includes(option.id), onchange: event => {
+      const current = values[field.id];
+      const selected = new Set(Array.isArray(current) ? current : []);
+      if (event.target.checked) selected.add(option.id);
+      else selected.delete(option.id);
+      setValue(field.id, selected.size ? [...selected] : undefined);
+    }}), option.label));
+  return el('fieldset', { class: 'observation-answer-field' },
+    el('legend', {}, label), el('div', { class: 'structured-checks' }, ...checks));
+}

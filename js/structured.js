@@ -1,4 +1,5 @@
 import { SECTION_LABELS, scheduleReview } from './core.js';
+import { observationFields } from './schema.js';
 
 export const STRUCTURED_ORDER = Object.freeze(['examination', 'projection', 'findings', 'diagnosis', 'differentials', 'investigations']);
 
@@ -15,18 +16,25 @@ function bankFor(pack, chapterId) {
   return pack.curriculum.chapterBanks?.find(row => row.chapterId === chapterId) || null;
 }
 
-function cleanType(type) {
-  return {
-    id: type.id,
-    label: type.label,
-    fields: type.fields.map(field => ({
+function visibleOptions(options) {
+  return (options || [])
+    .filter(option => typeof option.label === 'string' && option.label.trim())
+    .map(option => ({ id: option.id, label: option.label }));
+}
+
+function cleanFields(fields = [], nested = false) {
+  return fields.filter(field => typeof field.label === 'string' && field.label.trim()).map(field => {
+    const options = visibleOptions(field.options);
+    const groups = cleanFields(field.groups, true);
+    return {
       id: field.id,
       label: field.label,
       kind: field.kind,
-      ...(field.options ? { options: field.options.map(option => ({ id: option.id, label: option.label })) } : {}),
-      scoreable: field.kind === 'measurementMm' || (field.options?.length || 0) > 1,
-    })),
-  };
+      ...(field.options ? { options } : {}),
+      ...(groups.length ? { groups } : {}),
+      scoreable: field.kind === 'measurementMm' || options.length > 1 || (nested && field.kind === 'multiple' && options.length === 1),
+    };
+  });
 }
 
 function normaliseValues(values = {}) {
@@ -38,33 +46,45 @@ function primaryKey(caseData) {
   return [image.path, image.width, image.height, image.sha256 || ''].join('|');
 }
 
+function canonicalField(field) {
+  const key = [field.id, field.kind, (field.options || []).map(option => option.id).sort()];
+  if (field.groups?.length) key.push(field.groups.map(canonicalField));
+  return key;
+}
+
 function canonical(step) {
   if (step.kind === 'findings') {
     return ['findings', step.expected.map(row => [row.typeId, normaliseValues(row.values)]).sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b))),
-      step.types.map(type => [type.id, type.fields.map(field => [field.id, field.kind, (field.options || []).map(option => option.id).sort()])])];
+      step.types.map(type => [type.id, type.fields.map(canonicalField)])];
   }
   return [step.kind, step.sectionId, [...step.expected].sort(), step.options.map(option => option.id).sort(), Boolean(step.multiple)];
 }
 
 function findingsStep(pack, caseData, structured) {
   const bank = bankFor(pack, caseData.chapterId);
-  const types = (bank?.sections.findings?.types || []).map(cleanType);
-  const typeMap = new Map(types.map(type => [type.id, type]));
+  const types = (bank?.sections.findings?.types || [])
+    .filter(type => typeof type.label === 'string' && type.label.trim())
+    .map(type => ({ id: type.id, label: type.label, fields: cleanFields(type.fields) }));
+  const scoreableFields = new Map();
+  for (const type of types) {
+    const scored = observationFields(type.fields).filter(field => field.scoreable);
+    if (scored.length) scoreableFields.set(type.id, new Set(scored.map(field => field.id)));
+  }
   const expected = [];
   for (const row of structured.observations || []) {
-    const type = typeMap.get(row.typeId);
-    if (!type) continue;
+    const fieldIds = scoreableFields.get(row.typeId);
+    if (!fieldIds) continue;
     const values = {};
     for (const [fieldId, value] of Object.entries(row.values || {})) {
-      const field = type.fields.find(item => item.id === fieldId);
-      if (field?.scoreable) values[fieldId] = Array.isArray(value) ? [...value].sort() : value;
+      if (fieldIds.has(fieldId) && (!Array.isArray(value) || value.length)) values[fieldId] = value;
     }
     if (Object.keys(values).length) expected.push({ itemId: row.itemId, typeId: row.typeId, values: normaliseValues(values) });
   }
   if (!expected.length) return null;
   return {
     id: 'findings', kind: 'findings', sectionId: 'findings', prompt: PROMPTS.findings,
-    types, expected: expected.sort((a, b) => `${a.typeId}:${JSON.stringify(a.values)}`.localeCompare(`${b.typeId}:${JSON.stringify(b.values)}`)),
+    types: types.filter(type => scoreableFields.has(type.id)),
+    expected: expected.sort((a, b) => `${a.typeId}:${JSON.stringify(a.values)}`.localeCompare(`${b.typeId}:${JSON.stringify(b.values)}`)),
   };
 }
 
@@ -74,16 +94,20 @@ export function structuredExercise(pack, caseData) {
   const bank = bankFor(pack, caseData.chapterId);
   const steps = [];
   for (const sectionId of ['examination', 'projection', 'differentials', 'investigations']) {
-    const expected = [...new Set(structured.choices?.[sectionId] || [])].sort();
-    const options = (bank?.sections[sectionId]?.options || []).map(option => ({ id: option.id, label: option.label }));
-    if (!expected.length || options.length < 2) continue;
+    const authored = [...new Set(structured.choices?.[sectionId] || [])].sort();
+    const options = visibleOptions(bank?.sections[sectionId]?.options);
+    const optionIds = new Set(options.map(option => option.id));
+    const expected = authored.filter(id => optionIds.has(id));
+    if (!expected.length || expected.length !== authored.length || options.length < 2) continue;
     steps.push({ id: sectionId, kind: 'choice', sectionId, prompt: PROMPTS[sectionId], expected, options, multiple: expected.length > 1 });
   }
   const findings = findingsStep(pack, caseData, structured);
   if (findings) steps.push(findings);
-  const diagnosisExpected = [...new Set(caseData.diagnosisIds)].sort();
-  const diagnosisOptions = pack.diagnoses.filter(row => row.chapterIds.includes(caseData.chapterId)).map(row => ({ id: row.id, label: row.label }));
-  if (diagnosisExpected.length && diagnosisOptions.length > 1) {
+  const authoredDiagnoses = [...new Set(caseData.diagnosisIds)].sort();
+  const diagnosisOptions = pack.diagnoses.filter(row => row.chapterIds.includes(caseData.chapterId) && row.label.trim()).map(row => ({ id: row.id, label: row.label }));
+  const diagnosisIds = new Set(diagnosisOptions.map(option => option.id));
+  const diagnosisExpected = authoredDiagnoses.filter(id => diagnosisIds.has(id));
+  if (diagnosisExpected.length && diagnosisExpected.length === authoredDiagnoses.length && diagnosisOptions.length > 1) {
     steps.push({ id: 'diagnosis', kind: 'choice', sectionId: 'diagnosis', prompt: PROMPTS.diagnosis, expected: diagnosisExpected, options: diagnosisOptions, multiple: diagnosisExpected.length > 1 });
   }
   if (!steps.length) return null;
@@ -170,15 +194,21 @@ export function optionLabel(step, id) {
   return step.options?.find(option => option.id === id)?.label || id;
 }
 
+function describeFields(fields, values, parent = '') {
+  const parts = [];
+  for (const field of fields) {
+    const label = parent ? `${parent} / ${field.label}` : field.label;
+    const value = values[field.id];
+    if (typeof value === 'number') parts.push(`${label}: ${value} mm`);
+    else if (field.options && value?.length) parts.push(`${label}: ${value.map(id => field.options.find(option => option.id === id)?.label || id).join(', ')}`);
+    if (field.groups) parts.push(...describeFields(field.groups, values, label));
+  }
+  return parts;
+}
+
 export function describeObservation(step, row) {
   const type = step.types.find(item => item.id === row.typeId);
   if (!type) return row.typeId;
-  const parts = [];
-  for (const field of type.fields) {
-    const value = row.values?.[field.id];
-    if (value == null) continue;
-    if (typeof value === 'number') parts.push(`${field.label}: ${value} mm`);
-    else if (field.options) parts.push(`${field.label}: ${value.map(id => field.options.find(option => option.id === id)?.label || id).join(', ')}`);
-  }
+  const parts = describeFields(type.fields, row.values || {});
   return `${type.label}${parts.length ? ` — ${parts.join('; ')}` : ''}`;
 }
