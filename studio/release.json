@@ -1,7 +1,7 @@
 {
   "app": "radioeasy-studio",
   "version": "0.5.1",
-  "buildId": "041f39930045",
+  "buildId": "6c18fa522c29",
   "files": [
     {
       "path": ".nojekyll",
@@ -15,13 +15,13 @@
     },
     {
       "path": "annotation-workbench.js",
-      "bytes": 62876,
-      "sha256": "cdcbfebcd9af4400a67e6fe217009e4c4a0479d285a473ac9f71d3b2bb19cd11"
+      "bytes": 61935,
+      "sha256": "aeb7d0a580effc5cff688899441736d3d9bfbcc2690bfc99cd01da3e2c685b4a"
     },
     {
       "path": "base.css",
-      "bytes": 73634,
-      "sha256": "4c95e5ee17b8d13f1efa84555ca6d8e1ef76366c2331dc5434d7388fd1843cc0"
+      "bytes": 75234,
+      "sha256": "eccfb657b3999879fc91763e94d0fe556559ac30c61406aaab9dceffd5e27bee"
     },
     {
       "path": "icons/apple-touch-icon.png",
@@ -70,8 +70,8 @@
     },
     {
       "path": "lib/appearance.js",
-      "bytes": 7648,
-      "sha256": "10df2674fb61b4e17b80e63175b69dfed2ee5c75ff0481e0305a423458fb1bf8"
+      "bytes": 9956,
+      "sha256": "0d6d01a0e96476ff11ff6e0998c0aec19ca8fe5b57c8b6c9e22b2a9257757ecb"
     },
     {
       "path": "lib/archive-worker.js",
@@ -104,6 +104,11 @@
       "sha256": "3dbc2959a574276a830eae1054b9b66aefe523d3df34919208e7668bdf65a02e"
     },
     {
+      "path": "lib/pack-compat.js",
+      "bytes": 6111,
+      "sha256": "22fe223eefa8b8337f88a47f29f521b012f7f52a140dc6a2abc53a9bd1495b6c"
+    },
+    {
       "path": "lib/schema.js",
       "bytes": 27284,
       "sha256": "184bc2db62bef620f468640530bbfbdabbce37d97eda8cfc1672cec47c268136"
@@ -125,19 +130,19 @@
     },
     {
       "path": "studio.css",
-      "bytes": 13752,
-      "sha256": "3216614b207cc8cdd42b479cc388625cbe89891ee19b20c56f87a3a169c3ebe4"
+      "bytes": 11465,
+      "sha256": "cdbf967a95a0eb016945aef24312651906587e8ced04f71bdbc5db30f18aaf8f"
     },
     {
       "path": "studio.js",
-      "bytes": 78279,
-      "sha256": "2d3f688f30e70866050b043aa8037ff0f160b4fdfa63eeb1f04df4225ec55db7"
+      "bytes": 45780,
+      "sha256": "884e87266959a37609f03634a9204b880ca984f3e8e2a4fef1a575ee954293b9"
     },
     {
       "path": "sw.js",
-      "bytes": 1631,
-      "sha256": "008dec72f4cbd3a29e6aa019f7f0e6069cc72515085573006e36f67c92ca871f"
+      "bytes": 1654,
+      "sha256": "16b46d5d85b0ff51c74f433a6b1f6f22c21c51c91e7df54660e4910e6cd08723"
     }
   ],
-  "totalBytes": 363241
+  "totalBytes": 337556
 }

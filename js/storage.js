@@ -49,36 +49,22 @@ export async function packAssets(record) {
 
 // All replacements, assets, and optional restored learning data commit together.
 // The previous pack remains intact when any write fails or quota is exceeded.
-export async function installPacks(prepared,learning=null,hosted=null) {
+export async function installPacks(prepared,learning=null) {
   const db=await openDatabase(),tx=db.transaction(['packs','assets','meta'],'readwrite'),done=transactionDone(tx);
-  const packs=tx.objectStore('packs'),assets=tx.objectStore('assets'),meta=tx.objectStore('meta');
-  let conflict;
-  const abortUpgrade=message=>{conflict=new Error(message);tx.abort();};
-  if(hosted){
-    const session=meta.get('session');
-    session.onsuccess=()=>{
-      if(session.result?.packId!==prepared[0].pack.id)return;
-      if(!session.result.finished){abortUpgrade('Încheie sesiunea acestui pachet înainte de actualizare.');return;}
-      meta.delete('session');
-    };
-  }
+  const packs=tx.objectStore('packs'),assets=tx.objectStore('assets');
   try { for(const candidate of prepared){
     const token=crypto.randomUUID(),old=packs.get(candidate.pack.id);
     old.onsuccess=()=>{
-      if(hosted && (old.result?.token ?? null)!==hosted.expectedToken){
-        abortUpgrade('Pachetul local s-a schimbat. Verifică din nou actualizările.');return;
-      }
       if(!old.result)return;
       const keys=assets.index('token').getAllKeys(old.result.token);
       keys.onsuccess=()=>keys.result.forEach(key=>assets.delete(key));
     };
     for(const file of candidate.blobs) assets.put({key:`${token}/${file.path}`,token,path:file.path,blob:file.blob});
-    packs.put({id:candidate.pack.id,pack:candidate.pack,bank:candidate.bank,token,total:candidate.total,importedAt:Date.now(),
-      ...(hosted ? {hostedSha256:hosted.sha256} : {})});
+    packs.put({id:candidate.pack.id,pack:candidate.pack,bank:candidate.bank,token,total:candidate.total,importedAt:Date.now()});
   }
-  if(learning)for(const [key,value] of Object.entries(learning))meta.put(value,key);
+  if(learning)for(const [key,value] of Object.entries(learning))tx.objectStore('meta').put(value,key);
   } catch(error) {tx.abort();await done.catch(()=>{});throw error;}
-  await done.catch(error=>{throw conflict || error;});
+  await done;
 }
 
 export async function removePack(record) {

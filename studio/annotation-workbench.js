@@ -558,15 +558,12 @@ export function annotationWorkbench({ item, pack, files, state, preferences = st
   }
 
   function paintObservationBadges() {
-    for (const [id, views] of observations) {
+    for (const [id, { chips, relink }] of observations) {
       const linked = ordered.filter(row => row.itemId === id);
-      for (const { chips, relink, empty } of views) {
-        chips.replaceChildren(...linked.map(row => button([swatch(row), annotationLabels.get(row.id)], () => selectMark(row.id, 'observation'), 'studio-observation-chip',
-          { 'aria-label': `Selectează reperul ${annotationLabels.get(row.id)}`, 'data-mark-id': row.id })));
-        chips.hidden = !linked.length;
-        if (empty) empty.hidden = Boolean(linked.length);
-        if (relink) relink.disabled = linked.length === ordered.length;
-      }
+      chips.replaceChildren(...linked.map(row => button([swatch(row), annotationLabels.get(row.id)], () => selectMark(row.id, 'observation'), 'studio-observation-chip',
+        { 'aria-label': `Selectează reperul ${annotationLabels.get(row.id)}`, 'data-mark-id': row.id })));
+      chips.hidden = !linked.length;
+      relink.hidden = linked.length === ordered.length;
     }
   }
 
@@ -607,23 +604,21 @@ export function annotationWorkbench({ item, pack, files, state, preferences = st
       }
     }
     raiseAnnotations([...marks.values()], mark => ids.has(mark.dataset.annotationId));
-    for (const [id, views] of observations) {
+    for (const [id, { select, bind, chips }] of observations) {
       const active = id === state.selectedObservationId;
       const pinned = id === state.preboundId;
-      for (const { select, bind, chips } of views) {
-        select.setAttribute('aria-pressed', String(active));
-        select.classList.toggle('active', active);
-        bind.setAttribute('aria-pressed', String(pinned));
-        bind.classList.toggle('active', pinned || active);
-        bind.textContent = state.pending ? 'Leagă reperul' : pinned ? 'Legată pentru desen' : 'Leagă înainte de desen';
-        select.textContent = state.pending ? 'Alege observația' : 'Selectează observația';
-        for (const chip of chips.children) {
-          const selected = ids.has(chip.dataset.markId);
-          chip.classList.toggle('is-selected', selected);
-          chip.setAttribute('aria-pressed', String(Boolean(selected)));
-        }
-        select.closest('[data-observation-id]')?.classList.toggle('studio-linked-observation', active);
+      select.setAttribute('aria-pressed', String(active));
+      select.classList.toggle('active', active);
+      bind.setAttribute('aria-pressed', String(pinned));
+      bind.classList.toggle('active', pinned || active);
+      bind.textContent = state.pending ? 'Leagă reperul' : pinned ? 'Legată pentru desen' : 'Leagă înainte de desen';
+      select.textContent = state.pending ? 'Alege observația' : 'Selectează observația';
+      for (const chip of chips.children) {
+        const selected = ids.has(chip.dataset.markId);
+        chip.classList.toggle('is-selected', selected);
+        chip.setAttribute('aria-pressed', String(Boolean(selected)));
       }
+      select.closest('[data-observation-id]')?.classList.toggle('studio-linked-observation', active);
     }
     announceBinding();
     syncRibbon();
@@ -638,7 +633,7 @@ export function annotationWorkbench({ item, pack, files, state, preferences = st
   }
 
   function focusObservation(id) {
-    const select = observations.get(id)?.[0]?.select;
+    const select = observations.get(id)?.select;
     if (!select) return;
     if (collapsed.notes) setCollapsed('notes', false);
     scrollWithin(notes, select.closest('[data-observation-id]') || select);
@@ -771,18 +766,16 @@ export function annotationWorkbench({ item, pack, files, state, preferences = st
     [button('Anulează', () => dialog.close(), 'button ghost'), apply]);
   }
 
-  function observationControls(entry, { allowRelink = false } = {}) {
+  function observationControls(entry) {
     const select = button('Selectează observația', () => selectObservation(entry.id), 'chip studio-observation-select',
       { title: 'Dublu clic pentru a grupa reperele observației' });
     select.addEventListener('dblclick', event => { event.stopPropagation(); selectObservation(entry.id, true); });
     const bind = button('Leagă înainte de desen', () => bindObservation(entry.id), 'chip studio-observation-bind');
     const chips = el('div', { class: 'studio-observation-marks', 'aria-label': 'Repere legate', hidden: true });
     const group = button(icon('grid', 14), () => selectObservation(entry.id, true), 'chip studio-observation-group', { 'aria-label': 'Grupează reperele observației', title: 'Grupează reperele observației' });
-    const relink = allowRelink ? button('Leagă repere existente', () => relinkObservation(entry.id), 'chip') : null;
-    const empty = allowRelink ? el('small', { class: 'field-help' }, 'Niciun reper legat.') : null;
-    if (!observations.has(entry.id)) observations.set(entry.id, []);
-    observations.get(entry.id).push({ select, bind, chips, relink, empty });
-    return el('div', { class: 'studio-observation-controls' }, el('div', { class: 'studio-observation-actions' }, select, bind, group, relink), chips, empty);
+    const relink = button('Leagă repere existente', () => relinkObservation(entry.id), 'chip');
+    observations.set(entry.id, { select, bind, chips, relink });
+    return el('div', { class: 'studio-observation-controls' }, el('div', { class: 'studio-observation-actions' }, select, bind, group, relink), chips);
   }
 
   function removeObservation(id) {
@@ -1213,7 +1206,7 @@ export function annotationWorkbench({ item, pack, files, state, preferences = st
   window.addEventListener('pointerup', endMarquee);
   window.addEventListener('pointercancel', endMarquee);
 
-  const noteContent = renderNotes({ observationControls, bindObservation, removeObservation });
+  const noteContent = renderNotes({ observationControls, removeObservation });
   if (noteContent) notes.append(noteContent);
   notes.addEventListener('input', event => {
     const input = event.target.closest('textarea');
@@ -1222,14 +1215,6 @@ export function annotationWorkbench({ item, pack, files, state, preferences = st
     const id = row.dataset.observationId;
     const observation = itemFor(id);
     if (!observation) return;
-    if (input.hasAttribute('data-finding-text')) {
-      for (const other of notes.querySelectorAll('textarea[data-finding-text]')) {
-        if (other !== input && other.closest('[data-observation-id]')?.dataset.observationId === id) other.value = input.value;
-      }
-      for (const option of notes.querySelectorAll('option[data-finding-empty-label]')) {
-        if (option.value === id) option.textContent = input.value.trim() || option.dataset.findingEmptyLabel;
-      }
-    }
     for (const annotation of ordered.filter(entry => entry.itemId === id)) {
       const number = annotationLabels.get(annotation.id);
       marks.get(annotation.id)?.setAttribute('aria-label', `Reper ${number}: ${observation.text || SHAPES[annotation.shape]}`);

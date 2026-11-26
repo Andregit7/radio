@@ -1,4 +1,4 @@
-import { APP_VERSION, SECTION_LABELS, matches, progressKey, scheduleReview, bytesLabel,
+import { APP_VERSION, SECTION_LABELS, matches, progressKey, scheduleReview,
   chooseQuestions, dateLabel, questionSignature, matchingProgress } from './core.js';
 import { LIMITS, parseJSON, requireThat, validateFiles, safePath } from './schema.js';
 import { openDatabase, listPacks, assetBlob, packAssets, getMeta, setMeta, setMetas, installPacks, removePack,
@@ -13,14 +13,13 @@ import { EXERCISE_LABELS, SECTION_PROMPTS, availableExercises, interpretationExe
   sessionAnswer, advanceSession, finishSessionEarly, receivedAnswers, selfAssessmentItems,
   canonicalDiagnosisLabels, validNoteScore } from './exercises.js';
 import { packWithoutAnswerBanks } from './pack-compat.js';
-import { defaultPackAction, downloadDefaultPack, fetchDefaultPackManifest, validateDefaultPackContents } from './default-pack.js';
 
-const state={packs:[],activeId:null,progress:{},selfAssessments:{},bookmarks:[],visited:[],session:null,starter:null,defaultPack:null,offlineReady:false,registration:null,prompt:null,route:'library',page:0,chapter:'all',query:'',onlyBookmarks:false,updateChecking:false,viewerMode:'fit'};
+const state={packs:[],activeId:null,progress:{},selfAssessments:{},bookmarks:[],visited:[],session:null,starter:null,offlineReady:false,registration:null,prompt:null,route:'library',page:0,chapter:'all',query:'',onlyBookmarks:false,updateChecking:false,viewerMode:'fit'};
 const navPreferenceKey='radioeasy-study-nav-collapsed';
 const narrowNav=matchMedia('(max-width: 950px)');
 let navPreference;
 try{navPreference=localStorage.getItem(navPreferenceKey);}catch{}
-let cleanup=[],renderToken=0,defaultPackRequest=0,activeExport=false,installing=false,swReloading=false;
+let cleanup=[],renderToken=0,activeExport=false,installing=false,swReloading=false;
 const act=fn=>async event=>{try{return await fn(event);}catch(error){toast(friendlyError(error),true);}};
 const active=()=>state.packs.find(row=>row.id===state.activeId) || state.packs[0];
 const visitKey=(record,item)=>`${record.id}|${item.id}`;
@@ -109,34 +108,16 @@ async function render(){
   else main.append(noPack());
 }
 
-function defaultPackOffer(){
-  const manifest=state.defaultPack,record=state.packs.find(row=>row.id===manifest?.id);
-  const action=defaultPackAction(manifest,record);
-  if(!action)return null;
-  return {
-    manifest,
-    size:`${manifest.cases} cazuri · ${bytesLabel(manifest.bytes)}`,
-    button:button([icon('download',17),action==='install'?'Descarcă pachetul de curs':'Actualizează pachetul de curs'],
-      act(()=>offerDefaultPack(manifest)), 'button default-pack-action', {disabled:state.updateChecking}),
-  };
-}
-
 function renderLibrary(main){
   const record=active();
-  const offer=defaultPackOffer();
   main.append(heading('Biblioteca mea',null,button([icon('plus',17),'Importă pachet'],()=>document.getElementById('pack-input').click())));
   if(/FBAN|FBAV|Instagram|Discord|; wv\)/i.test(navigator.userAgent))main.append(el('div',{class:'embedded-banner'},el('span',{},'Pentru instalare și date păstrate în același loc, deschide RadioEasy în Safari sau Chrome.'),link('Vezi instrucțiunile','#settings','button secondary')));
   if(!record){
-    const importButton=button([icon('upload',17),'Alege un pachet ZIP'],()=>document.getElementById('pack-input').click(),offer?'button secondary':'button');
-    main.append(el('section',{class:'empty-library'},el('div',{class:'round-icon'},icon('book',28)),
-      el('h2',{},offer?.manifest.title || 'Atlasul tău începe aici.'),
-      el('p',{},offer?'Descarcă atlasul de curs direct pe acest dispozitiv pentru a studia și fără internet.':'Importă un pachet ZIP primit de la colegi. Imaginile, explicațiile și exercițiile vor fi disponibile pe acest dispozitiv.'),
-      el('div',{class:'button-row'},offer?.button,importButton,!offer&&state.starter?button('Adaugă pachetul de curs',act(loadStarter),'button secondary'):null),
-      offer?el('div',{class:'starter-footnote'},offer.size):state.starter?el('div',{class:'starter-footnote'},`${state.starter.cases} de cazuri din notițele tale`):null));
+    main.append(el('section',{class:'empty-library'},el('div',{class:'round-icon'},icon('book',28)),el('h2',{},'Atlasul tău începe aici.'),el('p',{},'Importă un pachet ZIP primit de la colegi. Imaginile, explicațiile și exercițiile vor fi disponibile pe acest dispozitiv.'),
+      el('div',{class:'button-row'},button([icon('upload',17),'Alege un pachet ZIP'],()=>document.getElementById('pack-input').click()),state.starter?button('Adaugă pachetul de curs',act(loadStarter),'button secondary'):null),
+      state.starter?el('div',{class:'starter-footnote'},`${state.starter.cases} de cazuri din notițele tale`):null));
     main.append(el('section',{class:'panel privacy-panel'},el('h3',{},'Materialele rămân pe acest dispozitiv.'),el('p',{},'Aplicația citește fișierul ales local și nu îl trimite către un server.')));return;
   }
-  if(offer)main.append(el('section',{class:'panel review-teaser'},el('div',{class:'round-icon'},icon('book',24)),
-    el('div',{},el('h3',{},offer.manifest.title),el('p',{},`Versiunea ${offer.manifest.revision} · ${offer.size}`)),offer.button));
   const pack=record.pack,learned=pack.cases.filter(item=>state.visited.includes(visitKey(record,item))).length;
   const { diagnoses, assessed } = progressData(record);
   const { attempts, correct, due } = progressTotals(diagnoses, assessed);
@@ -758,7 +739,7 @@ async function renderSettings(main,token){
       if(!navigator.onLine){toast('Conectează-te la internet înainte de reparare.',true);return;}
       await forceRefresh();
     }),'button ghost',{title:'Resetează workerul și reîncarcă din rețea; materialele și progresul rămân salvate'}),
-    el('p',{class:'field-help'},'Verifică aplicația și pachetul de curs. Actualizările păstrează materialele și progresul compatibil.'),
+    el('p',{class:'field-help'},'Verifică buildul publicat față de buildul activ și îl aplică fără să șteargă materialele sau progresul. Reîncărcarea forțată este rezerva pentru un worker blocat.'),
     state.prompt?button('Instalează aplicația',act(async()=>{await state.prompt.prompt();state.prompt=null;await render();})):null,
     el('ol',{class:'install-steps'},el('li',{},'iPhone / iPad: Safari → Partajează → Adaugă pe ecranul principal.'),el('li',{},'Android: Chrome → meniu → Instalează / Adaugă pe ecranul principal.'),el('li',{},'Windows: Chrome sau Edge → pictograma de instalare din bara de adrese.'),el('li',{},'macOS: Safari → Fișier → Adaugă în Dock; sau instalare din Chrome/Edge.')),
     el('details',{class:'help-details'},el('summary',{},'Ai deschis linkul din Discord sau altă aplicație?'),el('p',{},'Deschide meniul linkului și alege Safari sau Chrome. Dacă opțiunea lipsește, copiază linkul și lipește-l în browser.')));
@@ -893,54 +874,6 @@ async function loadStarter(){
   const blob=await response.blob();await importPackFile(new File([blob],'radiografii-explicate.study.zip',{type:'application/zip'}));
 }
 
-async function refreshDefaultPack(){
-  const request=++defaultPackRequest;
-  const manifest=await fetchDefaultPackManifest(document.baseURI);
-  if(request===defaultPackRequest)state.defaultPack=manifest;
-  return state.defaultPack;
-}
-
-async function offerDefaultPack(manifest){
-  const previous=state.packs.find(row=>row.id===manifest.id);
-  const action=defaultPackAction(manifest,previous);
-  if(!action || installing)return;
-  if(state.session?.packId===manifest.id && !state.session.finished){
-    toast('Încheie sesiunea acestui pachet înainte de actualizare.');return;
-  }
-  if(action==='replace'){
-    const dialog=modal('Actualizezi pachetul de curs?',el('p',{class:'modal-body'},
-      `Versiunea publicată ${manifest.revision} va înlocui pachetul importat, versiunea ${previous.pack.revision}. Progresul compatibil rămâne salvat.`),[
-      button('Renunță',()=>dialog.close(),'button secondary'),
-      button('Actualizează',act(()=>loadDefaultPack(manifest,previous)))]);
-    return;
-  }
-  await loadDefaultPack(manifest,previous);
-}
-
-async function loadDefaultPack(manifest,previous){
-  if(installing)return;
-  installing=true;
-  const job=jobDialog(previous?'Se actualizează pachetul de curs':'Se descarcă pachetul de curs',`${manifest.title} · ${bytesLabel(manifest.bytes)}`);
-  try{
-    const file=await downloadDefaultPack(document.baseURI,manifest,job.signal,p=>job.update(p*.55));
-    const result=await archiveJob('read',{file},p=>job.update(.55+p*.2,'Se verifică arhiva.'),job.signal);
-    const prepared=await validateFiles(result.files,p=>job.update(.75+p*.2,'Se verifică integritatea imaginilor.'));
-    validateDefaultPackContents(prepared.pack,manifest);
-    job.update(.95,'Se salvează pachetul pe dispozitiv.');
-    job.lock();
-    await installPacks([prepared],previous?null:{activeId:manifest.id},
-      {expectedToken:previous?.token ?? null,sha256:manifest.sha256});
-    state.packs=await listStudyPacks();
-    if(state.session?.packId===manifest.id)state.session=null;
-    if(!previous){state.activeId=manifest.id;state.page=0;state.chapter='all';state.query='';location.hash='library';}
-    job.finish();
-    await render();
-    toast(previous?`${manifest.title} a fost actualizat la versiunea ${manifest.revision}.`:
-      `${manifest.cases} de cazuri sunt disponibile pe acest dispozitiv.`);
-  }catch(error){job.finish();if(error.name!=='AbortError')throw error;}
-  finally{installing=false;}
-}
-
 async function reloadLearning(){
   [state.progress,state.selfAssessments,state.bookmarks,state.visited]=await Promise.all([getMeta('progress',{}),getMeta('selfAssessments',{}),getMeta('bookmarks',[]),getMeta('visited',[])]);
 }
@@ -955,7 +888,6 @@ function refreshUpdateControls(){
     const label=node.querySelector('span');
     if(label)label.textContent=updateCheckLabel();
   }
-  for(const node of document.querySelectorAll('.default-pack-action'))node.disabled=state.updateChecking;
 }
 
 async function activeBuildId(){
@@ -1040,44 +972,41 @@ async function activateUpdate(){
   return false;
 }
 
-async function checkAppUpdate(){
-  const registration=state.registration;
-  if(!registration)return 'unavailable';
-  if(registration.waiting)return 'waiting';
-  const [latest,current]=await Promise.all([latestRelease(),activeBuildId()]);
-  await registration.update();
-  if(registration.waiting || (registration.installing && await waitForInstalledWorker(registration)==='waiting'))return 'waiting';
-  if(!latest?.buildId || !current || latest.buildId===current)return 'current';
-  const refreshed=await registerBuild(latest.buildId);
-  return refreshed && await waitForInstalledWorker(refreshed,10000)==='waiting'?'waiting':'reload';
-}
-
 async function checkForUpdates(){
-  if(state.updateChecking || installing)return;
+  if(state.updateChecking)return;
+  if(!state.registration){
+    toast('Actualizarea automată nu este disponibilă în acest browser. Reîncarcă pagina.',true);
+    return;
+  }
   state.updateChecking=true;refreshUpdateControls();
   try{
-    const [app,pack]=await Promise.allSettled([checkAppUpdate(),refreshDefaultPack()]);
-    const manifest=pack.value,record=state.packs.find(row=>row.id===manifest?.id),action=defaultPackAction(manifest,record);
-    let packError=pack.reason;
-    if(action==='update'){
-      try{await offerDefaultPack(manifest);}catch(error){packError=error;}
+    const [latest,current]=await Promise.all([latestRelease(),activeBuildId()]);
+    let status=state.registration.waiting?'waiting':'none';
+    if(status!=='waiting'){
+      await state.registration.update();
+      status=await waitForInstalledWorker(state.registration,15000);
     }
-    if(app.value==='waiting' || app.value==='reload'){
-      if(state.session && !state.session.finished){toast('Poți actualiza aplicația după ce închei sesiunea.');await render();}
-      else if(app.value==='waiting'){toast('Se actualizează aplicația.');await activateUpdate();}
-      else if(navigator.onLine)await forceRefresh();
+    if(status!=='waiting' && latest?.buildId && current && latest.buildId!==current){
+      const registration=await registerBuild(latest.buildId);
+      if(registration)status=await waitForInstalledWorker(registration,10000);
+    }
+    state.updateChecking=false;refreshUpdateControls();
+    if(status==='waiting'){
+      if(state.session && !state.session.finished){toast('Versiunea nouă se aplică după ce închei sesiunea.');await render();}
+      else{toast('Se aplică versiunea nouă…');await activateUpdate();}
+      return;
+    }
+    if(latest?.buildId && current && latest.buildId!==current){
+      toast('Există o versiune nouă, dar workerul nu s-a activat. Reîncarc forțat.',true);
+      if(navigator.onLine)await forceRefresh();
       else toast('Reconectează-te la internet și încearcă din nou.',true);
       return;
     }
-    if(state.route==='library')await render();
-    if(action==='replace'){await offerDefaultPack(manifest);return;}
-    if(action==='install'){toast('Pachetul de curs este gata de descărcat din Bibliotecă.');return;}
-    if(packError){toast(friendlyError(packError),true);return;}
-    if(app.status==='rejected'){toast('Nu am putut verifica aplicația. Verifică conexiunea și încearcă din nou.',true);return;}
-    if(action==='update')return;
-    if(app.value==='unavailable')toast('Verificarea aplicației nu este disponibilă în acest browser.',true);
-    else toast('Ai deja cele mai recente versiuni.');
-  }finally{state.updateChecking=false;refreshUpdateControls();}
+    toast('Ai deja cea mai recentă versiune.');
+  }catch{
+    state.updateChecking=false;refreshUpdateControls();
+    toast('Nu am putut verifica actualizările. Verifică conexiunea și încearcă din nou.',true);
+  }
 }
 
 function setupOffline(){
@@ -1103,9 +1032,6 @@ async function boot(){
     state.session=null;await setMeta('session',null);
   }
   await render();setupOffline();
-  refreshDefaultPack().then(manifest=>{
-    if(manifest && state.route==='library')return render();
-  }).catch(()=>{});
   fetch('./starter.json',{cache:'no-store'}).then(response=>response.ok?response.json():null).then(starter=>{
     if(starter && safePath(starter.path) && starter.path.startsWith('packs/') && Number.isInteger(starter.cases) && Number.isFinite(starter.bytes)){state.starter=starter;if(state.route==='library' && !active())render().catch(()=>{});}
   }).catch(()=>{});
