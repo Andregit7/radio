@@ -1,7 +1,7 @@
 {
   "app": "radioeasy-study",
   "version": "0.5.1",
-  "buildId": "43d647590f27",
+  "buildId": "a09f8662f010",
   "files": [
     {
       "path": ".nojekyll",
@@ -45,13 +45,13 @@
     },
     {
       "path": "js/app.js",
-      "bytes": 100782,
-      "sha256": "75eded9cd256cca4193e99723ac1a8a59396ce0daa5e2f3fe737c5e799d80406"
+      "bytes": 75426,
+      "sha256": "cec3f86f747fad8e3e19a6435bc617942db0df8387044606e9f246eef46e2241"
     },
     {
       "path": "js/appearance.js",
-      "bytes": 7648,
-      "sha256": "10df2674fb61b4e17b80e63175b69dfed2ee5c75ff0481e0305a423458fb1bf8"
+      "bytes": 9956,
+      "sha256": "0d6d01a0e96476ff11ff6e0998c0aec19ca8fe5b57c8b6c9e22b2a9257757ecb"
     },
     {
       "path": "js/archive-worker.js",
@@ -84,14 +84,24 @@
       "sha256": "d3869aed67d89b0743d5bbb3ee800298c84a1d6cc823587f4e4b82531a5ae2d0"
     },
     {
+      "path": "js/default-pack.js",
+      "bytes": 4119,
+      "sha256": "7d5bab98472e5aa2ca5283bc96e5fc3fdc7e0b79f59c1df01cdf34262f06cc92"
+    },
+    {
       "path": "js/dom.js",
       "bytes": 6627,
       "sha256": "3dbc2959a574276a830eae1054b9b66aefe523d3df34919208e7668bdf65a02e"
     },
     {
       "path": "js/exercises.js",
-      "bytes": 8419,
-      "sha256": "743e3c5372bdc599091e24bfea5e88ca2fbd2e1a130ea7cd7cbcddfe833d5433"
+      "bytes": 4008,
+      "sha256": "646eff5cb3fb9c7b3c42516036cbdb3895ea1edd8bcdb0d179ec61d1ae55c4c4"
+    },
+    {
+      "path": "js/pack-compat.js",
+      "bytes": 6111,
+      "sha256": "22fe223eefa8b8337f88a47f29f521b012f7f52a140dc6a2abc53a9bd1495b6c"
     },
     {
       "path": "js/schema.js",
@@ -100,8 +110,8 @@
     },
     {
       "path": "js/storage.js",
-      "bytes": 9687,
-      "sha256": "28fda981ac9d58d6b80cde5110bf7a5a5796078df05758485d48a2645ac66776"
+      "bytes": 10999,
+      "sha256": "7eb86d549acc08d86ddad6cdba9934a7af4f0a13ee52c77e5f36b0e695efdf26"
     },
     {
       "path": "js/structured.js",
@@ -125,14 +135,14 @@
     },
     {
       "path": "styles.css",
-      "bytes": 73634,
-      "sha256": "4c95e5ee17b8d13f1efa84555ca6d8e1ef76366c2331dc5434d7388fd1843cc0"
+      "bytes": 75234,
+      "sha256": "eccfb657b3999879fc91763e94d0fe556559ac30c61406aaab9dceffd5e27bee"
     },
     {
       "path": "sw.js",
-      "bytes": 1864,
-      "sha256": "2738f094b04dfbba641041299cf4a3ff03f7534b124174eeec028356f061b188"
+      "bytes": 1868,
+      "sha256": "6c69070879b7abe3f3dc363d96f585a3ee5ddb2abbe8e375d7eaf224a1d58899"
     }
   ],
-  "totalBytes": 320421
+  "totalBytes": 306108
 }

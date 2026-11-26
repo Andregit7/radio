@@ -172,7 +172,7 @@
 @media(min-width:1600px){.content{padding-top:45px}.hero-pack{min-height:270px}.chapter-image{height:165px}.hero-visual{min-height:270px}.film-card{top:36px;transform:rotate(8deg) scale(1.1)}.film-card.back{top:34px;transform:rotate(-8deg) scale(1.1)}}
 @media(max-width:1200px){.content{padding:30px}.chapter-grid,.case-grid{grid-template-columns:repeat(2,1fr)}.chapter-image{height:160px}.stats-row{gap:10px}.stat{padding:15px}.stat-icon{display:none}.reader-grid{gap:20px;grid-template-columns:minmax(0,1fr) minmax(290px,1fr)}.quiz-grid{gap:20px;grid-template-columns:minmax(0,1fr) minmax(300px,1fr)}.question-panel{padding:20px}.update-banner{margin-inline:30px}.hero-copy{padding:27px}.hero-copy h2{font-size:28px}}
 @media(max-width:950px){.content{padding:28px}.page-head h1{font-size:35px}.stats-row{grid-template-columns:repeat(4,1fr)}.hero-pack{grid-template-columns:1.3fr 1fr}.bottom-grid{grid-template-columns:1fr}.quiz-grid,.reader-grid{grid-template-columns:minmax(0,1fr) minmax(300px,1fr)}.setup-grid{grid-template-columns:1fr 300px}.catalogue-hint{display:block}.result-count{display:block;margin-top:4px}}
-@media(max-width:760px){.content{padding:27px 20px 100px}.page-head{align-items:flex-start;gap:15px;margin-bottom:24px}.page-head h1{font-size:34px}.page-head p{font-size:12px;margin-top:10px}.page-head>.button{padding:9px 11px;min-height:37px;font-size:11px;margin-top:5px}.page-head>.button svg{width:15px}.stats-row{grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:23px}.stat{min-height:85px;padding:15px}.stat-icon{display:grid;width:31px;height:31px}.stat-label{font-size:10px}.stat-value{font-size:26px}.hero-pack{grid-template-columns:1.1fr 1fr;min-height:230px;margin-bottom:25px}.hero-copy{padding:21px 19px}.hero-copy h2{font-size:25px;line-height:1.1}.hero-copy p{font-size:10px;margin-bottom:18px}.hero-copy .button{font-size:10px;padding:8px 10px;min-height:36px}.hero-visual{min-height:230px}.film-card{width:126px;height:173px;left:calc(50% - 54px);top:31px}.film-card img{height:137px}.film-card.back{left:calc(50% - 73px);top:29px}.chapter-grid{gap:12px}.chapter-image{height:140px}.chapter-copy{padding:13px}.bottom-grid{gap:14px}.panel{padding:20px}.chapter-copy p{font-size:9px}.pack-foot{align-items:flex-start;flex-direction:column;gap:7px}.case-grid{gap:12px}.case-photo{height:186px}.reader-grid,.quiz-grid{grid-template-columns:1fr;gap:20px}.viewer,.quiz-grid .viewer{position:relative;top:auto}.image-stage{max-height:65dvh}.reader-header h1{font-size:29px}.reader-header .reader-meta{flex-wrap:wrap}.notes-body{font-size:12px}.reader-pager{margin-top:20px}.setup-grid{grid-template-columns:1fr}.setup-form{padding:22px}.setup-aside{padding:23px}.setup-aside h2{font-size:26px;margin-top:5px}.setup-aside .round-icon{display:none}.settings-grid{grid-template-columns:1fr}.settings-card.full{grid-column:auto}.settings-card{padding:21px}.question-panel{padding:22px 19px}.question-panel h2{font-size:26px}.catalogue-groups{max-height:320px}.catalogue-hint{display:flex}.result-count{margin:0}.diagnosis-option,.mcq-option{padding-block:13px;font-size:12px}.question-actions{position:sticky;bottom:73px;background:var(--white);padding-bottom:5px;z-index:2}.mobile-nav{position:fixed;inset:auto 0 0;height:calc(65px + env(safe-area-inset-bottom));padding:6px 8px calc(6px + env(safe-area-inset-bottom));display:flex;justify-content:space-around;background:var(--chrome);backdrop-filter:blur(12px);border-top:1px solid var(--line);z-index:40}.mobile-nav a{display:flex;flex-direction:column;align-items:center;gap:4px;justify-content:center;min-width:55px;font-size:9px;color:var(--muted)}.mobile-nav a.active{color:var(--teal)}.mobile-nav a.active svg{stroke-width:2.4px}.mobile-nav svg{width:21px;height:21px}.toast{left:50%;bottom:88px}.update-banner{margin:13px 20px 0;font-size:11px}.resume-banner,.embedded-banner{font-size:11px;flex-wrap:wrap}.filter-bar{gap:7px}.filter-bar .search-field{max-width:none;flex-basis:100%}.chip{font-size:10px;padding:7px 9px}.results-hero{padding:28px 20px}.reader-header .button-row .button{font-size:10px}.quiz-top{gap:11px}.quiz-counter{font-size:10px}}
+@media(max-width:760px){.content{padding:27px 20px 100px}.page-head{align-items:flex-start;gap:15px;margin-bottom:24px}.page-head h1{font-size:34px}.page-head p{font-size:12px;margin-top:10px}.page-head>.button{padding:9px 11px;min-height:37px;font-size:11px;margin-top:5px}.page-head>.button svg{width:15px}.stats-row{grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:23px}.stat{min-height:85px;padding:15px}.stat-icon{display:grid;width:31px;height:31px}.stat-label{font-size:10px}.stat-value{font-size:26px}.hero-pack{grid-template-columns:1.1fr 1fr;min-height:230px;margin-bottom:25px}.hero-copy{padding:21px 19px}.hero-copy h2{font-size:25px;line-height:1.1}.hero-copy p{font-size:10px;margin-bottom:18px}.hero-copy .button{font-size:10px;padding:8px 10px;min-height:36px}.hero-visual{min-height:230px}.film-card{width:126px;height:173px;left:calc(50% - 54px);top:31px}.film-card img{height:137px}.film-card.back{left:calc(50% - 73px);top:29px}.chapter-grid{gap:12px}.chapter-image{height:140px}.chapter-copy{padding:13px}.bottom-grid{gap:14px}.panel{padding:20px}.chapter-copy p{font-size:9px}.pack-foot{align-items:flex-start;flex-direction:column;gap:7px}.case-grid{gap:12px}.case-photo{height:186px}.reader-grid,.quiz-grid{grid-template-columns:1fr;gap:20px}.viewer,.quiz-grid .viewer{position:relative;top:auto}.image-stage{max-height:65dvh}.reader-header h1{font-size:29px}.reader-header .reader-meta{flex-wrap:wrap}.notes-body{font-size:12px}.reader-pager{margin-top:20px}.setup-grid{grid-template-columns:1fr}.setup-form{padding:22px}.setup-aside{padding:23px}.setup-aside h2{font-size:26px;margin-top:5px}.setup-aside .round-icon{display:none}.settings-grid{grid-template-columns:1fr}.settings-card.full{grid-column:auto}.settings-card{padding:21px}.question-panel{padding:22px 19px}.question-panel h2{font-size:26px}.catalogue-groups{max-height:320px}.catalogue-hint{display:flex}.result-count{margin:0}.diagnosis-option,.mcq-option{padding-block:13px;font-size:12px}.question-actions{position:sticky;bottom:73px;background:var(--white);padding-bottom:5px;z-index:2}.mobile-nav{position:fixed;inset:auto 0 0;height:var(--study-bottom-nav-height);padding:6px 8px calc(6px + env(safe-area-inset-bottom));display:flex;justify-content:space-around;background:var(--chrome);backdrop-filter:blur(12px);border-top:1px solid var(--line);z-index:40}.mobile-nav a{display:flex;flex-direction:column;align-items:center;gap:4px;justify-content:center;min-width:55px;font-size:9px;color:var(--muted)}.mobile-nav a.active{color:var(--teal)}.mobile-nav a.active svg{stroke-width:2.4px}.mobile-nav svg{width:21px;height:21px}.toast{left:50%;bottom:88px}.update-banner{margin:13px 20px 0;font-size:11px}.resume-banner,.embedded-banner{font-size:11px;flex-wrap:wrap}.filter-bar{gap:7px}.filter-bar .search-field{max-width:none;flex-basis:100%}.chip{font-size:10px;padding:7px 9px}.results-hero{padding:28px 20px}.reader-header .button-row .button{font-size:10px}.quiz-top{gap:11px}.quiz-counter{font-size:10px}}
 @media(max-width:390px){.content{padding-inline:15px}.hero-pack{grid-template-columns:1fr .8fr}.hero-copy{padding:20px 16px}.hero-copy h2{font-size:24px}.film-card{left:calc(50% - 55px);transform:rotate(8deg) scale(.9)}.film-card.back{left:calc(50% - 72px);transform:rotate(-8deg) scale(.9)}.case-photo{height:154px}.catalogue-hint{display:block}.chapter-image{height:120px}}
 @media(max-width:760px){input,select,textarea,.catalogue-input,.search-field input,.select,.number-input{font-size:16px}.button,.chip,.catalogue-heading,.page-head>.button{min-height:44px}.icon-button{width:44px;height:44px}.viewer-tool{min-height:40px;min-width:36px}.catalogue-search .clear-search{width:36px;min-width:36px}.question-panel .field-label{font-size:13px}.notes-body{font-size:13px}}
 @media(prefers-reduced-motion:reduce){*,*:before,*:after{transition:none!important;scroll-behavior:auto!important}}
@@ -214,6 +214,8 @@ button.nav-item:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
 .self-check-group h4{font-size:12px;margin-bottom:7px}
 .self-check-row{display:flex;gap:9px;align-items:flex-start;padding:7px 0;font-size:11px;line-height:1.65;color:var(--muted);border-bottom:1px solid var(--line)}
 .self-check-row input{margin-top:4px;accent-color:var(--teal);flex:none}
+.note-score-row{align-items:center;justify-content:space-between;gap:12px}
+.note-score-row .select{width:auto;min-width:88px;flex:none}
 .matching-options{margin-top:13px;padding:12px;background:var(--subtle);border-radius:8px;display:grid;gap:7px}
 .matching-option{display:flex;gap:9px;font-size:11px;line-height:1.6;color:var(--muted)}
 .matching-option strong{font-family:var(--serif);color:var(--ink);min-width:16px}
@@ -405,6 +407,7 @@ button.nav-item:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
   :root:has(.nav-collapsed) .toast {left:calc(50% + 32px)}
 }
 @media(max-width:760px) {
+  body:has(.mobile-nav) {--study-bottom-nav-height:calc(65px + env(safe-area-inset-bottom,0px))}
   .study-mobile-header {
     display:flex;
     align-items:center;
@@ -493,28 +496,44 @@ button.nav-item:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
 :root[data-theme=session] :is(.page-head h1,.studio-launch-brand h1) {color:#e3dcef}
 :root[data-theme=session] :is(.button:not(.ghost),.studio-section-button,.nav-item) {border-radius:5px}
 
-@media(prefers-reduced-motion:no-preference) {
-  :root[data-theme=light]:not([data-animations=off]) .button:enabled:hover {transform:translateY(-1px)}
-  :root[data-theme=dark]:not([data-animations=off]) :is(.chapter-card,.case-card):focus-visible {
-    animation:moonlight-focus .7s ease-out both;
-  }
-  :root[data-theme=super-dark]:not([data-animations=off]) .button:enabled:active {transform:scale(.97)}
-  :root[data-theme=cobalt]:not([data-animations=off]) :is(.button,.studio-section-button):enabled:active {
-    animation:cobalt-pulse .3s ease-out;
-  }
-  :root:is([data-theme=candy],[data-theme=candy-dark]):not([data-animations=off]) .button:enabled:is(:hover,:focus-visible) {
+@media(hover:hover) {
+  :root[data-theme=light][data-animations=on] .button:enabled:hover {transform:translateY(-1px)}
+  :root:is([data-theme=candy],[data-theme=candy-dark])[data-animations=on] .button:enabled:hover {
     animation:candy-spring .38s ease-out;
   }
-  :root[data-theme=forest]:not([data-animations=off]) :is(.chapter-card,.case-card):hover {transform:translateY(-3px) rotate(-.25deg)}
-  :root[data-theme=beach]:not([data-animations=off]) .button:enabled:is(:hover,:focus-visible) {
+  :root[data-theme=forest][data-animations=on] :is(.chapter-card,.case-card):hover {transform:translateY(-3px) rotate(-.25deg)}
+  :root[data-theme=beach][data-animations=on] .button:enabled:hover {
     animation:beach-ripple .56s ease-out;
   }
-  :root[data-theme=session]:not([data-animations=off]) .button:enabled:active {transform:translateY(1px)}
 }
+:root[data-theme=light][data-animations=on] .button[data-theme-tap] {animation:light-tap .3s ease-out}
+:root[data-theme=dark][data-animations=on] :is(.chapter-card,.case-card):is(:focus-visible,[data-theme-tap]) {
+  animation:moonlight-focus .7s ease-out both;
+}
+:root[data-theme=super-dark][data-animations=on] .button:enabled:active {transform:scale(.97)}
+:root[data-theme=super-dark][data-animations=on] .button[data-theme-tap] {animation:super-dark-tap .3s ease-out}
+:root[data-theme=cobalt][data-animations=on] :is(.button,.studio-section-button):is(:enabled:active,[data-theme-tap]) {
+  animation:cobalt-pulse .3s ease-out;
+}
+:root:is([data-theme=candy],[data-theme=candy-dark])[data-animations=on] .button:is(:enabled:focus-visible,[data-theme-tap]) {
+  animation:candy-spring .38s ease-out;
+}
+:root[data-theme=forest][data-animations=on] :is(.chapter-card,.case-card)[data-theme-tap] {
+  animation:forest-tap .3s ease-out;
+}
+:root[data-theme=beach][data-animations=on] .button:is(:enabled:focus-visible,[data-theme-tap]) {
+  animation:beach-ripple .56s ease-out;
+}
+:root[data-theme=session][data-animations=on] .button:enabled:active {transform:translateY(1px)}
+:root[data-theme=session][data-animations=on] .button[data-theme-tap] {animation:session-tap .3s ease-out}
+@keyframes light-tap {50%{transform:translateY(-1px)}}
 @keyframes moonlight-focus {from{box-shadow:0 0 0 8px #e1d7fe25}to{box-shadow:0 7px 22px var(--theme-hover-shadow)}}
+@keyframes super-dark-tap {50%{transform:scale(.97)}}
 @keyframes cobalt-pulse {50%{box-shadow:0 0 0 3px #a5dfff66,0 0 18px #86c7ff66}}
 @keyframes candy-spring {45%{transform:translateY(-2px) scale(1.025)}}
+@keyframes forest-tap {50%{transform:translateY(-3px) rotate(-.25deg)}}
 @keyframes beach-ripple {from{box-shadow:0 0 0 1px #339ca268}to{box-shadow:0 0 0 8px #339ca200}}
+@keyframes session-tap {50%{transform:translateY(1px)}}
 
 :root[data-theme=christmas] :is(.button:not(.secondary,.ghost,.danger,.credits-button),.nav-item.active,.studio-section-button.active) {
   color:#fff4df;
@@ -591,7 +610,8 @@ button.nav-item:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
 @media(max-width:2080px) {.lightrope li:nth-child(n+42){display:none}}
 @media(max-width:1000px) {.lightrope li:nth-child(n+22){display:none}}
 
-.seasonal-snow {position:absolute;inset:0;overflow:hidden}
+.seasonal-snow {--snow-travel:100vh;position:absolute;inset:0;overflow:hidden}
+@supports(height:100dvh) {.seasonal-snow {--snow-travel:100dvh}}
 .seasonal-flake {
   position:absolute;
   top:var(--snow-y);
@@ -601,12 +621,14 @@ button.nav-item:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
   border-radius:50%;
   background:#fff9ed;
   opacity:var(--snow-opacity);
+}
+:root[data-animations=on] .seasonal-flake {
+  top:0;
   animation:seasonal-snowfall var(--snow-duration) linear var(--snow-delay) infinite;
 }
 @keyframes seasonal-snowfall {
-  /* Start and finish outside the viewport; top supplies the resting position. */
-  from {transform:translate3d(0,calc(-8px - var(--snow-y)),0)}
-  to {transform:translate3d(var(--snow-drift),calc(100dvh - var(--snow-y) + 8px),0)}
+  from {transform:translate3d(0,-8px,0)}
+  to {transform:translate3d(var(--snow-drift),calc(var(--snow-travel) + 8px),0)}
 }
 @media (max-width:600px) {.seasonal-flake:nth-child(even){display:none}}
 .seasonal-ornaments {
@@ -627,7 +649,10 @@ button.nav-item:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
   transform-origin:top center;
   animation:ornament-sway 8s ease-in-out infinite alternate;
 }
-@keyframes ornament-sway {from{rotate:-1.4deg}to{rotate:1.4deg}}
+@keyframes ornament-sway {
+  from{transform:translateX(-50%) rotate(-1.4deg)}
+  to{transform:translateX(-50%) rotate(1.4deg)}
+}
 .seasonal-ball:nth-child(1) {left:8%}
 .seasonal-ball:nth-child(2) {left:32%;animation-delay:-4s}
 .seasonal-ball:nth-child(3) {left:62%;animation-delay:-2s}
@@ -799,10 +824,15 @@ button.nav-item:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
 }
 @keyframes session-rainfall {to{transform:translate3d(-44px,108px,0)}}
 .session-illustration {
+  --session-edge:max(clamp(9px,3vw,46px),env(safe-area-inset-right,0px));
+  --session-clearance:var(--study-bottom-nav-height,env(safe-area-inset-bottom,0px));
+  --session-size:clamp(200px,24vw,360px);
   position:absolute;
-  right:clamp(9px,3vw,46px);
-  bottom:0;
-  width:clamp(200px,24vw,360px);
+  right:calc(var(--session-edge) + var(--session-viewport-right,0px));
+  bottom:calc(var(--session-clearance) + var(--session-viewport-bottom,0px));
+  width:min(var(--session-size),
+    calc(var(--session-viewport-width,100vw) - var(--session-edge) * 2),
+    calc((var(--session-viewport-height,100vh) - var(--session-clearance)) * 1.6));
   opacity:.92;
 }
 .session-swing {
@@ -824,8 +854,8 @@ button.nav-item:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
   52% {opacity:.8;transform:translateY(0)}
   64% {transform:translateY(-8px)}
 }
-@media(max-width:760px) {
-  .session-illustration {width:clamp(190px,43vw,245px)}
+@media(max-width:760px),(pointer:coarse) {
+  .session-illustration {--session-size:clamp(165px,39vw,320px)}
 }
 
 :root[data-animations=off] :is(.theme-scene *,.lightrope span),
@@ -838,10 +868,6 @@ button.nav-item:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
 :root[data-theme-paused] .theme-scene *:after {
   animation-play-state:paused;
 }
-@media(prefers-reduced-motion:reduce) {
-  .theme-scene *,.lightrope span,.theme-scene *:before,.theme-scene *:after {animation:none}
-}
-
 .credits-button,
 .studio-sidebar-nav .credits-button,
 .credits-button.button {
@@ -942,10 +968,13 @@ button.nav-item:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
 :root[data-theme=christmas] .credits-button::after {
   background:linear-gradient(120deg,transparent 26%,#fff8e01a 48%,transparent 68%);
 }
-@media(prefers-reduced-motion:no-preference) {
-  :root[data-theme=christmas]:not([data-animations=off]) .credits-button:is(:hover,:focus-visible) .credits-bow {
+@media(hover:hover) {
+  :root[data-theme=christmas][data-animations=on] .credits-button:hover .credits-bow {
     animation:gift-bow-lift .42s ease-out;
   }
+}
+:root[data-theme=christmas][data-animations=on] .credits-button:is(:focus-visible,[data-theme-tap]) .credits-bow {
+  animation:gift-bow-lift .42s ease-out;
 }
 @keyframes gift-bow-lift {42%{transform:translate(-50%,-52%) rotate(-4deg) scale(1.06)}}
 :root[data-animations=off] .credits-button::after {transition:none}
@@ -979,7 +1008,3 @@ button.nav-item:focus-visible{outline:2px solid var(--teal);outline-offset:2px}
 .observation-answer-field > .select { width:100%; min-inline-size:0; }
 fieldset.observation-answer-field { padding:0; border:0; }
 .observation-answer-field .structured-checks input { accent-color:var(--teal); }
-
-@media(prefers-reduced-motion:reduce) {
-  .credits-button::after { transition:none; }
-}
