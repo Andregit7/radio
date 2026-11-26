@@ -1,9 +1,9 @@
 /* Versioned, atomic app-shell cache. Imported materials live only in IndexedDB. */
-const VERSION='0.5.1-43d647590f27';
+const VERSION='0.5.1-dcaa3aff4ada';
 const PREFIX=`radia-shell:${self.registration.scope}:`;
 const CACHE=PREFIX+VERSION;
 const FILES=['./','./index.html','./styles.css','./manifest.webmanifest','./release.json','./icons/icon.svg','./icons/icon-192.png','./icons/icon-512.png','./icons/maskable-512.png','./icons/apple-touch-icon.png',
-  './js/app.js','./js/core.js','./js/schema.js','./js/zip.js','./js/archive.js','./js/archive-worker.js','./js/storage.js','./js/dom.js','./js/credits.js','./js/annotation-view.js','./js/appearance.js','./js/viewer.js','./js/case-interpretation.js','./js/catalogue.js','./js/exercises.js','./js/structured.js'];
+  './js/app.js','./js/core.js','./js/schema.js','./js/zip.js','./js/archive.js','./js/archive-worker.js','./js/storage.js','./js/dom.js','./js/credits.js','./js/annotation-view.js','./js/appearance.js','./js/viewer.js','./js/case-interpretation.js','./js/exercises.js','./js/pack-compat.js','./js/default-pack.js'];
 self.addEventListener('install',event=>event.waitUntil((async()=>{const cache=await caches.open(CACHE);await cache.addAll(FILES.map(path=>new Request(new URL(path,self.registration.scope),{cache:'reload'})));})()));
 self.addEventListener('activate',event=>event.waitUntil((async()=>{for(const name of await caches.keys())if(name.startsWith(PREFIX) && name!==CACHE)await caches.delete(name);await self.clients.claim();})()));
 self.addEventListener('message',event=>{if(event.data?.type==='ACTIVATE_UPDATE')self.skipWaiting();});

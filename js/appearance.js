@@ -16,12 +16,35 @@ const themes=[
 const preferenceKey='radioeasy-theme';
 const animationKey='radioeasy-animations';
 let preference='system';
-let animations=true;
+let animationPreference=null;
 let systemTheme;
+let systemMotion;
 let scene;
 
 function recognizedTheme(value){
   return themes.some(([theme])=>theme===value)?value:'system';
+}
+
+function recognizedAnimationPreference(value){
+  return value==='on' || value==='off'?value:null;
+}
+
+function animationsEnabled(){
+  return animationPreference===null?!systemMotion.matches:animationPreference==='on';
+}
+
+function animateTap(event){
+  if(event.pointerType!=='touch' || !event.isPrimary || !animationsEnabled())return;
+  const control=event.target.closest?.('.button,.studio-section-button,.chapter-card,.case-card,.credits-button');
+  if(!control || control.matches(':disabled,[aria-disabled=true],[data-theme-tap]'))return;
+  const clear=()=>{
+    clearTimeout(timer);
+    control.removeAttribute('data-theme-tap');
+    control.removeEventListener('animationend',clear);
+  };
+  const timer=setTimeout(clear,750);
+  control.setAttribute('data-theme-tap','');
+  control.addEventListener('animationend',clear);
 }
 
 const ornament=variant=>el('span',{class:`seasonal-ball ${variant}`},
@@ -39,7 +62,7 @@ function christmasSnow(){
     const duration=40-16*depth+5*Math.random();
     const flake=el('span',{class:'seasonal-flake'});
     flake.style.setProperty('--snow-x',`${Math.random()*100}%`);
-    flake.style.setProperty('--snow-y',`${phase*100}dvh`);
+    flake.style.setProperty('--snow-y',`${phase*100}%`);
     flake.style.setProperty('--snow-size',`${1.5+2*depth}px`);
     flake.style.setProperty('--snow-opacity',.3+.45*depth);
     flake.style.setProperty('--snow-drift',`${44*(Math.random()-.5)}px`);
@@ -105,19 +128,45 @@ function sessionScene(){
     el('div',{class:'session-rain'}),illustration);
 }
 
+function trackSessionViewport(node){
+  const viewport=window.visualViewport;
+  if(!viewport)return;
+  let frame=0;
+  function placeIllustration(){
+    frame=0;
+    const {right,bottom}=node.getBoundingClientRect();
+    node.style.setProperty('--session-viewport-right',`${Math.max(0,right-viewport.offsetLeft-viewport.width)}px`);
+    node.style.setProperty('--session-viewport-bottom',`${Math.max(0,bottom-viewport.offsetTop-viewport.height)}px`);
+    node.style.setProperty('--session-viewport-width',`${viewport.width}px`);
+    node.style.setProperty('--session-viewport-height',`${viewport.height}px`);
+  }
+  const queuePlacement=()=>{if(!frame)frame=requestAnimationFrame(placeIllustration);};
+  placeIllustration();
+  viewport.addEventListener('resize',queuePlacement);
+  viewport.addEventListener('scroll',queuePlacement);
+  return ()=>{
+    cancelAnimationFrame(frame);
+    viewport.removeEventListener('resize',queuePlacement);
+    viewport.removeEventListener('scroll',queuePlacement);
+  };
+}
+
 function updateScene(theme){
   const build=theme==='christmas'?christmasScene:theme==='session'?sessionScene:null;
   if(scene?.theme===theme)return;
+  scene?.cleanup?.();
   scene?.nodes.forEach(node=>node.remove());
   scene=build?{theme,nodes:[build()]}:null;
   if(theme==='christmas'){
     scene.nodes.push(el('ul',{class:'lightrope','aria-hidden':'true'},Array.from({length:88},()=>el('li',{},el('span')))));
   }
   if(scene)document.body.append(...scene.nodes);
+  if(theme==='session')scene.cleanup=trackSessionViewport(scene.nodes[0]);
 }
 
 function applyTheme(){
   const theme=preference==='system'?(systemTheme.matches?'dark':'light'):preference;
+  const animations=animationsEnabled();
   const root=document.documentElement;
   root.dataset.theme=theme;
   root.dataset.animations=animations?'on':'off';
@@ -134,15 +183,18 @@ function applyTheme(){
 export function initAppearance(){
   if(systemTheme)return;
   systemTheme=matchMedia('(prefers-color-scheme: dark)');
+  systemMotion=matchMedia('(prefers-reduced-motion: reduce)');
   try{preference=recognizedTheme(localStorage.getItem(preferenceKey));}catch{}
-  try{animations=localStorage.getItem(animationKey)!=='off';}catch{}
+  try{animationPreference=recognizedAnimationPreference(localStorage.getItem(animationKey));}catch{}
   const updateVisibility=()=>{document.documentElement.toggleAttribute('data-theme-paused',document.hidden);};
   document.addEventListener('visibilitychange',updateVisibility);
+  document.addEventListener('pointerup',animateTap,{passive:true});
   updateVisibility();
   systemTheme.addEventListener('change',()=>{if(preference==='system')applyTheme();});
+  systemMotion.addEventListener('change',()=>{if(animationPreference===null)applyTheme();});
   window.addEventListener('storage',event=>{
     if(event.key!==animationKey && event.key!==preferenceKey && event.key!==null)return;
-    if(event.key===animationKey || event.key===null)animations=event.newValue!=='off';
+    if(event.key===animationKey || event.key===null)animationPreference=recognizedAnimationPreference(event.newValue);
     if(event.key===preferenceKey || event.key===null)preference=recognizedTheme(event.newValue);
     applyTheme();
   });
@@ -159,9 +211,9 @@ export function themeControl(){
         applyTheme();
       }},...themes.map(([value,label])=>el('option',{value,selected:value===preference},label)))),
     el('label',{class:'theme-control-row theme-control-animations'},
-      el('input',{type:'checkbox',checked:animations,onchange:event=>{
-        animations=event.target.checked;
-        try{localStorage.setItem(animationKey,animations?'on':'off');}catch{}
+      el('input',{type:'checkbox',checked:animationsEnabled(),onchange:event=>{
+        animationPreference=event.target.checked?'on':'off';
+        try{localStorage.setItem(animationKey,animationPreference);}catch{}
         applyTheme();
       }}),
       el('span',{},'Animații')));
