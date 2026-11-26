@@ -1,4 +1,5 @@
 import { requireThat, parseJSON, LIMITS } from './schema.js';
+import { validNoteScore } from './exercises.js';
 export const DB_NAME='radia-study-v1';
 let database;
 const requestResult=request=>new Promise((resolve,reject)=>{request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(request.error);});
@@ -48,22 +49,36 @@ export async function packAssets(record) {
 
 // All replacements, assets, and optional restored learning data commit together.
 // The previous pack remains intact when any write fails or quota is exceeded.
-export async function installPacks(prepared,learning=null) {
+export async function installPacks(prepared,learning=null,hosted=null) {
   const db=await openDatabase(),tx=db.transaction(['packs','assets','meta'],'readwrite'),done=transactionDone(tx);
-  const packs=tx.objectStore('packs'),assets=tx.objectStore('assets');
+  const packs=tx.objectStore('packs'),assets=tx.objectStore('assets'),meta=tx.objectStore('meta');
+  let conflict;
+  const abortUpgrade=message=>{conflict=new Error(message);tx.abort();};
+  if(hosted){
+    const session=meta.get('session');
+    session.onsuccess=()=>{
+      if(session.result?.packId!==prepared[0].pack.id)return;
+      if(!session.result.finished){abortUpgrade('Încheie sesiunea acestui pachet înainte de actualizare.');return;}
+      meta.delete('session');
+    };
+  }
   try { for(const candidate of prepared){
     const token=crypto.randomUUID(),old=packs.get(candidate.pack.id);
     old.onsuccess=()=>{
+      if(hosted && (old.result?.token ?? null)!==hosted.expectedToken){
+        abortUpgrade('Pachetul local s-a schimbat. Verifică din nou actualizările.');return;
+      }
       if(!old.result)return;
       const keys=assets.index('token').getAllKeys(old.result.token);
       keys.onsuccess=()=>keys.result.forEach(key=>assets.delete(key));
     };
     for(const file of candidate.blobs) assets.put({key:`${token}/${file.path}`,token,path:file.path,blob:file.blob});
-    packs.put({id:candidate.pack.id,pack:candidate.pack,bank:candidate.bank,token,total:candidate.total,importedAt:Date.now()});
+    packs.put({id:candidate.pack.id,pack:candidate.pack,bank:candidate.bank,token,total:candidate.total,importedAt:Date.now(),
+      ...(hosted ? {hostedSha256:hosted.sha256} : {})});
   }
-  if(learning)for(const [key,value] of Object.entries(learning))tx.objectStore('meta').put(value,key);
+  if(learning)for(const [key,value] of Object.entries(learning))meta.put(value,key);
   } catch(error) {tx.abort();await done.catch(()=>{});throw error;}
-  await done;
+  await done.catch(error=>{throw conflict || error;});
 }
 
 export async function removePack(record) {
@@ -99,13 +114,20 @@ export function validateLearning(raw) {
   requireThat(Number.isFinite(raw.createdAt) && Array.isArray(raw.packs) && raw.packs.length<=100,'Metadate de backup invalide.');
   if(raw.version===1)requireThat(learningVersion(raw.progress,raw.selfAssessments)===1,'Backupul versiunea 1 conține rezultate structurate.');
   const progress=validateRecords(raw.progress,/^[a-zA-Z0-9._:-]+\|[a-zA-Z0-9._:-]+\|(catalogue|mcq|matching|structured)$/);
-  const selfAssessments=validateRecords(raw.selfAssessments,/^[a-zA-Z0-9._:-]+\|[a-zA-Z0-9._:-]+\|(interpretation|regions|written)$/);
+  const selfAssessments=validateRecords(raw.selfAssessments,/^[a-zA-Z0-9._:-]+\|[a-zA-Z0-9._:-]+\|(interpretation|regions|written)$/,['scores']);
   for(const [key,value] of Object.entries(progress)){
     if(!key.endsWith('|structured'))continue;
     requireThat(Number.isInteger(value.total) && value.total>0 && value.total<=1000 && Number.isInteger(value.identified) && value.identified>=0 && value.identified<=value.total && value.selfAssessed===false,'Rezultat structurat invalid.');
   }
-  for(const value of Object.values(selfAssessments)){
+  for(const [key,value] of Object.entries(selfAssessments)){
     requireThat(value.selfAssessed===true && Number.isInteger(value.total) && value.total>0 && Number.isInteger(value.identified) && value.identified>=0 && value.identified<=value.total && value.total<=1000,'Autoevaluare invalidă.');
+    if (!('scores' in value)) continue;
+    const scores = value.scores;
+    requireThat(key.endsWith('|interpretation') && Array.isArray(scores) && scores.length === value.total &&
+      scores.every(row => row && typeof row.id === 'string' && /^[a-zA-Z0-9._:-]{1,120}$/.test(row.id) && validNoteScore(row.score)) &&
+      new Set(scores.map(row => row.id)).size === scores.length &&
+      scores.filter(row => row.score === 10).length === value.identified, 'Note de autoevaluare invalide.');
+    value.scores = scores.map(({ id, score }) => ({ id, score }));
   }
   function keys(rows){requireThat(Array.isArray(rows) && rows.length<=20000 && rows.every(v=>typeof v==='string' && /^[a-zA-Z0-9._:-]+\|[a-zA-Z0-9._:-]+$/.test(v) && v.length<260),'Lista de marcaje este invalidă.');return [...new Set(rows)];}
   requireThat(raw.packs.every(row=>row && typeof row.id==='string' && /^[a-zA-Z0-9._:-]{1,120}$/.test(row.id) && typeof row.revision==='string' && row.revision.length<100),'Referințe de pachet invalide.');
