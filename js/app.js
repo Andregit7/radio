@@ -911,7 +911,7 @@ async function offerDefaultPack(manifest){
     const dialog=modal('Actualizezi pachetul de curs?',el('p',{class:'modal-body'},
       `Versiunea publicată ${manifest.revision} va înlocui pachetul importat, versiunea ${previous.pack.revision}. Progresul compatibil rămâne salvat.`),[
       button('Renunță',()=>dialog.close(),'button secondary'),
-      button('Actualizează',act(async()=>{dialog.close();await loadDefaultPack(manifest,previous);}))]);
+      button('Actualizează',act(()=>loadDefaultPack(manifest,previous)))]);
     return;
   }
   await loadDefaultPack(manifest,previous);
