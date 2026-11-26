@@ -3,9 +3,8 @@ import {validateFiles} from '../js/schema.js';
 import {archiveJob} from '../js/archive.js';
 import {imageViewer} from '../js/viewer.js';
 import {caseComparisonLayers} from '../js/case-interpretation.js';
-import {catalogueSelector} from '../js/catalogue.js';
 import {scheduleReview,questionSignature,progressKey} from '../js/core.js';
-import {interpretationExercise,regionsExercise,matchingExercise,gradeMatching,selfAssessmentItems} from '../js/exercises.js';
+import {availableExercises,interpretationExercise,selfAssessmentItems,recordSelfAssessment,assessmentMean} from '../js/exercises.js';
 const output=document.getElementById('results'),run=document.getElementById('run'),fixture=document.getElementById('fixture');
 const assert=(condition,message)=>{if(!condition)throw new Error(message);};
 const same=(a,b)=>JSON.stringify(a)===JSON.stringify(b);
@@ -55,9 +54,32 @@ run.addEventListener('click',async()=>{
     await check('Worker: export și import ZIP cu integritatea imaginii păstrată',async()=>{
       const {blob}=await archiveJob('write',{files:[{name:'pack.json',data:JSON.stringify(pack)},{name:'images/test.png',data:new Blob([bytes])}]});const result=await archiveJob('read',{file:blob});assert((await validateFiles(result.files)).blobs[0].blob.size===bytes.length,'Arhivă coruptă');
     });
-    await check('Catalog: diacritice, grupuri și confirmare explicită',async()=>{
-      const selector=catalogueSelector(prepared.pack);fixture.append(selector);const input=selector.querySelector('input[type=search]');input.value='endobronsic';input.dispatchEvent(new Event('input',{bubbles:true}));
-      assert(selector.querySelectorAll('.catalogue-group').length===1,'Capitol nerelevant afișat');assert(selector.querySelectorAll('.diagnosis-option').length===1,'Filtru incorect');assert(!selector.querySelector('.diagnosis-option input').checked,'Răspuns selectat automat');selector.remove();
+    await check('Pachetul publicat păstrează progresul și protejează sesiunile în curs',async()=>{
+      const id='course.pack', sha256='a'.repeat(64);
+      const install={...prepared,pack:{...prepared.pack,id}};
+      const lookup=async()=>(await listPacks()).find(row=>row.id===id);
+      await installPacks([install],null,{expectedToken:null,sha256});
+      const previous=await lookup();
+      const next={...install,pack:{...install.pack,revision:'2'}};
+      const upgrade=expectedToken=>installPacks([next],null,{expectedToken,sha256:'b'.repeat(64)});
+      const progress=await getMeta('progress');
+      const rejected=operation=>operation.then(()=>false,()=>true);
+      assert(previous.hostedSha256===sha256,'Pachetul instalat nu a păstrat originea');
+      assert(await rejected(upgrade(null)),'O actualizare concurentă a suprascris pachetul');
+      await setMeta('session',{packId:id,finished:false});
+      assert(await rejected(upgrade(previous.token)),'Pachetul cu sesiune în curs a fost suprascris');
+      assert((await lookup()).token===previous.token && await assetBlob(previous,'images/test.png'),'Respingerea a modificat pachetul anterior');
+      await setMeta('session',{packId:id,finished:true});
+      await upgrade(previous.token);
+      const applied=await lookup();
+      assert(applied.pack.revision==='2' && applied.token!==previous.token,'Actualizarea nu a salvat versiunea nouă');
+      assert(same(await getMeta('progress'),progress) && !await getMeta('session'),'Actualizarea a pierdut progresul sau a păstrat sesiunea veche');
+    });
+    await check('Verificare: diagnostic și interpretare completă',async()=>{
+      const pools=availableExercises(prepared.pack,{chapterIds:['respiratory']});
+      assert(same(Object.keys(pools),['catalogue','interpretation']),'Metode de verificare neașteptate');
+      assert(pools.catalogue.length===1 && pools.interpretation.length===1,'Lipsește o metodă de verificare');
+      assert(!availableExercises(prepared.pack,{chapterIds:['renal']}).catalogue.length,'Filtrul nu respectă capitolul');
     });
     await check('Repere: coordonate relative și ascundere în teste',async()=>{
       const viewer=imageViewer(original,prepared.pack.cases[0]);fixture.append(viewer.node);
@@ -71,14 +93,26 @@ run.addEventListener('click',async()=>{
       assert([...exam.node.querySelectorAll('.viewer-tool')].some(node=>node.textContent==='Repere' && node.disabled),'Comutatorul fără repere trebuie păstrat și dezactivat');
       exam.destroy();
     });
-    await check('Interpretare: secțiuni prezente și diagnostic canonic fără alias',async()=>{
+    await check('Interpretare: o notă per punct și păstrarea valorilor 0–10 în backup',async()=>{
       const c={id:'px',title:'Caz interpretare',chapterId:'respiratory',diagnosisIds:['endo'],source:{page:1},images:[{id:'primary',path:'images/test.png',width:8,height:8}],
-        sections:[{id:'examination',items:[{id:'e1',text:'Rx torace'}]},{id:'findings',items:[{id:'f1',text:'Opacitate'},{id:'f2',text:'Distrucție'},{id:'f3',text:'Retracție'}]},{id:'diagnosis',items:[{id:'d1',text:'endobronșic - alias'}]},{id:'differentials',items:[]}],
+        sections:[{id:'examination',items:[{id:'e1',text:'Rx torace'}]},{id:'findings',items:[{id:'f1',text:'Opacitate'},{id:'f2',text:'Distrucție'},{id:'f3',text:'Retracție'},{id:'blank',text:' '}]},{id:'diagnosis',items:[{id:'d1',text:'Cancer endobronșic'}]},{id:'differentials',items:[]}],
         annotations:[{id:'a1',imageId:'primary',itemId:'f1',shape:'ellipse',cx:.4,cy:.5,rx:.1,ry:.2},{id:'a2',imageId:'primary',itemId:'f2',shape:'ellipse',cx:.5,cy:.5,rx:.1,ry:.2},{id:'a3',imageId:'primary',itemId:'f3',shape:'ellipse',cx:.6,cy:.5,rx:.1,ry:.2}]};
       const ex=interpretationExercise(c);assert(ex,'Exercițiul de interpretare lipsește');assert(same(ex.sections.map(s=>s.id),['examination','findings','diagnosis']),'Secțiuni goale evaluate');
-      const items=selfAssessmentItems({pack:{cases:[c],diagnoses:[{id:'endo',label:'Cancer endobronșic',aliases:['alias']}]}},ex);
-      assert(items.some(i=>i.id==='diagnosis:endo'&&i.text==='Cancer endobronșic'),'Diagnostic canonic lipsă');assert(!items.some(i=>i.text.includes('alias')),'Alias expus');
-      const regions=regionsExercise(c);assert(regions?.regions.length===3,'Repere lipsă');
+      const items=selfAssessmentItems(c);
+      assert(items.some(i=>i.id==='d1'&&i.text==='Cancer endobronșic'),'Nota de diagnostic lipsește');
+      assert(!items.some(i=>i.id==='blank'),'Nota goală a fost evaluată');
+      const scores=items.map((item,index)=>({id:item.id,score:index?10:0}));
+      const key=progressKey(original.id,ex.id,ex.kind);
+      const progress={...recordSelfAssessment(null,scores,1000),signature:questionSignature(ex)};
+      await setMeta('selfAssessments',{[key]:progress});
+      const restored=validateLearning(JSON.parse(JSON.stringify(await learningSnapshot([original]))));
+      assert(same(restored.selfAssessments[key].scores,scores),'Notele s-au pierdut în backup');
+      assert(assessmentMean(restored.selfAssessments[key].scores)===8,'Media notelor este incorectă');
+    });
+    await check('Repere: marcajul selectat rămâne în prim-plan',async()=>{
+      const c=structuredClone(prepared.pack.cases[0]);
+      c.annotations.push({...c.annotations[0],id:'a2',cx:.55},{...c.annotations[0],id:'a3',cx:.65});
+      const regions={regions:c.annotations.map((annotation,index)=>({annotationId:annotation.id,label:String(index+1)}))};
       const viewer=imageViewer(original,c,{exercise:regions});fixture.append(viewer.node);
       assert(viewer.node.querySelectorAll('.annotation').length===3,'Repere neașteptate');
       assert(viewer.node.querySelector('.annotation').getAttribute('aria-label')==='Regiunea 1','Etichetă care expune răspunsul');
@@ -93,7 +127,6 @@ run.addEventListener('click',async()=>{
       toggle.click();
       assert(overlay.lastElementChild.dataset.annotationId==='a2' && !overlay.classList.contains('annotation-hidden'),'Reperul selectat nu a fost reafişat');
       viewer.destroy();viewer.node.remove();
-      const match=matchingExercise(c,()=>.5);assert(match?.pairs.length===3,'Potrivire incompletă');assert(gradeMatching(match.correctMapping,match.correctMapping),'Cheia potrivirii nu se notează');
     });
     await check('Radiografii: zoom cu rotița și deplasare după mărire',async()=>{
       const viewer=imageViewer(null,prepared.pack.cases[0],{loadAsset:()=>new Blob([bytes],{type:'image/png'})});
@@ -104,6 +137,7 @@ run.addEventListener('click',async()=>{
           image.addEventListener('load',resolve,{once:true});
           image.addEventListener('error',reject,{once:true});
         });
+        await new Promise(resolve=>requestAnimationFrame(resolve));
         const box=stage.getBoundingClientRect(),x=box.left+box.width/2,y=box.top+box.height/2;
         stage.dispatchEvent(new WheelEvent('wheel',{deltaY:-200,clientX:x,clientY:y,cancelable:true}));
         assert(viewer.node.querySelector('.zoom-label').textContent==='125%','Rotița nu mărește imaginea');
